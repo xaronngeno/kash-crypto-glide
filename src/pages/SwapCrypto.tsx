@@ -42,6 +42,23 @@ const SwapCrypto = () => {
   });
   const [transactions, setTransactions] = useState<any[]>([]);
 
+  const getExchangeRate = (from: string, to: string): number => {
+    const fromAsset = assets.find((asset) => asset.symbol === from);
+    const toAsset = assets.find((asset) => asset.symbol === to);
+
+    if (!fromAsset || !toAsset) {
+      console.error('Asset not found');
+      return 0;
+    }
+
+    return fromAsset.price / toAsset.price;
+  };
+
+  const calculateToAmount = (): string => {
+    if (!fromToken || !toToken || !fromAmount) return '0.00';
+    return (Number(fromAmount) * getExchangeRate(fromToken.symbol, toToken.symbol)).toFixed(6);
+  };
+
   useEffect(() => {
     if (swapComplete) {
       toast({
@@ -50,7 +67,7 @@ const SwapCrypto = () => {
       });
       setTimeout(() => setSwapComplete(false), 3000);
     }
-  }, [swapComplete, fromAmount, fromToken, toToken, toast, calculateToAmount]);
+  }, [swapComplete, fromAmount, fromToken, toToken, toast]);
 
   const handleSwap = async () => {
     if (!fromToken || !toToken || !fromAmount || !toToken) return;
@@ -96,23 +113,6 @@ const SwapCrypto = () => {
         variant: 'destructive'
       });
     }
-  };
-
-  const getExchangeRate = (from: string, to: string): number => {
-    const fromAsset = assets.find((asset) => asset.symbol === from);
-    const toAsset = assets.find((asset) => asset.symbol === to);
-
-    if (!fromAsset || !toAsset) {
-      console.error('Asset not found');
-      return 0;
-    }
-
-    return fromAsset.price / toAsset.price;
-  };
-
-  const calculateToAmount = (): string => {
-    if (!fromToken || !toToken || !fromAmount) return '0.00';
-    return (Number(fromAmount) * getExchangeRate(fromToken.symbol, toToken.symbol)).toFixed(6);
   };
 
   return (

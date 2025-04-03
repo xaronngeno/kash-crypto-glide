@@ -140,6 +140,20 @@ async function initiateSTKPush(
       }
     );
     
+    // Check for network errors or non-2xx responses
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error response from M-PESA API:", errorText);
+      try {
+        // Try to parse as JSON if possible
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.errorMessage || `M-PESA API error: ${response.status}`);
+      } catch (e) {
+        // If not valid JSON, use the text
+        throw new Error(`M-PESA API error: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+    }
+    
     const responseData = await response.json();
     console.log("STK push response:", JSON.stringify(responseData));
     
