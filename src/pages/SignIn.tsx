@@ -5,6 +5,7 @@ import { Mail, Lock } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -13,20 +14,40 @@ const SignIn = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      // Mock successful login
-      navigate('/dashboard');
-      toast({
-        title: "Welcome back",
-        description: "You've successfully signed in to your account.",
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-    }, 1000);
+
+      if (error) {
+        toast({
+          title: "Sign in failed",
+          description: error.message,
+          variant: "destructive"
+        });
+        console.error("Sign in error:", error);
+      } else {
+        toast({
+          title: "Welcome back",
+          description: "You've successfully signed in to your account.",
+        });
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast({
+        title: "Sign in failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -5,6 +5,7 @@ import { Mail, Lock, Phone, User } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const SignUp = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
@@ -38,15 +39,71 @@ const SignUp = () => {
     
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/dashboard');
-      toast({
-        title: "Account created",
-        description: "Your account has been successfully created.",
+    try {
+      // Split name into first and last name
+      const nameParts = formData.name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      // Register user with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            phone: formData.phone
+          }
+        }
       });
-    }, 1500);
+
+      if (error) {
+        toast({
+          title: "Registration failed",
+          description: error.message,
+          variant: "destructive"
+        });
+        console.error("Registration error:", error);
+      } else {
+        toast({
+          title: "Account created",
+          description: "Your account has been successfully created.",
+        });
+        
+        // Create a default wallet for new user
+        if (data.user) {
+          try {
+            // Generate a mock wallet address
+            const walletAddress = `0x${Array(40).fill(0).map(() => 
+              Math.floor(Math.random() * 16).toString(16)).join('')}`;
+            
+            await supabase.from('wallets').insert([
+              {
+                user_id: data.user.id,
+                currency: 'BTC',
+                address: walletAddress,
+                blockchain: 'Bitcoin',
+                balance: 0
+              }
+            ]);
+          } catch (walletError) {
+            console.error("Error creating wallet:", walletError);
+          }
+        }
+        
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast({
+        title: "Registration failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
