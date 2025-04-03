@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, DollarSign } from 'lucide-react';
+import { Phone, DollarSign, AlertTriangle } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
@@ -20,6 +20,7 @@ const Buy = () => {
   const [loading, setLoading] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   
   // Fixed exchange rate for simplicity
   const exchangeRate = 0.0083; // 1 KES = 0.0083 USDT
@@ -69,6 +70,7 @@ const Buy = () => {
   const initiateSTKPush = async () => {
     // Clear any previous errors
     setError(null);
+    setErrorDetails(null);
     
     if (!amount || Number(amount) < minAmount) {
       toast({
@@ -116,10 +118,31 @@ const Buy = () => {
       
       if (error) {
         console.error("Supabase function error:", error);
-        setError(error.message || "Failed to initiate M-PESA payment. Please check your credentials and try again.");
+        
+        // Handle different types of errors
+        if (error.message.includes("Edge Function returned a non-2xx status code")) {
+          // This is when the edge function returns a 4xx status
+          setError("M-PESA payment could not be initiated. Please check your credentials and try again.");
+          
+          // If we have more error details in the response
+          if (data && typeof data === 'object') {
+            if (data.error) {
+              setError(`M-PESA Error: ${data.error}`);
+              
+              // Add the detailed error for debugging
+              if (data.details) {
+                setErrorDetails(data.details);
+              }
+            }
+          }
+        } else {
+          // Network or other errors
+          setError(`Connection error: ${error.message}`);
+        }
+        
         toast({
           title: "Payment failed",
-          description: error.message || "Failed to initiate M-PESA payment. Please check your credentials and try again.",
+          description: "Failed to initiate M-PESA payment. Please check the error details and try again.",
           variant: "destructive"
         });
         return;
@@ -128,6 +151,12 @@ const Buy = () => {
       if (data?.error) {
         console.error("M-PESA API error:", data);
         setError(data.error || "An error occurred with the M-PESA transaction.");
+        
+        // Add the detailed error for debugging
+        if (data.details) {
+          setErrorDetails(data.details);
+        }
+        
         toast({
           title: "M-PESA error",
           description: data.error || "An error occurred with the M-PESA transaction.",
@@ -155,10 +184,16 @@ const Buy = () => {
       });
     } catch (error: any) {
       console.error('STK push error:', error);
-      setError(error.message || "Could not initiate M-PESA payment. Please try again.");
+      setError("Could not initiate M-PESA payment. Please try again.");
+      
+      // If we have a detailed error message
+      if (error.message) {
+        setErrorDetails(error.message);
+      }
+      
       toast({
         title: "Payment failed",
-        description: error.message || "Could not initiate M-PESA payment. Please try again.",
+        description: "Could not initiate M-PESA payment. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -178,8 +213,19 @@ const Buy = () => {
         
         {error && (
           <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4 mr-2" />
             <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              <div>{error}</div>
+              {errorDetails && (
+                <details className="mt-2 text-xs">
+                  <summary className="cursor-pointer">Technical Details</summary>
+                  <pre className="mt-2 whitespace-pre-wrap bg-black/5 p-2 rounded">
+                    {errorDetails}
+                  </pre>
+                </details>
+              )}
+            </AlertDescription>
           </Alert>
         )}
         

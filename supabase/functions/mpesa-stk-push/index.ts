@@ -30,16 +30,19 @@ async function getAccessToken(): Promise<string> {
     
     if (!consumerKey || !consumerSecret) {
       console.error("Missing MPESA_CONSUMER_KEY or MPESA_CONSUMER_SECRET");
-      throw new Error("Missing required API credentials");
+      throw new Error("Missing required M-PESA API credentials");
     }
     
-    console.log("M-PESA credentials available, generating auth token");
+    console.log("M-PESA credentials found:", consumerKey.substring(0, 3) + "..." + consumerKey.substring(consumerKey.length - 3));
     const auth = encodeCredentials(consumerKey, consumerSecret);
     
     // Make the request to Safaricom
     console.log("Making request to Safaricom auth endpoint");
+    const authUrl = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+    console.log("Auth URL:", authUrl);
+    
     const response = await fetch(
-      "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+      authUrl,
       {
         method: "GET",
         headers: {
@@ -53,20 +56,34 @@ async function getAccessToken(): Promise<string> {
     
     // Get the response text for better error logging
     const responseText = await response.text();
+    console.log("Raw auth response:", responseText);
     
     if (!response.ok) {
-      console.error("Error getting access token:", responseText);
-      throw new Error(`Failed to get access token: ${response.status} ${response.statusText}`);
+      // Try to stringify the error response for better debugging
+      try {
+        const errorData = JSON.parse(responseText);
+        console.error("Parsed auth error:", JSON.stringify(errorData));
+        throw new Error(`Failed to get M-PESA access token: ${response.status} ${response.statusText} - ${errorData.errorMessage || JSON.stringify(errorData)}`);
+      } catch (parseError) {
+        // If parsing fails, use the raw text
+        console.error("Auth error (raw):", responseText);
+        throw new Error(`Failed to get M-PESA access token: ${response.status} ${response.statusText} - ${responseText}`);
+      }
     }
     
     try {
       // Try to parse the response as JSON
       const data = JSON.parse(responseText);
-      console.log("Successfully obtained access token");
+      if (!data.access_token) {
+        console.error("Auth response missing access_token:", data);
+        throw new Error("M-PESA API returned invalid response format - missing access token");
+      }
+      
+      console.log("Successfully obtained access token:", data.access_token.substring(0, 10) + "...");
       return data.access_token;
     } catch (parseError) {
       console.error("Error parsing auth response:", parseError, "Response was:", responseText);
-      throw new Error(`Failed to parse auth response: ${parseError.message}`);
+      throw new Error(`Failed to parse M-PESA auth response: ${parseError.message}`);
     }
   } catch (error) {
     console.error("Error in getAccessToken:", error);
@@ -111,7 +128,7 @@ async function initiateSTKPush(
     
     if (!shortcode || !passkey) {
       console.error("Missing MPESA_SHORTCODE or MPESA_PASSKEY");
-      throw new Error("Missing required API credentials");
+      throw new Error("Missing required M-PESA API credentials");
     }
     
     console.log("Generating STK push parameters");
@@ -150,8 +167,11 @@ async function initiateSTKPush(
     
     console.log("STK push request data:", JSON.stringify(data));
     
+    const pushUrl = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+    console.log("STK push URL:", pushUrl);
+    
     const response = await fetch(
-      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+      pushUrl,
       {
         method: "POST",
         headers: {
@@ -164,17 +184,19 @@ async function initiateSTKPush(
     
     console.log(`STK push response status: ${response.status}`);
     const responseText = await response.text();
-    console.log(`STK push response body: ${responseText}`);
+    console.log(`STK push raw response: ${responseText}`);
     
     // Check for network errors or non-2xx responses
     if (!response.ok) {
       try {
         // Try to parse as JSON if possible
         const errorJson = JSON.parse(responseText);
-        throw new Error(errorJson.errorMessage || `M-PESA API error: ${response.status}`);
+        console.error("STK push error (parsed):", JSON.stringify(errorJson));
+        throw new Error(errorJson.errorMessage || `M-PESA API error: ${response.status} - ${JSON.stringify(errorJson)}`);
       } catch (e) {
         // If not valid JSON, use the text
-        throw new Error(`M-PESA API error: ${response.status} - ${responseText.substring(0, 100)}`);
+        console.error("STK push error (raw):", responseText);
+        throw new Error(`M-PESA API error: ${response.status} - ${responseText.substring(0, 200)}`);
       }
     }
     
@@ -184,7 +206,7 @@ async function initiateSTKPush(
       return responseData;
     } catch (parseError) {
       console.error("Error parsing STK push response:", parseError);
-      throw new Error("Failed to parse STK push response");
+      throw new Error(`Failed to parse M-PESA STK push response: ${parseError.message}`);
     }
   } catch (error) {
     console.error("Error in STK push:", error);
@@ -209,7 +231,14 @@ serve(async (req) => {
     }
     
     // Log all available environment variables (without revealing values)
-    console.log("Available environment variables: ", Object.keys(Deno.env.toObject()).join(", "));
+    const envVars = Object.keys(Deno.env.toObject());
+    console.log("Available environment variables: ", envVars.join(", "));
+    console.log("M-PESA related variables present:", 
+      envVars.includes("MPESA_CONSUMER_KEY"), 
+      envVars.includes("MPESA_CONSUMER_SECRET"),
+      envVars.includes("MPESA_SHORTCODE"),
+      envVars.includes("MPESA_PASSKEY")
+    );
     
     // Parse request body
     let requestData;
@@ -259,11 +288,18 @@ serve(async (req) => {
       );
     } catch (stkError) {
       console.error("STK push error:", stkError);
+      
+      // Format the error message for better client-side display
+      const errorMessage = stkError.message || "Failed to initiate M-PESA payment";
+      const errorDetails = {
+        error: errorMessage,
+        code: "MPESA_API_ERROR",
+        details: stkError.stack || "No stack trace available",
+        time: new Date().toISOString()
+      };
+      
       return new Response(
-        JSON.stringify({ 
-          error: stkError.message || "Failed to initiate M-PESA payment",
-          details: stkError.stack || "No stack trace available"
-        }),
+        JSON.stringify(errorDetails),
         {
           status: 400, // Use 400 instead of 500 to prevent Edge Function error
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -273,11 +309,16 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error processing request:", error);
     
+    // Format the general error for better client-side display
+    const errorDetails = {
+      error: error.message || "Internal server error",
+      code: "EDGE_FUNCTION_ERROR",
+      details: error.stack || "No stack trace available",
+      time: new Date().toISOString()
+    };
+    
     return new Response(
-      JSON.stringify({ 
-        error: error.message || "Internal server error",
-        details: error.stack || "No stack trace available"
-      }),
+      JSON.stringify(errorDetails),
       {
         status: 400, // Use 400 instead of 500 to prevent Edge Function error
         headers: { ...corsHeaders, "Content-Type": "application/json" },
