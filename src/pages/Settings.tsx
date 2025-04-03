@@ -1,33 +1,68 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
-
-// Mock user data
-const userData = {
-  name: 'Alex Johnson',
-  email: 'alex@example.com',
-  phone: '+254712345678',
-  kycVerified: false,
-  currencyDisplay: 'USD'
-};
+import { useAuth } from '@/components/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [currencyDisplay, setCurrencyDisplay] = useState(userData.currencyDisplay);
+  const { user, signOut } = useAuth();
+  const [currencyDisplay, setCurrencyDisplay] = useState('USD');
+  const [profile, setProfile] = useState<{
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  const handleLogout = () => {
-    // Simulate logout
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
-    navigate('/signin');
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, phone')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching profile:', error);
+        } else {
+          setProfile(data);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user]);
+  
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+      navigate('/signin');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast({
+        title: "Logout failed",
+        description: "There was a problem logging out. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   const toggleCurrency = () => {
@@ -37,6 +72,19 @@ const Settings = () => {
       title: "Display currency changed",
       description: `Currency changed to ${newCurrency}`,
     });
+  };
+
+  // Format user's full name based on available profile data
+  const getUserDisplayName = () => {
+    if (!profile) return user?.email || 'User';
+    
+    if (profile.first_name && profile.last_name) {
+      return `${profile.first_name} ${profile.last_name}`;
+    }
+    if (profile.first_name) {
+      return profile.first_name;
+    }
+    return user?.email || 'User';
   };
 
   return (
@@ -49,8 +97,11 @@ const Settings = () => {
               <User size={24} className="text-kash-green" />
             </div>
             <div className="ml-4">
-              <h3 className="font-semibold">{userData.name}</h3>
-              <p className="text-sm text-gray-500">{userData.email}</p>
+              <h3 className="font-semibold">{getUserDisplayName()}</h3>
+              <p className="text-sm text-gray-500">{user?.email}</p>
+              {profile?.phone && (
+                <p className="text-sm text-gray-500">{profile.phone}</p>
+              )}
             </div>
           </div>
         </KashCard>
@@ -88,11 +139,7 @@ const Settings = () => {
                 <p className="text-sm text-gray-500 mt-1">Verify your identity to unlock all features</p>
               </div>
               <div className="flex items-center">
-                {userData.kycVerified ? (
-                  <span className="text-sm font-medium text-kash-green">Verified</span>
-                ) : (
-                  <KashButton size="sm">Verify Now</KashButton>
-                )}
+                <KashButton size="sm">Verify Now</KashButton>
               </div>
             </div>
           </KashCard>
