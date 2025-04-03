@@ -26,26 +26,36 @@ async function getAccessToken(): Promise<string> {
   const consumerKey = Deno.env.get("MPESA_CONSUMER_KEY") || "";
   const consumerSecret = Deno.env.get("MPESA_CONSUMER_SECRET") || "";
   
-  const auth = encodeCredentials(consumerKey, consumerSecret);
-  
-  const response = await fetch(
-    "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Basic ${auth}`,
-      },
-    }
-  );
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    console.error("Error getting access token:", data);
-    throw new Error("Failed to get access token");
+  if (!consumerKey || !consumerSecret) {
+    console.error("Missing MPESA_CONSUMER_KEY or MPESA_CONSUMER_SECRET");
+    throw new Error("Missing required API credentials");
   }
   
-  return data.access_token;
+  const auth = encodeCredentials(consumerKey, consumerSecret);
+  
+  try {
+    const response = await fetch(
+      "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Basic ${auth}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Error getting access token:", errorData);
+      throw new Error(`Failed to get access token: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error("Error getting access token:", error);
+    throw new Error(`Failed to get access token: ${error.message}`);
+  }
 }
 
 // Generate timestamp in the format required by Safaricom
@@ -79,18 +89,35 @@ async function initiateSTKPush(
     const accessToken = await getAccessToken();
     const shortcode = Deno.env.get("MPESA_SHORTCODE") || "";
     const passkey = Deno.env.get("MPESA_PASSKEY") || "";
+    
+    if (!shortcode || !passkey) {
+      console.error("Missing MPESA_SHORTCODE or MPESA_PASSKEY");
+      throw new Error("Missing required API credentials");
+    }
+    
     const timestamp = generateTimestamp();
     const password = generatePassword(shortcode, passkey, timestamp);
     
-    // Format phone number (remove + if present)
-    const formattedPhone = phone.startsWith("+") ? phone.substring(1) : phone;
+    // Format phone number (remove + if present and ensure it starts with 254)
+    let formattedPhone = phone.replace(/\s+/g, '');
+    if (formattedPhone.startsWith("+")) {
+      formattedPhone = formattedPhone.substring(1);
+    }
+    // If it starts with 0, replace with 254
+    if (formattedPhone.startsWith("0")) {
+      formattedPhone = "254" + formattedPhone.substring(1);
+    }
+    // If it doesn't start with 254, add it
+    if (!formattedPhone.startsWith("254")) {
+      formattedPhone = "254" + formattedPhone;
+    }
     
     const data = {
       BusinessShortCode: shortcode,
       Password: password,
       Timestamp: timestamp,
       TransactionType: "CustomerPayBillOnline",
-      Amount: amount,
+      Amount: Math.round(amount), // Ensure amount is an integer
       PartyA: formattedPhone,
       PartyB: shortcode,
       PhoneNumber: formattedPhone,
@@ -139,7 +166,22 @@ serve(async (req) => {
       );
     }
     
-    const { phone, amount, callbackUrl, reference, description } = await req.json();
+    // Parse request body
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (error) {
+      console.error("Error parsing request JSON:", error);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    const { phone, amount, callbackUrl, reference, description } = requestData;
     
     // Validate inputs
     if (!phone || !amount) {
@@ -172,7 +214,10 @@ serve(async (req) => {
     console.error("Error processing request:", error);
     
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({ 
+        error: error.message || "Internal server error",
+        details: error.stack || "No stack trace available"
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -62,16 +62,37 @@ const Buy = () => {
   }, [user, toast]);
   
   const initiateSTKPush = async () => {
-    if (!amount || Number(amount) < minAmount) return;
+    if (!amount || Number(amount) < minAmount) {
+      toast({
+        title: "Invalid amount",
+        description: `Amount must be at least ${minAmount} KES`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!phone) {
+      toast({
+        title: "Missing phone number",
+        description: "Please enter a valid M-PESA phone number",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setLoading(true);
     
     try {
       // Format phone number (ensure it has the +254 format)
-      let formattedPhone = phone;
+      let formattedPhone = phone.replace(/\s+/g, '');
       if (!formattedPhone.startsWith('+')) {
         formattedPhone = `+${formattedPhone}`;
       }
+      
+      console.log("Calling M-PESA STK push with:", {
+        phone: formattedPhone,
+        amount: Number(amount),
+      });
       
       // Call the Supabase Edge Function to initiate the STK push
       const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
@@ -83,11 +104,15 @@ const Buy = () => {
         },
       });
       
+      console.log("M-PESA STK push response:", data);
+      
       if (error) {
+        console.error("Supabase function error:", error);
         throw new Error(error.message || 'Failed to initiate payment');
       }
       
       if (data.errorCode) {
+        console.error("M-PESA error:", data);
         throw new Error(data.errorMessage || 'M-PESA error occurred');
       }
       
@@ -108,7 +133,7 @@ const Buy = () => {
           checkoutRequestID: data.CheckoutRequestID || 'pending'
         } 
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('STK push error:', error);
       toast({
         title: "Payment failed",

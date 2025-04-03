@@ -1,339 +1,272 @@
-
 import { useState, useEffect } from 'react';
-import MainLayout from '@/components/layout/MainLayout';
-import TokenSelector from '@/components/swap/TokenSelector';
-import SwapRateInfo from '@/components/swap/SwapRateInfo';
-import { Button } from '@/components/ui/button';
-import { ArrowDown } from 'lucide-react';
-import SwapConfirmationModal from '@/components/swap/SwapConfirmationModal';
-import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
+import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
-import { KashInput } from '@/components/ui/KashInput';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { KashButton } from '@/components/ui/KashButton';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Wallet,
+  ArrowRightLeft,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 
-// Mock token data - would come from an API in a real app
-const TOKENS = [
-  { id: 'btc', name: 'Bitcoin', symbol: 'BTC', icon: '₿', decimals: 8 },
-  { id: 'eth', name: 'Ethereum', symbol: 'ETH', icon: 'Ξ', decimals: 18 },
-  { id: 'usdt', name: 'Tether', symbol: 'USDT', icon: '₮', decimals: 6 },
-  { id: 'sol', name: 'Solana', symbol: 'SOL', icon: 'S', decimals: 9 },
-  { id: 'bnb', name: 'Binance Coin', symbol: 'BNB', icon: 'B', decimals: 18 },
-  { id: 'ada', name: 'Cardano', symbol: 'ADA', icon: 'A', decimals: 6 },
-  { id: 'xrp', name: 'XRP', symbol: 'XRP', icon: 'X', decimals: 6 },
-  { id: 'doge', name: 'Dogecoin', symbol: 'DOGE', icon: 'D', decimals: 8 },
-  { id: 'dot', name: 'Polkadot', symbol: 'DOT', icon: 'P', decimals: 10 },
-  { id: 'link', name: 'Chainlink', symbol: 'LINK', icon: 'L', decimals: 18 },
+interface CryptoAsset {
+  symbol: string;
+  name: string;
+  logo: string;
+  price: number;
+}
+
+const assets: CryptoAsset[] = [
+  { symbol: 'USDT', name: 'Tether', logo: '/usdt-logo.png', price: 1.00 },
+  { symbol: 'BTC', name: 'Bitcoin', logo: '/btc-logo.png', price: 60000 },
+  { symbol: 'ETH', name: 'Ethereum', logo: '/eth-logo.png', price: 3000 },
 ];
 
-// Mock exchange rates - would come from API in real app
-const RATES = {
-  'btc-eth': 13.5,
-  'btc-usdt': 29750,
-  'btc-sol': 420,
-  'eth-btc': 0.074,
-  'eth-usdt': 2200,
-  'eth-sol': 31,
-  'usdt-btc': 0.000034,
-  'usdt-eth': 0.00045,
-  'usdt-sol': 0.014,
-  'sol-btc': 0.0024,
-  'sol-eth': 0.032,
-  'sol-usdt': 70,
-};
-
-// Network fees in the token's native currency
-const NETWORK_FEES = {
-  'btc': 0.0001,
-  'eth': 0.003,
-  'usdt': 1,
-  'sol': 0.01,
-};
-
 const SwapCrypto = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-  const tokenParam = searchParams.get('token');
-  
-  const [fromToken, setFromToken] = useState(TOKENS[1]); // Default to ETH
-  const [toToken, setToToken] = useState(TOKENS[0]); // Default to BTC
-  const [amount, setAmount] = useState('');
-  const [showConfirmation, setShowConfirmation] = useState(false);
 
-  // Set initial token based on URL parameter
-  useEffect(() => {
-    if (tokenParam) {
-      const selectedToken = TOKENS.find(t => t.id === tokenParam);
-      if (selectedToken) {
-        setFromToken(selectedToken);
-        // Set a default "to" token that is different from the selected token
-        const defaultToToken = TOKENS.find(t => t.id !== tokenParam) || TOKENS[0];
-        setToToken(defaultToToken);
-      }
-    }
-  }, [tokenParam]);
-
-  // Fetch user's wallets
-  const { data: wallets, isLoading } = useQuery({
-    queryKey: ['wallets', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('user_id', user.id);
-      
-      if (error) {
-        console.error('Error fetching wallets:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load your wallet data.',
-          variant: 'destructive',
-        });
-        return [];
-      }
-      return data || [];
-    },
-    enabled: !!user,
+  const [fromToken, setFromToken] = useState<CryptoAsset | null>(assets[0]);
+  const [toToken, setToToken] = useState<CryptoAsset | null>(assets[1]);
+  const [fromAmount, setFromAmount] = useState('');
+  const [swapping, setSwapping] = useState(false);
+  const [swapComplete, setSwapComplete] = useState(false);
+  const [balances, setBalances] = useState({
+    USDT: 1000,
+    BTC: 0.01,
+    ETH: 0.1,
   });
+  const [transactions, setTransactions] = useState<any[]>([]);
 
-  // Calculate values
-  const numericAmount = parseFloat(amount) || 0;
-  const rateKey = `${fromToken.id}-${toToken.id}`;
-  const swapRate = RATES[rateKey] || 0;
-  const estimatedReceived = numericAmount * swapRate;
-  const fee = NETWORK_FEES[fromToken.id] || 0;
-
-  // Get user balance for the selected token
-  const getTokenBalance = (tokenId) => {
-    if (!wallets || isLoading) return 0;
-    const wallet = wallets.find(w => w.currency.toLowerCase() === tokenId);
-    return wallet ? parseFloat(wallet.balance) : 0;
-  };
-  
-  const fromTokenBalance = getTokenBalance(fromToken.id);
+  useEffect(() => {
+    if (swapComplete) {
+      toast({
+        title: 'Swap Successful',
+        description: `You have successfully swapped ${fromAmount} ${fromToken?.symbol} for ${calculateToAmount()} ${toToken?.symbol}.`,
+      });
+      setTimeout(() => setSwapComplete(false), 3000);
+    }
+  }, [swapComplete, fromAmount, fromToken, toToken, toast, calculateToAmount]);
 
   const handleSwap = async () => {
-    setShowConfirmation(false);
+    if (!fromToken || !toToken || !fromAmount || !toToken) return;
+    
+    setSwapping(true);
     
     try {
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "Please sign in to perform this action",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Check if user has enough balance
-      if (numericAmount + fee > fromTokenBalance) {
-        toast({
-          title: "Insufficient balance",
-          description: `You don't have enough ${fromToken.symbol} to complete this swap.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Insert transaction record - convert numeric values to strings for Supabase
-      const { error: txError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          transaction_type: 'swap',
-          amount: numericAmount,
-          fee: fee,
-          from_address: `${user.id}_${fromToken.id}`,
-          to_address: `${user.id}_${toToken.id}`,
-          currency: `${fromToken.symbol} -> ${toToken.symbol}`,
-          blockchain: fromToken.id,
-          status: 'completed'
-        });
-
-      if (txError) {
-        console.error('Transaction recording error:', txError);
-        toast({
-          title: "Transaction Failed",
-          description: "Could not complete the swap transaction.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Update wallet balances
-      // Decrease "from" token balance
-      const { error: fromError } = await supabase
-        .from('wallets')
-        .update({ 
-          balance: fromTokenBalance - numericAmount - fee,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-        .eq('currency', fromToken.id);
-
-      if (fromError) {
-        console.error('From wallet update error:', fromError);
-        throw fromError;
-      }
-
-      // Increase "to" token balance
-      const toTokenBalance = getTokenBalance(toToken.id);
-      const { error: toError } = await supabase
-        .from('wallets')
-        .update({ 
-          balance: toTokenBalance + estimatedReceived,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-        .eq('currency', toToken.id);
-
-      if (toError) {
-        console.error('To wallet update error:', toError);
-        throw toError;
-      }
-
-      toast({
-        title: "Swap Successful",
-        description: `You've successfully swapped ${numericAmount} ${fromToken.symbol} to ${estimatedReceived.toFixed(6)} ${toToken.symbol}`,
-      });
-
-      // Reset amount after successful swap
-      setAmount('');
-      
+      // Simulating exchange execution
+      setTimeout(() => {
+        // Calculate toAmount based on exchange rate
+        const calculatedToAmount = Number(fromAmount) * getExchangeRate(fromToken.symbol, toToken.symbol);
+        
+        // Update balances
+        const newBalances = { ...balances };
+        newBalances[fromToken.symbol] = Number(newBalances[fromToken.symbol]) - Number(fromAmount);
+        newBalances[toToken.symbol] = Number(newBalances[toToken.symbol]) + calculatedToAmount;
+        setBalances(newBalances);
+        
+        // Add to transaction history
+        const newTransaction = {
+          id: Date.now().toString(), // Using string instead of number for id
+          type: 'swap',
+          status: 'completed',
+          amount: fromAmount,
+          fromAsset: fromToken.symbol,
+          toAsset: toToken.symbol,
+          toAmount: calculatedToAmount.toString(),
+          timestamp: new Date().toISOString(),
+        };
+        
+        setTransactions([newTransaction, ...transactions]);
+        
+        // Show confirmation
+        setSwapComplete(true);
+        setSwapping(false);
+      }, 1500);
     } catch (error) {
       console.error('Swap error:', error);
+      setSwapping(false);
       toast({
-        title: "Swap Failed",
-        description: "There was an error processing your swap request.",
-        variant: "destructive",
+        title: 'Swap Failed',
+        description: 'There was an error processing your swap.',
+        variant: 'destructive'
       });
     }
   };
 
-  const handleConfirmSwap = () => {
-    if (!amount || parseFloat(amount) <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid amount to swap.",
-        variant: "destructive",
-      });
-      return;
+  const getExchangeRate = (from: string, to: string): number => {
+    const fromAsset = assets.find((asset) => asset.symbol === from);
+    const toAsset = assets.find((asset) => asset.symbol === to);
+
+    if (!fromAsset || !toAsset) {
+      console.error('Asset not found');
+      return 0;
     }
 
-    if (numericAmount + fee > fromTokenBalance) {
-      toast({
-        title: "Insufficient balance",
-        description: `You don't have enough ${fromToken.symbol} to complete this swap.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Show confirmation modal
-    setShowConfirmation(true);
+    return fromAsset.price / toAsset.price;
   };
 
-  const switchTokens = () => {
-    const temp = fromToken;
-    setFromToken(toToken);
-    setToToken(temp);
-    setAmount('');
+  const calculateToAmount = (): string => {
+    if (!fromToken || !toToken || !fromAmount) return '0.00';
+    return (Number(fromAmount) * getExchangeRate(fromToken.symbol, toToken.symbol)).toFixed(6);
   };
 
   return (
     <MainLayout title="Swap Crypto" showBack>
-      <div className="flex flex-col gap-5">
-        <KashCard>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm text-gray-600">From</label>
-              <TokenSelector 
-                selectedToken={fromToken}
-                onSelectToken={setFromToken}
-                tokens={TOKENS.filter(t => t.id !== toToken.id)}
-              />
-            </div>
-            
-            <div>
-              <KashInput
-                label="Amount"
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-              />
-              <div className="flex justify-between mt-1 text-sm">
-                <span className="text-gray-500">
-                  Available: {fromTokenBalance.toFixed(6)} {fromToken.symbol}
-                </span>
-                <button 
-                  className="text-kash-green"
-                  onClick={() => setAmount(fromTokenBalance.toString())}
-                >
-                  MAX
-                </button>
-              </div>
-            </div>
-          </div>
-        </KashCard>
-
-        <div className="flex justify-center -my-2 z-10">
-          <button
-            onClick={switchTokens}
-            className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-gray-50"
-          >
-            <ArrowDown size={20} className="text-gray-600" />
-          </button>
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-xl font-semibold mb-1">Swap Crypto</h2>
+          <p className="text-gray-600">
+            Easily swap between different cryptocurrencies
+          </p>
         </div>
 
         <KashCard>
-          <div className="flex flex-col gap-2">
-            <label className="text-sm text-gray-600">To</label>
-            <TokenSelector 
-              selectedToken={toToken}
-              onSelectToken={setToToken}
-              tokens={TOKENS.filter(t => t.id !== fromToken.id)}
-            />
-            
-            <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">You will receive</div>
-              <div className="text-xl font-medium">
-                {estimatedReceived.toFixed(6)} {toToken.symbol}
+          <div className="space-y-5">
+            {/* From Token */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                From
+              </label>
+              <div className="relative">
+                <select
+                  className="block appearance-none w-full bg-white border border-gray-300 hover:border-gray-400 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
+                  value={fromToken?.symbol}
+                  onChange={(e) => {
+                    const selectedAsset = assets.find((asset) => asset.symbol === e.target.value);
+                    setFromToken(selectedAsset || null);
+                  }}
+                >
+                  {assets.map((asset) => (
+                    <option key={asset.symbol} value={asset.symbol}>
+                      {asset.name} ({asset.symbol})
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                  </svg>
+                </div>
+              </div>
+              <input
+                type="number"
+                placeholder="Enter amount"
+                value={fromAmount}
+                onChange={(e) => setFromAmount(e.target.value)}
+                className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-base"
+              />
+              {fromToken && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Balance: {balances[fromToken.symbol as keyof typeof balances]} {fromToken.symbol}
+                </p>
+              )}
+            </div>
+
+            {/* Switch Tokens */}
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  const tempToken = fromToken;
+                  setFromToken(toToken);
+                  setToToken(tempToken);
+                }}
+                className="bg-gray-100 hover:bg-gray-200 rounded-full p-2"
+              >
+                <ArrowRightLeft size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* To Token */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                To
+              </label>
+              <div className="relative">
+                <select
+                  className="block appearance-none w-full bg-white border border-gray-300 hover:border-gray-400 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
+                  value={toToken?.symbol}
+                  onChange={(e) => {
+                    const selectedAsset = assets.find((asset) => asset.symbol === e.target.value);
+                    setToToken(selectedAsset || null);
+                  }}
+                >
+                  {assets.map((asset) => (
+                    <option key={asset.symbol} value={asset.symbol}>
+                      {asset.name} ({asset.symbol})
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="bg-kash-lightGray p-4 rounded-lg mt-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Estimated Amount</span>
+                  <span className="text-xl font-semibold">{calculateToAmount()} {toToken?.symbol}</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Exchange Rate: 1 {fromToken?.symbol} = {getExchangeRate(fromToken?.symbol || 'USDT', toToken?.symbol || 'BTC')} {toToken?.symbol}
+                </div>
               </div>
             </div>
+
+            <KashButton
+              fullWidth
+              disabled={swapping}
+              onClick={handleSwap}
+            >
+              {swapping ? 'Swapping...' : 'Swap'}
+            </KashButton>
           </div>
         </KashCard>
 
-        <SwapRateInfo 
-          fromToken={fromToken}
-          toToken={toToken}
-          rate={swapRate}
-          fee={fee}
-        />
-
-        <Button 
-          className="bg-kash-green hover:bg-kash-green/90 h-12 text-base"
-          onClick={handleConfirmSwap}
-        >
-          Swap Now
-        </Button>
+        {/* Transaction History */}
+        <div className="space-y-4 mt-6">
+          <h3 className="font-medium">Transaction History</h3>
+          {transactions.length > 0 ? (
+            <div className="space-y-3">
+              {transactions.map((transaction) => (
+                <KashCard key={transaction.id} variant="outline" padding="sm">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-sm">
+                        {transaction.type === 'swap' ? 'Swap' : 'Transaction'}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        {new Date(transaction.timestamp).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {transaction.type === 'swap' && (
+                        <>
+                          <p className="text-sm">
+                            {transaction.amount} {transaction.fromAsset} <ArrowRightLeft size={14} className="inline-block mx-1" /> {transaction.toAmount} {transaction.toAsset}
+                          </p>
+                          {transaction.status === 'completed' ? (
+                            <span className="text-green-500 text-xs">Completed</span>
+                          ) : (
+                            <span className="text-yellow-500 text-xs">Pending</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </KashCard>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">No transactions yet.</p>
+          )}
+        </div>
       </div>
-
-      <SwapConfirmationModal 
-        isOpen={showConfirmation}
-        onClose={() => setShowConfirmation(false)}
-        onConfirm={handleSwap}
-        fromToken={fromToken}
-        toToken={toToken}
-        amount={numericAmount}
-        estimatedReceived={estimatedReceived}
-        fee={fee}
-        rate={swapRate}
-      />
     </MainLayout>
   );
 };
