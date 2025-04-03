@@ -1,13 +1,15 @@
 
-import { Link, useLocation } from 'react-router-dom';
-import { Wallet, BarChart3, Settings } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Wallet, BarChart3, Settings, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BottomNav = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   
   const navItems = [
     { icon: Wallet, label: "Wallet", path: "/dashboard" },
+    { icon: Search, label: "Search", path: "/search" },
     { icon: BarChart3, label: "Activity", path: "/history" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];

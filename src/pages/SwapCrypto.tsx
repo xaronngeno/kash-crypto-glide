@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import TokenSelector from '@/components/swap/TokenSelector';
 import SwapRateInfo from '@/components/swap/SwapRateInfo';
@@ -11,6 +12,7 @@ import { KashCard } from '@/components/ui/KashCard';
 import { KashInput } from '@/components/ui/KashInput';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 
 // Mock token data - would come from an API in a real app
 const TOKENS = [
@@ -18,6 +20,12 @@ const TOKENS = [
   { id: 'eth', name: 'Ethereum', symbol: 'ETH', icon: 'Ξ', decimals: 18 },
   { id: 'usdt', name: 'Tether', symbol: 'USDT', icon: '₮', decimals: 6 },
   { id: 'sol', name: 'Solana', symbol: 'SOL', icon: 'S', decimals: 9 },
+  { id: 'bnb', name: 'Binance Coin', symbol: 'BNB', icon: 'B', decimals: 18 },
+  { id: 'ada', name: 'Cardano', symbol: 'ADA', icon: 'A', decimals: 6 },
+  { id: 'xrp', name: 'XRP', symbol: 'XRP', icon: 'X', decimals: 6 },
+  { id: 'doge', name: 'Dogecoin', symbol: 'DOGE', icon: 'D', decimals: 8 },
+  { id: 'dot', name: 'Polkadot', symbol: 'DOT', icon: 'P', decimals: 10 },
+  { id: 'link', name: 'Chainlink', symbol: 'LINK', icon: 'L', decimals: 18 },
 ];
 
 // Mock exchange rates - would come from API in real app
@@ -47,10 +55,26 @@ const NETWORK_FEES = {
 const SwapCrypto = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const tokenParam = searchParams.get('token');
+  
   const [fromToken, setFromToken] = useState(TOKENS[1]); // Default to ETH
   const [toToken, setToToken] = useState(TOKENS[0]); // Default to BTC
   const [amount, setAmount] = useState('');
   const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // Set initial token based on URL parameter
+  useEffect(() => {
+    if (tokenParam) {
+      const selectedToken = TOKENS.find(t => t.id === tokenParam);
+      if (selectedToken) {
+        setFromToken(selectedToken);
+        // Set a default "to" token that is different from the selected token
+        const defaultToToken = TOKENS.find(t => t.id !== tokenParam) || TOKENS[0];
+        setToToken(defaultToToken);
+      }
+    }
+  }, [tokenParam]);
 
   // Fetch user's wallets
   const { data: wallets, isLoading } = useQuery({
@@ -115,7 +139,7 @@ const SwapCrypto = () => {
         return;
       }
 
-      // Insert transaction record
+      // Insert transaction record - convert numeric values to strings for Supabase
       const { error: txError } = await supabase
         .from('transactions')
         .insert([{

@@ -12,4 +12,5 @@ export const kashColors = {
   lightGray: '#F3F4F6', // Light gray for hover states
   textGray: '#6B7280', // Text gray for secondary text
   error: '#EF4444', // Error red
+  searchBg: '#F9FAFB', // Background for search elements
 }
