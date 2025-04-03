@@ -17,6 +17,7 @@ import Buy from "./pages/Buy";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import TransactionConfirmation from "./pages/TransactionConfirmation";
+import SwapCrypto from "./pages/SwapCrypto";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,11 @@ const App = () => (
             <Route path="/buy" element={
               <ProtectedRoute>
                 <Buy />
+              </ProtectedRoute>
+            } />
+            <Route path="/swap" element={
+              <ProtectedRoute>
+                <SwapCrypto />
               </ProtectedRoute>
             } />
             <Route path="/history" element={
