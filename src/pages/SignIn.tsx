@@ -1,0 +1,123 @@
+
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock } from 'lucide-react';
+import { KashButton } from '@/components/ui/KashButton';
+import { KashInput } from '@/components/ui/KashInput';
+import { useToast } from '@/hooks/use-toast';
+
+const SignIn = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSignIn = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      setLoading(false);
+      // Mock successful login
+      navigate('/dashboard');
+      toast({
+        title: "Welcome back",
+        description: "You've successfully signed in to your account.",
+      });
+    }, 1000);
+  };
+
+  return (
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="flex-1 flex flex-col justify-center py-12 px-6 sm:px-8 lg:px-12">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">Welcome to Kash</h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Sign in to your account
+          </p>
+        </div>
+
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
+            <form className="space-y-6" onSubmit={handleSignIn}>
+              <KashInput
+                label="Email address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                icon={<Mail size={18} className="text-gray-400" />}
+                required
+              />
+
+              <KashInput
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                icon={<Lock size={18} className="text-gray-400" />}
+                required
+              />
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    className="h-4 w-4 text-kash-green border-gray-300 rounded focus:ring-kash-green"
+                  />
+                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                    Remember me
+                  </label>
+                </div>
+
+                <div className="text-sm">
+                  <a href="#" className="font-medium text-kash-green hover:text-kash-green/80">
+                    Forgot your password?
+                  </a>
+                </div>
+              </div>
+
+              <KashButton 
+                type="submit" 
+                fullWidth 
+                disabled={loading}
+              >
+                {loading ? 'Signing in...' : 'Sign in'}
+              </KashButton>
+            </form>
+
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Link to="/signup">
+                  <KashButton 
+                    type="button" 
+                    variant="outline" 
+                    fullWidth
+                  >
+                    Create an account
+                  </KashButton>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SignIn;
