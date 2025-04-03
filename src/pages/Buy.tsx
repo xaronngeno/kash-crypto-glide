@@ -32,6 +32,7 @@ const Buy = () => {
       if (!user) return;
       
       try {
+        console.log("Fetching profile for user", user.id);
         const { data, error } = await supabase
           .from('profiles')
           .select('phone')
@@ -46,8 +47,10 @@ const Buy = () => {
             variant: "destructive"
           });
         } else if (data && data.phone) {
+          console.log("Found user phone:", data.phone);
           setPhone(data.phone);
         } else {
+          console.log("No phone found in profile, setting default");
           // Set a default number if none is found
           setPhone('+254712345678');
         }
@@ -108,12 +111,22 @@ const Buy = () => {
       
       if (error) {
         console.error("Supabase function error:", error);
-        throw new Error(error.message || 'Failed to initiate payment');
+        toast({
+          title: "Payment failed",
+          description: error.message || "Failed to initiate M-PESA payment. Please check your credentials and try again.",
+          variant: "destructive"
+        });
+        return;
       }
       
-      if (data.errorCode) {
+      if (data?.errorCode) {
         console.error("M-PESA error:", data);
-        throw new Error(data.errorMessage || 'M-PESA error occurred');
+        toast({
+          title: "M-PESA error",
+          description: data.errorMessage || "An error occurred with the M-PESA transaction.",
+          variant: "destructive"
+        });
+        return;
       }
       
       // Show success message
@@ -130,7 +143,7 @@ const Buy = () => {
           amountKES: Number(amount),
           amountUSDT: Number(usdtAmount),
           phone: formattedPhone,
-          checkoutRequestID: data.CheckoutRequestID || 'pending'
+          checkoutRequestID: data?.CheckoutRequestID || 'pending'
         } 
       });
     } catch (error) {

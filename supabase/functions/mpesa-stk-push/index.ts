@@ -23,17 +23,21 @@ function encodeCredentials(consumerKey: string, consumerSecret: string): string 
 
 // Get access token from Safaricom
 async function getAccessToken(): Promise<string> {
-  const consumerKey = Deno.env.get("MPESA_CONSUMER_KEY") || "";
-  const consumerSecret = Deno.env.get("MPESA_CONSUMER_SECRET") || "";
+  // Log environment variables (without exposing secrets)
+  console.log("Checking M-PESA environment variables");
+  const consumerKey = Deno.env.get("MPESA_CONSUMER_KEY");
+  const consumerSecret = Deno.env.get("MPESA_CONSUMER_SECRET");
   
   if (!consumerKey || !consumerSecret) {
     console.error("Missing MPESA_CONSUMER_KEY or MPESA_CONSUMER_SECRET");
     throw new Error("Missing required API credentials");
   }
   
+  console.log("M-PESA credentials available, generating auth token");
   const auth = encodeCredentials(consumerKey, consumerSecret);
   
   try {
+    console.log("Making request to Safaricom auth endpoint");
     const response = await fetch(
       "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
       {
@@ -44,16 +48,24 @@ async function getAccessToken(): Promise<string> {
       }
     );
     
+    const responseText = await response.text();
+    console.log(`Auth response status: ${response.status}`);
+    
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error("Error getting access token:", errorData);
+      console.error("Error getting access token:", responseText);
       throw new Error(`Failed to get access token: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
-    return data.access_token;
+    try {
+      const data = JSON.parse(responseText);
+      console.log("Successfully obtained access token");
+      return data.access_token;
+    } catch (parseError) {
+      console.error("Error parsing auth response:", parseError, "Response was:", responseText);
+      throw new Error(`Failed to parse auth response: ${parseError.message}`);
+    }
   } catch (error) {
-    console.error("Error getting access token:", error);
+    console.error("Error in getAccessToken:", error);
     throw new Error(`Failed to get access token: ${error.message}`);
   }
 }
@@ -86,15 +98,17 @@ async function initiateSTKPush(
   description: string
 ): Promise<any> {
   try {
+    console.log(`Initiating STK push for ${phone}, amount: ${amount}`);
     const accessToken = await getAccessToken();
-    const shortcode = Deno.env.get("MPESA_SHORTCODE") || "";
-    const passkey = Deno.env.get("MPESA_PASSKEY") || "";
+    const shortcode = Deno.env.get("MPESA_SHORTCODE");
+    const passkey = Deno.env.get("MPESA_PASSKEY");
     
     if (!shortcode || !passkey) {
       console.error("Missing MPESA_SHORTCODE or MPESA_PASSKEY");
       throw new Error("Missing required API credentials");
     }
     
+    console.log("Generating STK push parameters");
     const timestamp = generateTimestamp();
     const password = generatePassword(shortcode, passkey, timestamp);
     
@@ -112,6 +126,8 @@ async function initiateSTKPush(
       formattedPhone = "254" + formattedPhone;
     }
     
+    console.log(`Formatted phone number: ${formattedPhone}`);
+    
     const data = {
       BusinessShortCode: shortcode,
       Password: password,
@@ -126,7 +142,7 @@ async function initiateSTKPush(
       TransactionDesc: description,
     };
     
-    console.log("Initiating STK push with data:", JSON.stringify(data));
+    console.log("STK push request data:", JSON.stringify(data));
     
     const response = await fetch(
       "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
@@ -134,7 +150,7 @@ async function initiateSTKPush(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify(data),
       }
@@ -184,6 +200,7 @@ serve(async (req) => {
     let requestData;
     try {
       requestData = await req.json();
+      console.log("Received request data:", JSON.stringify(requestData));
     } catch (error) {
       console.error("Error parsing request JSON:", error);
       return new Response(
