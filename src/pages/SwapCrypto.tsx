@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import TokenSelector from '@/components/swap/TokenSelector';
@@ -97,9 +96,6 @@ const SwapCrypto = () => {
     setShowConfirmation(false);
     
     try {
-      // In a real app, this would call a backend API or blockchain service
-      // For demo purposes, we'll just update our local database
-      
       if (!user) {
         toast({
           title: "Authentication required",
@@ -125,8 +121,8 @@ const SwapCrypto = () => {
         .insert([{
           user_id: user.id,
           transaction_type: 'swap',
-          amount: numericAmount,
-          fee: fee,
+          amount: numericAmount.toString(),
+          fee: fee.toString(),
           from_address: `${user.id}_${fromToken.id}`,
           to_address: `${user.id}_${toToken.id}`,
           currency: `${fromToken.symbol} -> ${toToken.symbol}`,
@@ -149,7 +145,7 @@ const SwapCrypto = () => {
       const { error: fromError } = await supabase
         .from('wallets')
         .update({ 
-          balance: fromTokenBalance - numericAmount - fee,
+          balance: (fromTokenBalance - numericAmount - fee).toString(),
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
@@ -165,7 +161,7 @@ const SwapCrypto = () => {
       const { error: toError } = await supabase
         .from('wallets')
         .update({ 
-          balance: toTokenBalance + estimatedReceived,
+          balance: (toTokenBalance + estimatedReceived).toString(),
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
