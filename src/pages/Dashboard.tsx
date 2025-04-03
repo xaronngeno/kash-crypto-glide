@@ -1,24 +1,103 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDownRight, ArrowUpRight, Repeat, CreditCard, Eye, EyeOff } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Repeat, CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 
-// Mock data
-const cryptoAssets = [
-  { id: 1, name: 'Bitcoin', symbol: 'BTC', price: 67345.21, amount: 0.023, value: 1548.94, change: 3.2, icon: '₿' },
-  { id: 2, name: 'Ethereum', symbol: 'ETH', price: 3219.45, amount: 1.5, value: 4829.18, change: -1.7, icon: 'Ξ' },
-  { id: 3, name: 'USDT', symbol: 'USDT', price: 1.00, amount: 2500, value: 2500, change: 0.01, icon: '₮' },
-  { id: 4, name: 'Solana', symbol: 'SOL', price: 153.27, amount: 10, value: 1532.70, change: 12.4, icon: 'Ѕ' },
-];
+interface Asset {
+  id: string;
+  name: string;
+  symbol: string;
+  price: number;
+  amount: number;
+  value: number;
+  change: number;
+  icon: string;
+}
 
 const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
   
-  const totalBalance = cryptoAssets.reduce((acc, asset) => acc + asset.value, 0);
+  // Default empty assets with zero balance
+  const defaultAssets = [
+    { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 67345.21, amount: 0, value: 0, change: 3.2, icon: '₿' },
+    { id: '2', name: 'Ethereum', symbol: 'ETH', price: 3219.45, amount: 0, value: 0, change: -1.7, icon: 'Ξ' },
+    { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 0, value: 0, change: 0.01, icon: '₮' },
+    { id: '4', name: 'Solana', symbol: 'SOL', price: 153.27, amount: 0, value: 0, change: 12.4, icon: 'Ѕ' },
+  ];
+
+  useEffect(() => {
+    const fetchUserAssets = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        
+        // Get the user's wallets from the database
+        const { data: wallets, error: walletsError } = await supabase
+          .from('wallets')
+          .select('*')
+          .eq('user_id', user.id);
+          
+        if (walletsError) {
+          throw walletsError;
+        }
+        
+        // If no wallets found, use default assets with zero amounts
+        if (!wallets || wallets.length === 0) {
+          setAssets(defaultAssets);
+          setLoading(false);
+          return;
+        }
+        
+        // Map wallet data to assets
+        const userAssets = defaultAssets.map(defaultAsset => {
+          const wallet = wallets.find(w => w.currency === defaultAsset.symbol);
+          
+          if (wallet) {
+            return {
+              ...defaultAsset,
+              amount: wallet.balance,
+              value: wallet.balance * defaultAsset.price
+            };
+          }
+          
+          return defaultAsset;
+        });
+        
+        setAssets(userAssets);
+      } catch (err) {
+        console.error('Error fetching wallets:', err);
+        setError('Failed to load wallet data');
+        setAssets(defaultAssets);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserAssets();
+  }, [user]);
+
+  const totalBalance = assets.reduce((acc, asset) => acc + asset.value, 0);
+
+  if (loading) {
+    return (
+      <MainLayout title="Portfolio">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-kash-green" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout title="Portfolio">
@@ -96,7 +175,7 @@ const Dashboard = () => {
           </div>
           
           <div className="space-y-3">
-            {cryptoAssets.map((asset) => (
+            {assets.map((asset) => (
               <KashCard key={asset.id} className="hover:bg-kash-lightGray cursor-pointer transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
