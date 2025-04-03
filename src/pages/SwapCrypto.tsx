@@ -142,17 +142,17 @@ const SwapCrypto = () => {
       // Insert transaction record - convert numeric values to strings for Supabase
       const { error: txError } = await supabase
         .from('transactions')
-        .insert([{
+        .insert({
           user_id: user.id,
           transaction_type: 'swap',
-          amount: numericAmount.toString(),
-          fee: fee.toString(),
+          amount: numericAmount,
+          fee: fee,
           from_address: `${user.id}_${fromToken.id}`,
           to_address: `${user.id}_${toToken.id}`,
           currency: `${fromToken.symbol} -> ${toToken.symbol}`,
           blockchain: fromToken.id,
           status: 'completed'
-        }]);
+        });
 
       if (txError) {
         console.error('Transaction recording error:', txError);
@@ -169,7 +169,7 @@ const SwapCrypto = () => {
       const { error: fromError } = await supabase
         .from('wallets')
         .update({ 
-          balance: (fromTokenBalance - numericAmount - fee).toString(),
+          balance: fromTokenBalance - numericAmount - fee,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
@@ -185,7 +185,7 @@ const SwapCrypto = () => {
       const { error: toError } = await supabase
         .from('wallets')
         .update({ 
-          balance: (toTokenBalance + estimatedReceived).toString(),
+          balance: toTokenBalance + estimatedReceived,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)

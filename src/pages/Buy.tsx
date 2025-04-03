@@ -1,17 +1,23 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, DollarSign } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
+import { useAuth } from '@/components/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const Buy = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [amount, setAmount] = useState('');
-  const [phone, setPhone] = useState('+254712345678'); // Pre-filled
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetchingProfile, setFetchingProfile] = useState(true);
   
   // Fixed exchange rate for simplicity
   const exchangeRate = 0.0083; // 1 KES = 0.0083 USDT
@@ -19,6 +25,41 @@ const Buy = () => {
   const maxAmount = 100000; // Maximum KES amount
   
   const usdtAmount = amount ? (Number(amount) * exchangeRate).toFixed(2) : '0.00';
+  
+  // Fetch the user's phone number from their profile
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('phone')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching profile:', error);
+          toast({
+            title: "Error",
+            description: "Could not retrieve your phone number",
+            variant: "destructive"
+          });
+        } else if (data && data.phone) {
+          setPhone(data.phone);
+        } else {
+          // Set a default number if none is found
+          setPhone('+254712345678');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setFetchingProfile(false);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user, toast]);
   
   const handleContinue = () => {
     if (!amount || Number(amount) < minAmount) return;
@@ -51,14 +92,15 @@ const Buy = () => {
         
         <KashCard>
           <div className="space-y-5">
-            {/* Phone Number (pre-filled and not editable) */}
+            {/* Phone Number (from user profile) */}
             <KashInput
               label="M-PESA Phone Number"
               type="tel"
               value={phone}
-              readOnly
+              onChange={(e) => setPhone(e.target.value)}
               icon={<Phone size={18} className="text-gray-400" />}
-              className="bg-gray-50"
+              placeholder={fetchingProfile ? "Loading..." : "Enter your M-PESA number"}
+              disabled={fetchingProfile}
             />
             
             {/* Amount in KES */}
@@ -93,7 +135,7 @@ const Buy = () => {
             
             <KashButton
               fullWidth
-              disabled={!amount || Number(amount) < minAmount || loading}
+              disabled={!amount || Number(amount) < minAmount || loading || fetchingProfile}
               onClick={handleContinue}
             >
               {loading ? 'Processing...' : 'Continue to M-PESA'}
