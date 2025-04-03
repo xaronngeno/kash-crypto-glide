@@ -33,12 +33,28 @@ async function getAccessToken(): Promise<string> {
       throw new Error("Missing required M-PESA API credentials");
     }
     
-    console.log("M-PESA credentials found:", consumerKey.substring(0, 3) + "..." + consumerKey.substring(consumerKey.length - 3));
+    // Log the first and last 3 characters of the key for debugging (avoid logging full credentials)
+    console.log("M-PESA consumer key found:", 
+      consumerKey.substring(0, 3) + "..." + consumerKey.substring(consumerKey.length - 3));
+    console.log("M-PESA consumer secret found:", 
+      consumerSecret.substring(0, 3) + "..." + consumerSecret.substring(consumerSecret.length - 3));
+    
     const auth = encodeCredentials(consumerKey, consumerSecret);
     
     // Make the request to Safaricom
-    console.log("Making request to Safaricom auth endpoint");
-    const authUrl = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+    // Note: For live environment, change the URL
+    let authUrl = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+    
+    // Check if we're using production credentials (this is a simple heuristic)
+    if (!consumerKey.toLowerCase().includes("test") && 
+        !consumerKey.toLowerCase().includes("sandbox") && 
+        consumerKey.length > 20) {
+      authUrl = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+      console.log("Using production M-PESA environment");
+    } else {
+      console.log("Using sandbox M-PESA environment");
+    }
+    
     console.log("Auth URL:", authUrl);
     
     const response = await fetch(
@@ -79,7 +95,8 @@ async function getAccessToken(): Promise<string> {
         throw new Error("M-PESA API returned invalid response format - missing access token");
       }
       
-      console.log("Successfully obtained access token:", data.access_token.substring(0, 10) + "...");
+      console.log("Successfully obtained access token:", 
+        data.access_token.substring(0, 10) + "...");
       return data.access_token;
     } catch (parseError) {
       console.error("Error parsing auth response:", parseError, "Response was:", responseText);
@@ -131,6 +148,9 @@ async function initiateSTKPush(
       throw new Error("Missing required M-PESA API credentials");
     }
     
+    console.log("Shortcode found:", shortcode);
+    console.log("Passkey found:", passkey.substring(0, 3) + "..." + passkey.substring(passkey.length - 3));
+    
     console.log("Generating STK push parameters");
     const timestamp = generateTimestamp();
     const password = generatePassword(shortcode, passkey, timestamp);
@@ -160,14 +180,26 @@ async function initiateSTKPush(
       PartyA: formattedPhone,
       PartyB: shortcode,
       PhoneNumber: formattedPhone,
-      CallBackURL: callbackUrl,
-      AccountReference: accountReference,
-      TransactionDesc: description,
+      CallBackURL: callbackUrl || "https://example.com/callback",
+      AccountReference: accountReference || "KashApp",
+      TransactionDesc: description || "Purchase USDT",
     };
     
     console.log("STK push request data:", JSON.stringify(data));
     
-    const pushUrl = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+    // Determine if we should use production or sandbox URL
+    let pushUrl = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+    
+    // Check if we're using production credentials
+    if (!shortcode.includes("test") && 
+        !shortcode.includes("sandbox") && 
+        shortcode.length > 4) {
+      pushUrl = "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+      console.log("Using production M-PESA STK push URL");
+    } else {
+      console.log("Using sandbox M-PESA STK push URL");
+    }
+    
     console.log("STK push URL:", pushUrl);
     
     const response = await fetch(
