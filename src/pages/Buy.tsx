@@ -61,23 +61,63 @@ const Buy = () => {
     fetchUserProfile();
   }, [user, toast]);
   
-  const handleContinue = () => {
+  const initiateSTKPush = async () => {
     if (!amount || Number(amount) < minAmount) return;
     
     setLoading(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setLoading(false);
+    
+    try {
+      // Format phone number (ensure it has the +254 format)
+      let formattedPhone = phone;
+      if (!formattedPhone.startsWith('+')) {
+        formattedPhone = `+${formattedPhone}`;
+      }
+      
+      // Call the Supabase Edge Function to initiate the STK push
+      const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
+        body: {
+          phone: formattedPhone,
+          amount: Number(amount),
+          reference: `Kash-${user?.id?.substring(0, 8) || 'Guest'}`,
+          description: `Buy ${usdtAmount} USDT on Kash`,
+        },
+      });
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to initiate payment');
+      }
+      
+      if (data.errorCode) {
+        throw new Error(data.errorMessage || 'M-PESA error occurred');
+      }
+      
+      // Show success message
+      toast({
+        title: "Payment initiated",
+        description: "Please check your phone and enter M-PESA PIN to complete the purchase.",
+      });
+      
+      // Navigate to transaction confirmation page
       navigate('/transaction-confirmation', { 
         state: { 
           type: 'buy',
           asset: 'USDT',
           amountKES: Number(amount),
           amountUSDT: Number(usdtAmount),
-          phone
+          phone: formattedPhone,
+          checkoutRequestID: data.CheckoutRequestID || 'pending'
         } 
       });
-    }, 1000);
+    } catch (error: any) {
+      console.error('STK push error:', error);
+      toast({
+        title: "Payment failed",
+        description: error.message || "Could not initiate M-PESA payment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -136,7 +176,7 @@ const Buy = () => {
             <KashButton
               fullWidth
               disabled={!amount || Number(amount) < minAmount || loading || fetchingProfile}
-              onClick={handleContinue}
+              onClick={initiateSTKPush}
             >
               {loading ? 'Processing...' : 'Continue to M-PESA'}
             </KashButton>
