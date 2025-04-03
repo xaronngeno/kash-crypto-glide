@@ -23,20 +23,20 @@ function encodeCredentials(consumerKey: string, consumerSecret: string): string 
 
 // Get access token from Safaricom
 async function getAccessToken(): Promise<string> {
-  // Log environment variables (without exposing secrets)
-  console.log("Checking M-PESA environment variables");
-  const consumerKey = Deno.env.get("MPESA_CONSUMER_KEY");
-  const consumerSecret = Deno.env.get("MPESA_CONSUMER_SECRET");
-  
-  if (!consumerKey || !consumerSecret) {
-    console.error("Missing MPESA_CONSUMER_KEY or MPESA_CONSUMER_SECRET");
-    throw new Error("Missing required API credentials");
-  }
-  
-  console.log("M-PESA credentials available, generating auth token");
-  const auth = encodeCredentials(consumerKey, consumerSecret);
-  
   try {
+    // Check if we have the required environment variables
+    const consumerKey = Deno.env.get("MPESA_CONSUMER_KEY");
+    const consumerSecret = Deno.env.get("MPESA_CONSUMER_SECRET");
+    
+    if (!consumerKey || !consumerSecret) {
+      console.error("Missing MPESA_CONSUMER_KEY or MPESA_CONSUMER_SECRET");
+      throw new Error("Missing required API credentials");
+    }
+    
+    console.log("M-PESA credentials available, generating auth token");
+    const auth = encodeCredentials(consumerKey, consumerSecret);
+    
+    // Make the request to Safaricom
     console.log("Making request to Safaricom auth endpoint");
     const response = await fetch(
       "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
@@ -48,8 +48,11 @@ async function getAccessToken(): Promise<string> {
       }
     );
     
-    const responseText = await response.text();
+    // Log the status code
     console.log(`Auth response status: ${response.status}`);
+    
+    // Get the response text for better error logging
+    const responseText = await response.text();
     
     if (!response.ok) {
       console.error("Error getting access token:", responseText);
@@ -57,6 +60,7 @@ async function getAccessToken(): Promise<string> {
     }
     
     try {
+      // Try to parse the response as JSON
       const data = JSON.parse(responseText);
       console.log("Successfully obtained access token");
       return data.access_token;
@@ -66,7 +70,7 @@ async function getAccessToken(): Promise<string> {
     }
   } catch (error) {
     console.error("Error in getAccessToken:", error);
-    throw new Error(`Failed to get access token: ${error.message}`);
+    throw error;
   }
 }
 
@@ -99,6 +103,8 @@ async function initiateSTKPush(
 ): Promise<any> {
   try {
     console.log(`Initiating STK push for ${phone}, amount: ${amount}`);
+    
+    // Get Safaricom API credentials
     const accessToken = await getAccessToken();
     const shortcode = Deno.env.get("MPESA_SHORTCODE");
     const passkey = Deno.env.get("MPESA_PASSKEY");
@@ -156,24 +162,30 @@ async function initiateSTKPush(
       }
     );
     
+    console.log(`STK push response status: ${response.status}`);
+    const responseText = await response.text();
+    console.log(`STK push response body: ${responseText}`);
+    
     // Check for network errors or non-2xx responses
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error response from M-PESA API:", errorText);
       try {
         // Try to parse as JSON if possible
-        const errorJson = JSON.parse(errorText);
+        const errorJson = JSON.parse(responseText);
         throw new Error(errorJson.errorMessage || `M-PESA API error: ${response.status}`);
       } catch (e) {
         // If not valid JSON, use the text
-        throw new Error(`M-PESA API error: ${response.status} - ${errorText.substring(0, 100)}`);
+        throw new Error(`M-PESA API error: ${response.status} - ${responseText.substring(0, 100)}`);
       }
     }
     
-    const responseData = await response.json();
-    console.log("STK push response:", JSON.stringify(responseData));
-    
-    return responseData;
+    try {
+      const responseData = JSON.parse(responseText);
+      console.log("STK push successful:", JSON.stringify(responseData));
+      return responseData;
+    } catch (parseError) {
+      console.error("Error parsing STK push response:", parseError);
+      throw new Error("Failed to parse STK push response");
+    }
   } catch (error) {
     console.error("Error in STK push:", error);
     throw error;
@@ -195,6 +207,9 @@ serve(async (req) => {
         }
       );
     }
+    
+    // Log all available environment variables (without revealing values)
+    console.log("Available environment variables: ", Object.keys(Deno.env.toObject()).join(", "));
     
     // Parse request body
     let requestData;
@@ -226,21 +241,35 @@ serve(async (req) => {
     }
     
     // Initiate the STK push
-    const result = await initiateSTKPush(
-      phone,
-      amount,
-      callbackUrl || "https://example.com/callback", // Replace with your callback URL in production
-      reference || "Kash Crypto Purchase",
-      description || "Purchase USDT with M-PESA"
-    );
-    
-    return new Response(
-      JSON.stringify(result),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    try {
+      const result = await initiateSTKPush(
+        phone,
+        amount,
+        callbackUrl || "https://example.com/callback", // Replace with your callback URL in production
+        reference || "Kash Crypto Purchase",
+        description || "Purchase USDT with M-PESA"
+      );
+      
+      return new Response(
+        JSON.stringify(result),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } catch (stkError) {
+      console.error("STK push error:", stkError);
+      return new Response(
+        JSON.stringify({ 
+          error: stkError.message || "Failed to initiate M-PESA payment",
+          details: stkError.stack || "No stack trace available"
+        }),
+        {
+          status: 400, // Use 400 instead of 500 to prevent Edge Function error
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
   } catch (error) {
     console.error("Error processing request:", error);
     
@@ -250,7 +279,7 @@ serve(async (req) => {
         details: error.stack || "No stack trace available"
       }),
       {
-        status: 500,
+        status: 400, // Use 400 instead of 500 to prevent Edge Function error
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

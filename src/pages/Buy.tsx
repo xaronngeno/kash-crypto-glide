@@ -9,6 +9,7 @@ import { KashInput } from '@/components/ui/KashInput';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 const Buy = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const Buy = () => {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Fixed exchange rate for simplicity
   const exchangeRate = 0.0083; // 1 KES = 0.0083 USDT
@@ -65,6 +67,9 @@ const Buy = () => {
   }, [user, toast]);
   
   const initiateSTKPush = async () => {
+    // Clear any previous errors
+    setError(null);
+    
     if (!amount || Number(amount) < minAmount) {
       toast({
         title: "Invalid amount",
@@ -111,6 +116,7 @@ const Buy = () => {
       
       if (error) {
         console.error("Supabase function error:", error);
+        setError(error.message || "Failed to initiate M-PESA payment. Please check your credentials and try again.");
         toast({
           title: "Payment failed",
           description: error.message || "Failed to initiate M-PESA payment. Please check your credentials and try again.",
@@ -119,11 +125,12 @@ const Buy = () => {
         return;
       }
       
-      if (data?.errorCode) {
-        console.error("M-PESA error:", data);
+      if (data?.error) {
+        console.error("M-PESA API error:", data);
+        setError(data.error || "An error occurred with the M-PESA transaction.");
         toast({
           title: "M-PESA error",
-          description: data.errorMessage || "An error occurred with the M-PESA transaction.",
+          description: data.error || "An error occurred with the M-PESA transaction.",
           variant: "destructive"
         });
         return;
@@ -146,8 +153,9 @@ const Buy = () => {
           checkoutRequestID: data?.CheckoutRequestID || 'pending'
         } 
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('STK push error:', error);
+      setError(error.message || "Could not initiate M-PESA payment. Please try again.");
       toast({
         title: "Payment failed",
         description: error.message || "Could not initiate M-PESA payment. Please try again.",
@@ -167,6 +175,13 @@ const Buy = () => {
             Purchase USDT on the Tron blockchain
           </p>
         </div>
+        
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         
         <KashCard>
           <div className="space-y-5">
