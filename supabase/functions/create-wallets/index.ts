@@ -22,31 +22,36 @@ serve(async (req) => {
   try {
     console.log("Received request to create wallets");
     
-    // Get the authorization header from the request
+    // Get the JWT token from the Authorization header
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error("No authorization header found");
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error("Invalid authorization header format");
       return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
+        JSON.stringify({ error: 'Invalid authorization header format. Expected Bearer token' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log("Authorization header found, creating Supabase client");
+    const jwt = authHeader.split(' ')[1];
+    console.log("Authorization token found, creating Supabase client");
 
-    // Create a Supabase client with the auth header
+    // Create a Supabase client with the JWT token
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: {
         headers: { Authorization: authHeader }
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       }
     });
     
-    // Get the current user
+    // Get the current user using the token
     console.log("Getting authenticated user");
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
     
     if (userError || !user) {
       console.error('Error getting user:', userError);

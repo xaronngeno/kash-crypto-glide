@@ -26,7 +26,6 @@ const Dashboard = () => {
   const [currency, setCurrency] = useState('USD');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [walletsCreated, setWalletsCreated] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
   const { user, session } = useAuth();
@@ -50,59 +49,28 @@ const Dashboard = () => {
 
   // Create wallets for user if they don't exist
   const createWalletsForUser = async () => {
-    if (!user || !session || creatingWallets) return;
+    if (!user || !session?.access_token || creatingWallets) return;
     
     try {
       setCreatingWallets(true);
-      console.log("Checking if user needs wallets created");
-      
-      // Check if user already has wallets
-      const { data: existingWallets, error: walletCheckError } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('user_id', user.id);
-      
-      if (walletCheckError) {
-        throw walletCheckError;
-      }
-        
-      // If wallets already exist, no need to create new ones
-      if (existingWallets && existingWallets.length > 0) {
-        console.log("User already has wallets:", existingWallets.length);
-        setWalletsCreated(true);
-        return;
-      }
-      
       console.log("Creating wallets for user");
-
-      // Ensure we have a valid session token
-      if (!session?.access_token) {
-        throw new Error('No valid session token available');
-      }
       
-      // Call the edge function to create wallets with explicit content type
-      const response = await fetch("https://hfdaowgithffhelybfve.supabase.co/functions/v1/create-wallets", {
+      // Call the edge function to create wallets with explicit content type and Bearer token
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-wallets`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmZGFvd2dpdGhmZmhlbHliZnZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM2OTEzODYsImV4cCI6MjA1OTI2NzM4Nn0.3bxf_yiII1_GBwKUK8qAW5P-Uot9ony993hYkqBfGEw"
+          'Content-Type': 'application/json'
         }
       });
       
-      const responseText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Failed to parse response:", responseText);
-        throw new Error(`Invalid response from server: ${responseText}`);
-      }
-      
       if (!response.ok) {
-        throw new Error(`Function returned status ${response.status}: ${JSON.stringify(data)}`);
+        const errorText = await response.text();
+        console.error(`Error creating wallets: Status ${response.status}`, errorText);
+        throw new Error(`Function returned status ${response.status}: ${errorText}`);
       }
       
+      const data = await response.json();
       console.log("Wallets created successfully:", data);
       setWalletsCreated(true);
       toast({
@@ -122,6 +90,7 @@ const Dashboard = () => {
     }
   };
 
+  // Update asset prices when price data changes
   useEffect(() => {
     if (prices && Object.keys(prices).length > 0) {
       setAssets(prevAssets => 
@@ -141,17 +110,13 @@ const Dashboard = () => {
     }
   }, [prices]);
 
+  // Fetch user wallets and create them if not exist
   useEffect(() => {
     const fetchUserAssets = async () => {
-      if (!user) return;
+      if (!user || !session?.access_token) return;
       
       try {
         setLoading(true);
-        
-        // Check if user has wallets, if not create them
-        if (!walletsCreated && !creatingWallets) {
-          await createWalletsForUser();
-        }
         
         // Get all wallets for the current user
         const { data: wallets, error: walletsError } = await supabase
@@ -165,51 +130,36 @@ const Dashboard = () => {
         
         console.log("Fetched wallets:", wallets);
         
-        // Clone the default assets structure
-        const initialAssets: Asset[] = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-        
-        // Create a map to sum up balances for each currency
-        const currencyBalances: Record<string, number> = {};
-
-        if (wallets && wallets.length > 0) {
-          // Process each wallet and aggregate balances by currency
-          wallets.forEach(wallet => {
-            const currency = wallet.currency;
-            // Ensure we're working with numbers and handle null/undefined values
-            const walletBalance = typeof wallet.balance === 'number' 
-              ? wallet.balance 
-              : parseFloat(String(wallet.balance)) || 0;
+        // If wallets don't exist, create them
+        if (!wallets || wallets.length === 0) {
+          if (!walletsCreated && !creatingWallets) {
+            await createWalletsForUser();
             
-            if (!isNaN(walletBalance)) {
-              if (!currencyBalances[currency]) {
-                currencyBalances[currency] = 0;
-              }
-              currencyBalances[currency] += walletBalance;
+            // After creation, fetch the wallets again
+            const { data: newWallets, error: newWalletsError } = await supabase
+              .from('wallets')
+              .select('*')
+              .eq('user_id', user.id);
+              
+            if (newWalletsError) {
+              throw newWalletsError;
             }
-          });
-          
-          console.log("Aggregated currency balances:", currencyBalances);
-          
-          // Update assets with the aggregated balances
-          const updatedAssets = initialAssets.map(asset => {
-            const balance = currencyBalances[asset.symbol] || 0;
-            const assetPrice = prices?.[asset.symbol]?.price || asset.price;
             
-            return {
-              ...asset,
-              amount: balance,
-              price: assetPrice,
-              value: balance * assetPrice
-            };
-          });
-          
-          console.log('Updated assets with aggregated balances:', updatedAssets);
-          
-          setAssets(updatedAssets);
+            if (newWallets && newWallets.length > 0) {
+              processWallets(newWallets);
+              return;
+            }
+          }
         } else {
-          console.log('No wallets found, using default assets with zero amounts');
-          setAssets(initialAssets);
+          // Process existing wallets
+          processWallets(wallets);
+          return;
         }
+        
+        // If we reach here, initialize with default assets
+        console.log('No wallets found, using default assets with zero amounts');
+        setAssets(Object.values(defaultAssetsMap));
+        
       } catch (err) {
         console.error('Error fetching wallets:', err);
         toast({
@@ -223,8 +173,51 @@ const Dashboard = () => {
       }
     };
 
+    // Process wallet data to create asset objects
+    const processWallets = (wallets: any[]) => {
+      // Clone the default assets structure
+      const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+      
+      // Create a map to sum up balances for each currency
+      const currencyBalances: Record<string, number> = {};
+
+      // Process each wallet and aggregate balances by currency
+      wallets.forEach(wallet => {
+        const currency = wallet.currency;
+        // Ensure we're working with numbers and handle null/undefined values
+        const walletBalance = typeof wallet.balance === 'number' 
+          ? wallet.balance 
+          : parseFloat(String(wallet.balance)) || 0;
+        
+        if (!isNaN(walletBalance)) {
+          if (!currencyBalances[currency]) {
+            currencyBalances[currency] = 0;
+          }
+          currencyBalances[currency] += walletBalance;
+        }
+      });
+      
+      console.log("Aggregated currency balances:", currencyBalances);
+      
+      // Update assets with the aggregated balances
+      const updatedAssets = initialAssets.map(asset => {
+        const balance = currencyBalances[asset.symbol] || 0;
+        const assetPrice = prices?.[asset.symbol]?.price || asset.price;
+        
+        return {
+          ...asset,
+          amount: balance,
+          price: assetPrice,
+          value: balance * assetPrice
+        };
+      });
+      
+      console.log('Updated assets with aggregated balances:', updatedAssets);
+      setAssets(updatedAssets);
+    };
+
     fetchUserAssets();
-  }, [user, prices, walletsCreated, creatingWallets]);
+  }, [user, prices, session, walletsCreated, creatingWallets]);
 
   // Just for debugging - log the complete asset state whenever it changes
   useEffect(() => {

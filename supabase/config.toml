@@ -54,37 +54,6 @@ double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
 
-# Uncomment to customize email template
-# [auth.email]
-# # Allow/disallow new user signups via email to your project.
-# enable_signup = true
-# # If enabled, users need to confirm their email address before signing in.
-# enable_confirmations = false
-# # Template for the email verification link. Available variable: `{{.ConfirmationURL}}`
-# confirmation_template = ""
-# # Template for the email address change confirmation link. Available variable: `{{.ConfirmationURL}}`
-# change_email_template = ""
-# # Set a custom initial schema that will be used for the user authentication tables. Default value: 'auth'
-# email_change_token_expiry_minutes = 1440
-# host = ""
-# # Invitations are sent when users are created by admins inside the Studio.
-# invitation_template = ""
-# # Password reset emails.
-# reset_template = ""
-
-# Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
-# `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin`, `notion`, `twitch`,
-# `twitter`, `slack`, `spotify`, `workos`, `zoom`.
-# [auth.external.apple]
-# enabled = false
-# client_id = ""
-# secret = ""
-# # Overrides the default auth redirectUrl.
-# redirect_uri = ""
-# # Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
-# # or any other third-party OIDC providers.
-# url = ""
-
 [functions]
 [functions.create-wallets]
 verify_jwt = true
