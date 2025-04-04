@@ -31,24 +31,34 @@ serve(async (req) => {
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response(null, { 
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Origin': '*',
+      }, 
+      status: 204 
+    });
   }
 
   try {
     // Check if we have a valid cache that's not expired
     const now = Date.now();
     if (priceCache.data && (now - priceCache.timestamp) < CACHE_DURATION) {
-      console.log("Returning cached prices from edge function memory, last updated", 
-        new Date(priceCache.timestamp).toISOString());
+      console.log("Returning cached prices from edge function memory");
       
       return new Response(
         JSON.stringify(priceCache.data),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
       );
     }
 
     const apiKey = Deno.env.get('COINMARKETCAP_API_KEY');
-    console.log("API key exists:", !!apiKey);
+    console.log("Attempting to retrieve API key:", !!apiKey);
     
     if (!apiKey) {
       console.error('Missing CoinMarketCap API key');
@@ -60,7 +70,10 @@ serve(async (req) => {
         }),
         { 
           status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
         }
       );
     }
@@ -71,7 +84,6 @@ serve(async (req) => {
       console.log('Requesting data from CoinMarketCap API...');
       
       const controller = new AbortController();
-      // Set a longer timeout (10 seconds) to allow for slow responses
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
       const response = await fetch(
@@ -92,20 +104,6 @@ serve(async (req) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('CoinMarketCap API error:', errorText);
-        
-        // If we have a cached response, use it even if it's expired
-        if (priceCache.data) {
-          console.log("Using expired cache as fallback due to API error");
-          return new Response(
-            JSON.stringify({
-              ...priceCache.data,
-              _cache_status: "expired but used as fallback",
-              error: `API error: ${response.status}`
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
         throw new Error(`API responded with status ${response.status}: ${errorText}`);
       }
 
@@ -129,9 +127,8 @@ serve(async (req) => {
         }
       }
 
-      console.log('Successfully fetched prices for', Object.keys(prices).join(', '));
+      console.log('Successfully fetched prices', Object.keys(prices).join(', '));
       
-      // Update the cache
       const responseData = { prices, source: 'api' };
       priceCache = {
         data: responseData,
@@ -141,23 +138,15 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify(responseData),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
       );
     } catch (fetchError) {
       console.error('Error fetching from CoinMarketCap:', fetchError.message);
-      
-      // If we have a cached response, use it even if it's expired
-      if (priceCache.data) {
-        console.log("Using expired cache as fallback due to fetch error");
-        return new Response(
-          JSON.stringify({
-            ...priceCache.data,
-            _cache_status: "expired but used as fallback",
-            error: fetchError.message
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
       
       return new Response(
         JSON.stringify({ 
@@ -165,7 +154,12 @@ serve(async (req) => {
           source: 'fallback',
           error: fetchError.message
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
       );
     }
   } catch (error) {
@@ -177,7 +171,12 @@ serve(async (req) => {
         source: 'fallback',
         error: error.message
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
   }
 });
