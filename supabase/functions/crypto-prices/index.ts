@@ -10,10 +10,96 @@ const corsHeaders = {
 
 // Fallback prices to use if API is unavailable
 const fallbackPrices = {
-  BTC: { price: 64000, change_24h: 1.5, updated_at: new Date().toISOString() },
-  ETH: { price: 3200, change_24h: 0.8, updated_at: new Date().toISOString() },
-  USDT: { price: 1.00, change_24h: 0.01, updated_at: new Date().toISOString() },
-  SOL: { price: 120, change_24h: 2.3, updated_at: new Date().toISOString() },
+  BTC: { 
+    price: 64000, 
+    change_24h: 1.5, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1.png",
+    name: "Bitcoin",
+    symbol: "BTC",
+    platform: { name: "Bitcoin", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1.png" }
+  },
+  ETH: { 
+    price: 3200, 
+    change_24h: 0.8, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
+    name: "Ethereum",
+    symbol: "ETH",
+    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
+  },
+  USDT: { 
+    price: 1.00, 
+    change_24h: 0.01, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/825.png",
+    name: "Tether",
+    symbol: "USDT",
+    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
+  },
+  SOL: { 
+    price: 120, 
+    change_24h: 2.3, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png",
+    name: "Solana",
+    symbol: "SOL",
+    platform: { name: "Solana", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png" }
+  },
+  BNB: { 
+    price: 580, 
+    change_24h: 1.2, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png",
+    name: "Binance Coin",
+    symbol: "BNB",
+    platform: { name: "BNB Chain", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png" }
+  },
+  XRP: { 
+    price: 0.58, 
+    change_24h: -0.5, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/52.png",
+    name: "XRP",
+    symbol: "XRP",
+    platform: { name: "XRP Ledger", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/52.png" }
+  },
+  ADA: { 
+    price: 0.45, 
+    change_24h: 0.3, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/2010.png",
+    name: "Cardano",
+    symbol: "ADA",
+    platform: { name: "Cardano", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/2010.png" }
+  },
+  DOGE: { 
+    price: 0.15, 
+    change_24h: -1.0, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/74.png",
+    name: "Dogecoin",
+    symbol: "DOGE",
+    platform: { name: "Dogecoin", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/74.png" }
+  },
+  DOT: { 
+    price: 6.80, 
+    change_24h: 1.8, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/6636.png",
+    name: "Polkadot",
+    symbol: "DOT",
+    platform: { name: "Polkadot", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/6636.png" }
+  },
+  LINK: { 
+    price: 14.50, 
+    change_24h: 2.7, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1975.png",
+    name: "Chainlink",
+    symbol: "LINK",
+    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
+  }
 };
 
 // Cache for storing the last successful API response
@@ -79,7 +165,8 @@ serve(async (req) => {
       );
     }
 
-    const symbols = ['BTC', 'ETH', 'USDT', 'SOL'];
+    const symbols = ['BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'LINK'];
+    const limit = 100; // Number of top cryptocurrencies to fetch
     
     try {
       console.log('Requesting data from CoinMarketCap API...');
@@ -87,8 +174,9 @@ serve(async (req) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
+      // Use the listings/latest endpoint to get more detailed data
       const response = await fetch(
-        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbols.join(',')}`, 
+        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=${limit}&convert=USD`, 
         {
           headers: {
             'X-CMC_PRO_API_KEY': apiKey,
@@ -108,22 +196,63 @@ serve(async (req) => {
         throw new Error(`API responded with status ${response.status}: ${errorText}`);
       }
 
-      const data = await response.json();
+      const listingsData = await response.json();
       
-      if (!data.data) {
-        console.error('Invalid API response format:', JSON.stringify(data));
+      if (!listingsData.data) {
+        console.error('Invalid API response format:', JSON.stringify(listingsData));
         throw new Error('Invalid API response format');
       }
       
-      const prices = {};
+      // Now fetch metadata with logos and platform info
+      const ids = listingsData.data.map((crypto: any) => crypto.id).join(',');
       
-      for (const symbol of symbols) {
-        if (data.data && data.data[symbol]) {
-          const crypto = data.data[symbol];
+      const metadataController = new AbortController();
+      const metadataTimeoutId = setTimeout(() => metadataController.abort(), 10000);
+      
+      const metadataResponse = await fetch(
+        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/info?id=${ids}`, 
+        {
+          headers: {
+            'X-CMC_PRO_API_KEY': apiKey,
+            'Accept': 'application/json',
+          },
+          signal: metadataController.signal
+        }
+      );
+      
+      clearTimeout(metadataTimeoutId);
+      
+      if (!metadataResponse.ok) {
+        const errorText = await metadataResponse.text();
+        console.error('CoinMarketCap Metadata API error:', errorText);
+        throw new Error(`Metadata API responded with status ${metadataResponse.status}: ${errorText}`);
+      }
+      
+      const metadataData = await metadataResponse.json();
+      
+      if (!metadataData.data) {
+        console.error('Invalid metadata API response format:', JSON.stringify(metadataData));
+        throw new Error('Invalid metadata API response format');
+      }
+      
+      const prices: Record<string, any> = {};
+      
+      for (const crypto of listingsData.data) {
+        const symbol = crypto.symbol;
+        const metadata = metadataData.data[crypto.id];
+        
+        if (metadata) {
           prices[symbol] = {
             price: crypto.quote.USD.price,
             change_24h: crypto.quote.USD.percent_change_24h,
             updated_at: new Date().toISOString(),
+            logo: metadata.logo,
+            name: metadata.name,
+            symbol: symbol,
+            platform: metadata.platform || { 
+              name: metadata.name, // Default to the token name if no platform
+              logo: metadata.logo
+            }
           };
         }
       }

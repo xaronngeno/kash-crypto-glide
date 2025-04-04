@@ -2,10 +2,19 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
+interface CryptoPlatform {
+  name: string;
+  logo: string;
+}
+
 interface CryptoPrice {
   price: number;
   change_24h: number;
   updated_at: string;
+  logo: string;
+  name: string;
+  symbol: string;
+  platform: CryptoPlatform;
 }
 
 interface CryptoPrices {
@@ -14,10 +23,42 @@ interface CryptoPrices {
 
 // Default prices to use when API is unavailable
 const fallbackPrices: CryptoPrices = {
-  BTC: { price: 64000, change_24h: 1.5, updated_at: new Date().toISOString() },
-  ETH: { price: 3200, change_24h: 0.8, updated_at: new Date().toISOString() },
-  USDT: { price: 1.00, change_24h: 0.01, updated_at: new Date().toISOString() },
-  SOL: { price: 120, change_24h: 2.3, updated_at: new Date().toISOString() },
+  BTC: { 
+    price: 64000, 
+    change_24h: 1.5, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1.png",
+    name: "Bitcoin",
+    symbol: "BTC",
+    platform: { name: "Bitcoin", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1.png" }
+  },
+  ETH: { 
+    price: 3200, 
+    change_24h: 0.8, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
+    name: "Ethereum",
+    symbol: "ETH",
+    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
+  },
+  USDT: { 
+    price: 1.00, 
+    change_24h: 0.01, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/825.png",
+    name: "Tether",
+    symbol: "USDT",
+    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
+  },
+  SOL: { 
+    price: 120, 
+    change_24h: 2.3, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png",
+    name: "Solana",
+    symbol: "SOL",
+    platform: { name: "Solana", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png" }
+  }
 };
 
 // Cache duration in milliseconds (5 minutes)
@@ -81,7 +122,7 @@ export function useCryptoPrices() {
       const data = await response.json();
       
       if (data && data.prices) {
-        console.log('Successfully fetched crypto prices:', data.prices);
+        console.log('Successfully fetched crypto prices:', Object.keys(data.prices).length, 'coins');
         setPrices(data.prices);
         cachedPricesRef.current = data.prices;
         lastFetchTimeRef.current = now;
@@ -160,7 +201,7 @@ export function useCryptoPrices() {
 
   // For debugging - log the current prices whenever they change
   useEffect(() => {
-    console.log('Current crypto prices in state:', prices);
+    console.log('Current crypto prices in state:', Object.keys(prices).length, 'coins');
   }, [prices]);
 
   return { 
