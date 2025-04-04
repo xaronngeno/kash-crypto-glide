@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, Repeat, CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -8,6 +7,7 @@ import { KashButton } from '@/components/ui/KashButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
+import { toast } from '@/hooks/use-toast';
 
 interface Asset {
   id: string;
@@ -29,7 +29,6 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { prices, loading: pricesLoading } = useCryptoPrices();
   
-  // Default assets mapping
   const defaultAssetsMap = {
     'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0, value: 0, change: 0, icon: '₿' },
     'ETH': { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 0, value: 0, change: 0, icon: 'Ξ' },
@@ -40,7 +39,6 @@ const Dashboard = () => {
     'MONAD': { id: '7', name: 'Monad', symbol: 'MONAD', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
   };
 
-  // Update assets when prices change
   useEffect(() => {
     if (prices && Object.keys(prices).length > 0) {
       setAssets(prevAssets => 
@@ -67,7 +65,6 @@ const Dashboard = () => {
       try {
         setLoading(true);
         
-        // Get the user's wallets from the database
         const { data: wallets, error: walletsError } = await supabase
           .from('wallets')
           .select('*')
@@ -77,38 +74,39 @@ const Dashboard = () => {
           throw walletsError;
         }
         
-        // Initialize with default assets
         const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
         
-        // If wallets found, update the amounts in our assets
         if (wallets && wallets.length > 0) {
-          // Create a map for quick lookups
           const walletsMap = wallets.reduce((map, wallet) => {
             if (!map[wallet.currency]) {
-              map[wallet.currency] = 0;
+              map[wallet.currency] = wallet.balance;
             }
-            map[wallet.currency] += wallet.balance;
             return map;
           }, {} as Record<string, number>);
           
-          // Update asset amounts from wallets
-          for (const asset of initialAssets) {
-            if (walletsMap[asset.symbol]) {
-              asset.amount = walletsMap[asset.symbol];
-              asset.value = asset.amount * asset.price;
-            }
-          }
+          const updatedAssets = initialAssets.map(asset => {
+            const walletBalance = walletsMap[asset.symbol] || 0;
+            return {
+              ...asset,
+              amount: walletBalance,
+              value: walletBalance * (prices?.[asset.symbol]?.price || 0)
+            };
+          });
           
-          console.log('Wallets loaded:', wallets.length, 'Updated assets:', initialAssets);
+          console.log('Wallets loaded:', wallets.length, 'Updated assets:', updatedAssets);
+          
+          setAssets(updatedAssets);
         } else {
           console.log('No wallets found, using default assets with zero amounts');
+          setAssets(initialAssets);
         }
-        
-        setAssets(initialAssets);
       } catch (err) {
         console.error('Error fetching wallets:', err);
-        setError('Failed to load wallet data');
-        // Still set default assets even if there's an error
+        toast({
+          title: 'Error',
+          description: 'Failed to load wallet data',
+          variant: 'destructive'
+        });
         setAssets(Object.values(defaultAssetsMap));
       } finally {
         setLoading(false);
@@ -116,7 +114,7 @@ const Dashboard = () => {
     };
 
     fetchUserAssets();
-  }, [user]);
+  }, [user, prices]);
 
   const totalBalance = assets.reduce((acc, asset) => acc + asset.value, 0);
 
@@ -133,7 +131,6 @@ const Dashboard = () => {
   return (
     <MainLayout title="Portfolio">
       <div className="space-y-6">
-        {/* Balance Section */}
         <div className="flex flex-col items-center justify-center pt-4">
           <div className="text-gray-500 text-sm mb-1">Total Balance</div>
           <div className="flex items-center">
@@ -193,7 +190,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Assets List */}
         <div>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Your Assets</h2>
@@ -243,7 +239,6 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Coming Soon Section */}
         <KashCard className="mt-6 bg-gradient-to-br from-kash-green/10 to-kash-green/5 border-none">
           <div className="text-center p-4">
             <h3 className="font-semibold text-lg mb-2">Coming Soon - Digital Credit Card</h3>
