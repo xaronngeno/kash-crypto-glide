@@ -20,7 +20,10 @@ serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
-      headers: corsHeaders,
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      },
       status: 204
     });
   }
@@ -30,32 +33,32 @@ serve(async (req) => {
     
     if (!apiKey) {
       console.error('Missing CoinMarketCap API key');
-      // If API key is missing, return fallback prices instead of an error
-      console.log('Using fallback prices due to missing API key');
       return new Response(
         JSON.stringify({ 
           prices: fallbackPrices,
-          source: 'fallback'
+          source: 'fallback',
+          error: 'Missing API key'
         }),
         { 
           status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
         }
       );
     }
 
-    // Define which cryptocurrencies we want to fetch
     const symbols = ['BTC', 'ETH', 'USDT', 'SOL'];
     
     try {
       console.log('Requesting data from CoinMarketCap API...');
       
-      // Use a timeout to prevent hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const response = await fetch(
-        'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=' + symbols.join(','), 
+        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbols.join(',')}`, 
         {
           headers: {
             'X-CMC_PRO_API_KEY': apiKey,
@@ -75,13 +78,11 @@ serve(async (req) => {
 
       const data = await response.json();
       
-      // Validate the response structure
       if (!data.data) {
         console.error('Invalid API response format:', JSON.stringify(data));
         throw new Error('Invalid API response format');
       }
       
-      // Transform the data to a more usable format for our frontend
       const prices = {};
       
       for (const symbol of symbols) {
@@ -95,7 +96,6 @@ serve(async (req) => {
         }
       }
 
-      // Check if we actually got any prices
       if (Object.keys(prices).length === 0) {
         console.error('No prices returned from API');
         throw new Error('No prices returned from API');
@@ -103,38 +103,37 @@ serve(async (req) => {
 
       console.log('Successfully fetched prices for', Object.keys(prices).join(', '));
       
-      // Return the successful response with prices
       return new Response(
         JSON.stringify({ prices, source: 'api' }),
         { 
           headers: { 
             ...corsHeaders, 
             'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=300' // Cache for 5 minutes
+            'Cache-Control': 'public, max-age=300'
           } 
         }
       );
     } catch (fetchError) {
       console.error('Error fetching from CoinMarketCap:', fetchError.message);
       
-      // Return fallback prices if API fetch fails
-      console.log('Using fallback prices due to API error');
       return new Response(
         JSON.stringify({ 
           prices: fallbackPrices,
-          source: 'fallback'
+          source: 'fallback',
+          error: fetchError.message
         }),
         { 
           status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
         }
       );
     }
   } catch (error) {
-    console.error('Error in crypto-prices function:', error.message);
+    console.error('Unexpected error in crypto-prices function:', error.message);
     
-    // Even in case of unexpected errors, return fallback prices
-    // This ensures the frontend always gets something usable
     return new Response(
       JSON.stringify({ 
         prices: fallbackPrices,
@@ -143,8 +142,14 @@ serve(async (req) => {
       }),
       { 
         status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
       }
     );
   }
 });
+
+// Dummy serve handler to prevent Deno.serve() error
+export default { serve };

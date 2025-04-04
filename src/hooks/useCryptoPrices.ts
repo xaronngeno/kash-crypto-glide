@@ -27,27 +27,34 @@ export function useCryptoPrices() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  // Define fetchPrices as a useCallback to avoid dependency issues
   const fetchPrices = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null); // Clear any previous errors
+      setError(null);
       
       console.log('Fetching crypto prices...');
       
-      // Try to fetch from the Edge Function
       try {
-        const { data, error: functionError } = await supabase.functions.invoke('crypto-prices');
+        const { data, error: functionError } = await supabase.functions.invoke('crypto-prices', {
+          body: JSON.stringify({ timestamp: new Date().toISOString() })
+        });
         
         if (functionError) {
           console.error('Edge function error:', functionError);
-          throw new Error(functionError.message);
+          throw new Error(functionError.message || 'Failed to invoke crypto prices function');
         }
         
         if (data && data.prices) {
           console.log('Successfully fetched crypto prices:', data.prices);
           setPrices(data.prices);
-          return;
+          
+          if (data.source === 'fallback') {
+            toast({
+              title: "Using cached prices",
+              description: data.error ? `Error: ${data.error}` : "Could not connect to price service.",
+              variant: "default"
+            });
+          }
         } else {
           console.warn('Edge function returned invalid data format');
           throw new Error('Invalid data format');
@@ -55,33 +62,27 @@ export function useCryptoPrices() {
       } catch (apiError) {
         console.error('Failed to fetch from crypto price service:', apiError);
         
-        // Only show the toast if we don't already have an error displayed
-        if (!error) {
-          toast({
-            title: "Using cached prices",
-            description: "Could not connect to price service. Using latest available prices.",
-            variant: "default"
-          });
-        }
+        toast({
+          title: "Using cached prices",
+          description: apiError instanceof Error ? apiError.message : "Could not connect to price service.",
+          variant: "default"
+        });
         
         // Continue using fallback prices
         throw apiError;
       }
     } catch (err) {
-      // Edge function failed or returned invalid data
-      // Use fallback prices and set error state
       console.log('Using fallback crypto prices');
+      setError(err instanceof Error ? err.message : 'Unable to fetch live prices');
       
-      // Only update prices if we don't already have prices
+      // Ensure we always have prices
       if (Object.keys(prices).length === 0) {
         setPrices(fallbackPrices);
       }
-      
-      setError('Unable to fetch live prices');
     } finally {
       setLoading(false);
     }
-  }, [error, toast, prices]);
+  }, [toast, prices]);
 
   useEffect(() => {
     // Fetch immediately on mount
