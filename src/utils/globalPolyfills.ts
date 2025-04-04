@@ -1,22 +1,35 @@
 
 // Import buffer module directly
-import { Buffer as BufferModule } from 'buffer';
+import { Buffer as BufferPolyfill } from 'buffer';
 
-// Ensure Buffer is properly defined with ALL required methods
 console.log('Setting up Buffer polyfill');
 
-// Make Buffer globally available
-globalThis.Buffer = BufferModule;
+// Make sure we're assigning the complete Buffer object with all methods
+const BufferClass = BufferPolyfill;
+
+// Verify that the required methods exist
+if (typeof BufferClass.alloc !== 'function') {
+  console.error('BufferPolyfill.alloc is not available!', BufferClass);
+  throw new Error('Buffer polyfill is incomplete - alloc method missing');
+}
+
+if (typeof BufferClass.from !== 'function') {
+  console.error('BufferPolyfill.from is not available!', BufferClass);
+  throw new Error('Buffer polyfill is incomplete - from method missing');
+}
+
+// Make Buffer globally available with all methods intact
+globalThis.Buffer = BufferClass;
 
 // Make Buffer available on window for compatibility
 if (typeof window !== 'undefined') {
   // @ts-ignore
-  window.Buffer = BufferModule;
+  window.Buffer = BufferClass;
 }
 
-console.log('Buffer polyfill loaded:', typeof BufferModule);
-console.log('Buffer.alloc available:', typeof BufferModule.alloc === 'function');
-console.log('Buffer.from available:', typeof BufferModule.from === 'function');
+console.log('Buffer polyfill loaded successfully:', typeof BufferClass);
+console.log('Buffer.alloc available:', typeof BufferClass.alloc === 'function');
+console.log('Buffer.from available:', typeof BufferClass.from === 'function');
 
 // Ensure global is defined
 if (typeof globalThis !== 'undefined') {
@@ -33,4 +46,6 @@ if (typeof process === 'undefined') {
   process.env = {};
 }
 
+// Export the Buffer class to be used elsewhere if needed
+export { BufferClass as Buffer };
 export default {};

@@ -2,9 +2,10 @@
 import { Keypair } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import { bitcoin, getBitcoin } from '@/utils/bitcoinjsWrapper';
+import { getBitcoin } from '@/utils/bitcoinjsWrapper';
 import { ECPairFactory } from '@/utils/ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
+import { Buffer } from './globalPolyfills';
 
 // Interface for wallet data
 export interface WalletData {
@@ -69,26 +70,43 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
   try {
     console.log('Initializing Bitcoin wallet generation');
     
-    // Make sure the Buffer is properly defined before proceeding
-    if (typeof globalThis.Buffer === 'undefined' || 
-        typeof globalThis.Buffer.alloc !== 'function' ||
-        typeof globalThis.Buffer.from !== 'function') {
-      console.error('Buffer is not properly defined');
-      throw new Error('Buffer polyfill is not properly loaded');
+    // Check if Buffer exists and has necessary methods before proceeding
+    if (typeof globalThis.Buffer === 'undefined') {
+      throw new Error('globalThis.Buffer is undefined');
     }
     
-    // Get the initialized bitcoin library
-    const bitcoinLib = getBitcoin();
-    console.log('Bitcoin library loaded:', !!bitcoinLib);
+    if (typeof globalThis.Buffer.alloc !== 'function') {
+      throw new Error('globalThis.Buffer.alloc is not a function');
+    }
     
-    // Initialize ECPair
+    if (typeof globalThis.Buffer.from !== 'function') {
+      throw new Error('globalThis.Buffer.from is not a function');
+    }
+    
+    // Test that Buffer actually works
+    try {
+      const testBuffer = globalThis.Buffer.alloc(1);
+      const testBuffer2 = globalThis.Buffer.from([1, 2, 3]);
+      console.log('Buffer test successful:', testBuffer, testBuffer2);
+    } catch (bufferError) {
+      console.error('Buffer test failed:', bufferError);
+      throw new Error('Buffer methods exist but fail when called');
+    }
+    
+    // Wait for Bitcoin lib to be available
+    console.log('Getting Bitcoin library');
+    const bitcoinLib = await getBitcoin();
+    console.log('Bitcoin library loaded successfully:', !!bitcoinLib);
+    
+    // Initialize ECPair with explicit Buffer checks
+    console.log('Initializing ECPair');
     let ECPair;
     try {
       ECPair = ECPairFactory(ecc);
       console.log('ECPair initialized successfully');
     } catch (ecpairError) {
       console.error('Failed to initialize ECPair:', ecpairError);
-      throw new Error('Could not initialize Bitcoin key generation');
+      throw new Error('Could not initialize Bitcoin key generation: ' + ecpairError);
     }
     
     console.log('Generating Bitcoin key pair');
@@ -97,7 +115,7 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
     
     // Ensure keyPair.publicKey exists before using it
     if (!keyPair.publicKey) {
-      throw new Error('Failed to generate Bitcoin key pair');
+      throw new Error('Failed to generate Bitcoin key pair: publicKey is missing');
     }
     
     let address: string | undefined;
