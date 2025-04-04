@@ -39,26 +39,6 @@ serve(async (req) => {
       }
     });
     
-    // Parse the request body
-    let body;
-    try {
-      body = await req.json();
-    } catch (error) {
-      console.error('Error parsing request body:', error);
-      return new Response(
-        JSON.stringify({ error: 'Invalid JSON body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const userId = body?.userId;
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing userId in request body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
     // Get the current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
@@ -70,6 +50,7 @@ serve(async (req) => {
       );
     }
     
+    const userId = user.id;
     console.log(`Creating wallets for user ${userId}`);
     
     // Check if user already has wallets
