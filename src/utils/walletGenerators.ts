@@ -56,6 +56,7 @@ export const generateEthWallet = (blockchain: string, platform: string): WalletD
 // Generate a Sui wallet
 export const generateSuiWallet = (): WalletData => {
   try {
+    // Use try/catch to handle any potential issues during Sui wallet creation
     const keypair = new Ed25519Keypair();
     return {
       blockchain: 'Sui',

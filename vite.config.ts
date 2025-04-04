@@ -20,10 +20,14 @@ export default defineConfig(({ mode }) => ({
     exclude: ['@mysten/sui.js', 'tiny-secp256k1', 'bitcoinjs-lib', 'ecpair'],
     esbuildOptions: {
       target: 'esnext', // Needed for WebAssembly support
-    }
+    },
+    include: ['bs58'] // Ensure bs58 is pre-bundled correctly
   },
   build: {
     target: 'esnext', // Needed for WebAssembly support
+    commonjsOptions: {
+      transformMixedEsModules: true, // Handle mixed ES modules and CommonJS
+    }
   },
   plugins: [
     // Ensure wasm and topLevelAwait plugins are ordered first
@@ -35,6 +39,9 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Add an alias for bs58 to ensure it's properly imported
+      'bs58': path.resolve(__dirname, 'node_modules/bs58')
     },
+    dedupe: ['bs58'] // Deduplicate bs58 to use a single instance
   },
 }));
