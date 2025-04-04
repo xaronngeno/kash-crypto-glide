@@ -15,6 +15,8 @@ const fallbackPrices = {
 };
 
 serve(async (req) => {
+  console.log("Crypto prices function called", new Date().toISOString());
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
@@ -46,6 +48,12 @@ serve(async (req) => {
     const symbols = ['BTC', 'ETH', 'USDT', 'SOL'];
     
     try {
+      console.log('Requesting data from CoinMarketCap API...');
+      
+      // Use a timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
       const response = await fetch(
         'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=' + symbols.join(','), 
         {
@@ -53,8 +61,11 @@ serve(async (req) => {
             'X-CMC_PRO_API_KEY': apiKey,
             'Accept': 'application/json',
           },
+          signal: controller.signal
         }
       );
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -63,6 +74,12 @@ serve(async (req) => {
       }
 
       const data = await response.json();
+      
+      // Validate the response structure
+      if (!data.data) {
+        console.error('Invalid API response format:', JSON.stringify(data));
+        throw new Error('Invalid API response format');
+      }
       
       // Transform the data to a more usable format for our frontend
       const prices = {};
@@ -76,6 +93,12 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           };
         }
+      }
+
+      // Check if we actually got any prices
+      if (Object.keys(prices).length === 0) {
+        console.error('No prices returned from API');
+        throw new Error('No prices returned from API');
       }
 
       console.log('Successfully fetched prices for', Object.keys(prices).join(', '));

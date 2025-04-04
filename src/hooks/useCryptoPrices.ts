@@ -31,54 +31,53 @@ export function useCryptoPrices() {
   const fetchPrices = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null); // Clear any previous errors
       
-      // Use mockData if in development or if the edge function is unavailable
-      // This ensures the app works even when the edge function is not accessible
-      const mockData = {
-        prices: fallbackPrices
-      };
+      console.log('Fetching crypto prices...');
       
+      // Try to fetch from the Edge Function
       try {
         const { data, error: functionError } = await supabase.functions.invoke('crypto-prices');
         
         if (functionError) {
+          console.error('Edge function error:', functionError);
           throw new Error(functionError.message);
         }
         
         if (data && data.prices) {
           console.log('Successfully fetched crypto prices:', data.prices);
           setPrices(data.prices);
-          setError(null); // Clear any previous errors
           return;
+        } else {
+          console.warn('Edge function returned invalid data format');
+          throw new Error('Invalid data format');
         }
       } catch (apiError) {
-        console.error('Failed to fetch from API, using mock data', apiError);
-        throw apiError; // Re-throw to use mock data
+        console.error('Failed to fetch from crypto price service:', apiError);
+        
+        // Only show the toast if we don't already have an error displayed
+        if (!error) {
+          toast({
+            title: "Using cached prices",
+            description: "Could not connect to price service. Using latest available prices.",
+            variant: "default"
+          });
+        }
+        
+        // Continue using fallback prices
+        throw apiError;
       }
-      
-      // If we reach here, either the function call failed or returned invalid data
-      // Use mock data as fallback
-      console.log('Using mock crypto price data');
-      setPrices(mockData.prices);
-      
-      if (!error) {
-        toast({
-          title: "Using cached prices",
-          description: "Could not connect to price service. Using latest available prices.",
-          variant: "default"
-        });
-      }
-      
     } catch (err) {
-      console.error('Error fetching crypto prices:', err);
+      // Edge function failed or returned invalid data
+      // Use fallback prices and set error state
+      console.log('Using fallback crypto prices');
       
-      // Use fallback prices when the API call fails
-      // Don't update the state if we already have prices
+      // Only update prices if we don't already have prices
       if (Object.keys(prices).length === 0) {
         setPrices(fallbackPrices);
       }
       
-      setError('Failed to fetch live prices');
+      setError('Unable to fetch live prices');
     } finally {
       setLoading(false);
     }
@@ -88,11 +87,16 @@ export function useCryptoPrices() {
     // Fetch immediately on mount
     fetchPrices();
     
-    // Set up polling every 5 minutes (CoinMarketCap has rate limits)
-    const intervalId = setInterval(fetchPrices, 5 * 60 * 1000);
+    // Set up polling every 2 minutes
+    const intervalId = setInterval(fetchPrices, 2 * 60 * 1000);
     
     return () => clearInterval(intervalId);
   }, [fetchPrices]);
 
-  return { prices, loading, error };
+  // For debugging - log the current prices whenever they change
+  useEffect(() => {
+    console.log('Current crypto prices:', prices);
+  }, [prices]);
+
+  return { prices, loading, error, refetch: fetchPrices };
 }
