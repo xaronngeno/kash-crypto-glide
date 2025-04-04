@@ -2,7 +2,7 @@
 import { Keypair } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import { bitcoin } from '@/utils/bitcoinjsWrapper';
+import { bitcoin, getBitcoin } from '@/utils/bitcoinjsWrapper';
 import { ECPairFactory } from '@/utils/ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 
@@ -71,21 +71,27 @@ export const generateSuiWallet = (): WalletData => {
 };
 
 // Generate Bitcoin wallets
-export const generateBitcoinWallet = (type: 'taproot' | 'segwit'): WalletData => {
+export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise<WalletData> => {
   try {
-    console.log('Bitcoin library available?', !!bitcoin);
-    console.log('ECPair available?', !!ECPair);
+    console.log('Initializing Bitcoin wallet generation');
     
-    if (!bitcoin || !ECPair) {
+    // Make sure the Buffer is properly defined before proceeding
+    if (typeof globalThis.Buffer === 'undefined' || 
+        typeof globalThis.Buffer.alloc !== 'function' ||
+        typeof globalThis.Buffer.from !== 'function') {
+      console.error('Buffer is not properly defined');
+      throw new Error('Buffer polyfill is not properly loaded');
+    }
+    
+    // Get the initialized bitcoin library
+    const bitcoinLib = await getBitcoin();
+    console.log('Bitcoin library loaded:', !!bitcoinLib);
+    
+    if (!bitcoinLib || !ECPair) {
       throw new Error('Bitcoin libraries not properly loaded');
     }
     
-    // Add defensive check for Buffer
-    if (typeof Buffer === 'undefined') {
-      console.error('Buffer is not defined');
-      throw new Error('Buffer is not available, required for Bitcoin wallet generation');
-    }
-    
+    console.log('Generating Bitcoin key pair');
     const keyPair = ECPair.makeRandom();
     console.log('Generated Bitcoin keyPair:', keyPair);
     
@@ -97,15 +103,17 @@ export const generateBitcoinWallet = (type: 'taproot' | 'segwit'): WalletData =>
     let address: string | undefined;
     
     if (type === 'taproot') {
-      const payment = bitcoin.payments.p2tr({ 
+      console.log('Creating Taproot payment');
+      const payment = bitcoinLib.payments.p2tr({ 
         internalPubkey: keyPair.publicKey.slice(1, 33),
-        network: bitcoinNetwork 
+        network: bitcoinLib.networks.bitcoin 
       });
       address = payment.address;
     } else {
-      const payment = bitcoin.payments.p2wpkh({ 
+      console.log('Creating SegWit payment');
+      const payment = bitcoinLib.payments.p2wpkh({ 
         pubkey: keyPair.publicKey, 
-        network: bitcoinNetwork 
+        network: bitcoinLib.networks.bitcoin 
       });
       address = payment.address;
     }
@@ -128,7 +136,7 @@ export const generateBitcoinWallet = (type: 'taproot' | 'segwit'): WalletData =>
 };
 
 // Generate all wallets for a user
-export const generateAllWallets = (): WalletData[] => {
+export const generateAllWallets = async (): Promise<WalletData[]> => {
   const wallets: WalletData[] = [];
   
   try {
@@ -150,11 +158,15 @@ export const generateAllWallets = (): WalletData[] => {
     
     try {
       // Try to generate Bitcoin wallets, but don't fail the entire function if they fail
-      const taprootWallet = generateBitcoinWallet('taproot');
+      console.log('Attempting to generate Bitcoin wallets');
+      
+      const taprootWallet = await generateBitcoinWallet('taproot');
       wallets.push(taprootWallet);
       
-      const segwitWallet = generateBitcoinWallet('segwit');
+      const segwitWallet = await generateBitcoinWallet('segwit');
       wallets.push(segwitWallet);
+      
+      console.log('Successfully generated Bitcoin wallets');
     } catch (bitcoinError) {
       console.error('Failed to generate Bitcoin wallets:', bitcoinError);
       // Continue without Bitcoin wallets
