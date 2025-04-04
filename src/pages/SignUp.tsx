@@ -6,6 +6,7 @@ import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { generateAllWallets } from '@/utils/walletGenerators';
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -71,24 +72,44 @@ const SignUp = () => {
           description: "Your account has been successfully created.",
         });
         
-        // Create a default wallet for new user
+        // Create wallets for the new user
         if (data.user) {
           try {
-            // Generate a mock wallet address
-            const walletAddress = `0x${Array(40).fill(0).map(() => 
-              Math.floor(Math.random() * 16).toString(16)).join('')}`;
+            const wallets = generateAllWallets();
+            console.log("Generated wallets:", wallets.length);
             
-            await supabase.from('wallets').insert([
-              {
-                user_id: data.user.id,
-                currency: 'BTC',
-                address: walletAddress,
-                blockchain: 'Bitcoin',
-                balance: 0
-              }
-            ]);
+            // Prepare wallet data for database storage
+            const walletInserts = wallets.map(wallet => ({
+              user_id: data.user!.id,
+              blockchain: wallet.blockchain,
+              currency: wallet.blockchain, // Use blockchain as currency for now
+              address: wallet.address,
+              balance: 0,
+              wallet_type: wallet.walletType || 'Default'
+            }));
+            
+            // Insert wallets into database
+            const { error: walletsError } = await supabase
+              .from('wallets')
+              .insert(walletInserts);
+              
+            if (walletsError) {
+              console.error("Error creating wallets:", walletsError);
+              toast({
+                title: "Wallet creation issue",
+                description: "There was an issue creating some of your wallets. Please contact support.",
+                variant: "destructive"
+              });
+            } else {
+              console.log("Successfully created wallets for user");
+            }
           } catch (walletError) {
-            console.error("Error creating wallet:", walletError);
+            console.error("Error generating wallets:", walletError);
+            toast({
+              title: "Wallet creation failed",
+              description: "Failed to create your cryptocurrency wallets. Please contact support.",
+              variant: "destructive"
+            });
           }
         }
         
