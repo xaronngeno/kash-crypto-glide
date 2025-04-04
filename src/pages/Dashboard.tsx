@@ -29,7 +29,7 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [walletsCreated, setWalletsCreated] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { prices, loading: pricesLoading } = useCryptoPrices();
   
   const defaultAssetsMap = {
@@ -50,7 +50,7 @@ const Dashboard = () => {
 
   // Create wallets for user if they don't exist
   const createWalletsForUser = async () => {
-    if (!user || creatingWallets) return;
+    if (!user || !session || creatingWallets) return;
     
     try {
       setCreatingWallets(true);
@@ -75,28 +75,33 @@ const Dashboard = () => {
       
       console.log("Creating wallets for user");
 
-      // Get a fresh session
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData?.session?.access_token) {
-        throw new Error('Failed to get authentication session: ' + (sessionError?.message || 'No access token'));
+      // Ensure we have a valid session token
+      if (!session?.access_token) {
+        throw new Error('No valid session token available');
       }
       
       // Call the edge function to create wallets with explicit content type
       const response = await fetch("https://hfdaowgithffhelybfve.supabase.co/functions/v1/create-wallets", {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${sessionData.session.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
           'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmZGFvd2dpdGhmZmhlbHliZnZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM2OTEzODYsImV4cCI6MjA1OTI2NzM4Nn0.3bxf_yiII1_GBwKUK8qAW5P-Uot9ony993hYkqBfGEw"
         }
       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Function returned status ${response.status}: ${errorText}`);
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse response:", responseText);
+        throw new Error(`Invalid response from server: ${responseText}`);
       }
       
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`Function returned status ${response.status}: ${JSON.stringify(data)}`);
+      }
       
       console.log("Wallets created successfully:", data);
       setWalletsCreated(true);
