@@ -57,8 +57,9 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('COINMARKETCAP_API_KEY');
-    console.log("Attempting to retrieve API key:", !!apiKey);
+    // Use the API key the user provided if the environment variable isn't set
+    const apiKey = Deno.env.get('COINMARKETCAP_API_KEY') || '891bdf88-f6a6-4045-89bc-d762256487f3';
+    console.log("Attempting to use API key:", apiKey ? "API key available" : "No API key");
     
     if (!apiKey) {
       console.error('Missing CoinMarketCap API key');
@@ -148,6 +149,7 @@ serve(async (req) => {
     } catch (fetchError) {
       console.error('Error fetching from CoinMarketCap:', fetchError.message);
       
+      // Always return a valid response even if the API fails
       return new Response(
         JSON.stringify({ 
           prices: fallbackPrices,

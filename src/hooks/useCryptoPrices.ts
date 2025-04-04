@@ -143,15 +143,20 @@ export function useCryptoPrices() {
     }
   }, [toast]);
 
+  // Use a stable reference for the fetchPrices function in useEffect
+  const stableFetchPrices = useCallback(() => {
+    fetchPrices();
+  }, [fetchPrices]);
+
   useEffect(() => {
     // Fetch immediately on mount
-    fetchPrices();
+    stableFetchPrices();
     
     // Set up polling every 5 minutes to reduce the likelihood of hitting rate limits
-    const intervalId = setInterval(() => fetchPrices(), 5 * 60 * 1000);
+    const intervalId = setInterval(stableFetchPrices, 5 * 60 * 1000);
     
     return () => clearInterval(intervalId);
-  }, [fetchPrices]);
+  }, [stableFetchPrices]);
 
   // For debugging - log the current prices whenever they change
   useEffect(() => {
