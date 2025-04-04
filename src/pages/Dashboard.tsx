@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, Repeat, CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -47,7 +46,6 @@ const Dashboard = () => {
     'LINK': { id: '13', name: 'Chainlink', symbol: 'LINK', price: 0, amount: 0, value: 0, change: 0, icon: 'L' }
   };
 
-  // Create wallets for user if they don't exist
   const createWalletsForUser = async () => {
     if (!user || !session?.access_token || creatingWallets) return;
     
@@ -55,8 +53,7 @@ const Dashboard = () => {
       setCreatingWallets(true);
       console.log("Creating wallets for user");
       
-      // Call the edge function to create wallets with explicit content type and Bearer token
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-wallets`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-wallets`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -90,7 +87,6 @@ const Dashboard = () => {
     }
   };
 
-  // Update asset prices when price data changes
   useEffect(() => {
     if (prices && Object.keys(prices).length > 0) {
       setAssets(prevAssets => 
@@ -110,7 +106,6 @@ const Dashboard = () => {
     }
   }, [prices]);
 
-  // Fetch user wallets and create them if not exist
   useEffect(() => {
     const fetchUserAssets = async () => {
       if (!user || !session?.access_token) return;
@@ -118,7 +113,6 @@ const Dashboard = () => {
       try {
         setLoading(true);
         
-        // Get all wallets for the current user
         const { data: wallets, error: walletsError } = await supabase
           .from('wallets')
           .select('*')
@@ -130,12 +124,10 @@ const Dashboard = () => {
         
         console.log("Fetched wallets:", wallets);
         
-        // If wallets don't exist, create them
         if (!wallets || wallets.length === 0) {
           if (!walletsCreated && !creatingWallets) {
             await createWalletsForUser();
             
-            // After creation, fetch the wallets again
             const { data: newWallets, error: newWalletsError } = await supabase
               .from('wallets')
               .select('*')
@@ -151,12 +143,10 @@ const Dashboard = () => {
             }
           }
         } else {
-          // Process existing wallets
           processWallets(wallets);
           return;
         }
         
-        // If we reach here, initialize with default assets
         console.log('No wallets found, using default assets with zero amounts');
         setAssets(Object.values(defaultAssetsMap));
         
@@ -173,18 +163,13 @@ const Dashboard = () => {
       }
     };
 
-    // Process wallet data to create asset objects
     const processWallets = (wallets: any[]) => {
-      // Clone the default assets structure
       const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
       
-      // Create a map to sum up balances for each currency
       const currencyBalances: Record<string, number> = {};
 
-      // Process each wallet and aggregate balances by currency
       wallets.forEach(wallet => {
         const currency = wallet.currency;
-        // Ensure we're working with numbers and handle null/undefined values
         const walletBalance = typeof wallet.balance === 'number' 
           ? wallet.balance 
           : parseFloat(String(wallet.balance)) || 0;
@@ -199,7 +184,6 @@ const Dashboard = () => {
       
       console.log("Aggregated currency balances:", currencyBalances);
       
-      // Update assets with the aggregated balances
       const updatedAssets = initialAssets.map(asset => {
         const balance = currencyBalances[asset.symbol] || 0;
         const assetPrice = prices?.[asset.symbol]?.price || asset.price;
@@ -219,18 +203,15 @@ const Dashboard = () => {
     fetchUserAssets();
   }, [user, prices, session, walletsCreated, creatingWallets]);
 
-  // Just for debugging - log the complete asset state whenever it changes
   useEffect(() => {
     console.log('Current assets state:', assets);
   }, [assets]);
 
   const totalBalance = assets.reduce((acc, asset) => {
-    // Ensure we're dealing with numbers
     const value = typeof asset.value === 'number' ? asset.value : 0;
     return acc + value;
   }, 0);
 
-  // Always display all assets, even those with zero balance
   const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
 
   if (loading || pricesLoading) {
@@ -317,7 +298,6 @@ const Dashboard = () => {
           </div>
           
           <div className="space-y-3">
-            {/* Display all assets, sorted by value */}
             {sortedAssets.map((asset) => (
               <KashCard key={asset.id} className="hover:bg-kash-lightGray cursor-pointer transition-colors">
                 <div className="flex items-center justify-between">
