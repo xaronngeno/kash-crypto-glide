@@ -9,7 +9,10 @@ const corsHeaders = {
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: corsHeaders,
+      status: 204
+    });
   }
 
   try {
@@ -18,8 +21,14 @@ serve(async (req) => {
     if (!apiKey) {
       console.error('Missing CoinMarketCap API key');
       return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Server configuration error', 
+          message: 'API key not configured' 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
       );
     }
 
@@ -39,9 +48,18 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('CoinMarketCap API error:', errorText);
+      
+      // Return a more detailed error response
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch crypto prices' }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Failed to fetch crypto prices', 
+          status: response.status,
+          details: errorText 
+        }),
+        { 
+          status: response.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
       );
     }
 
@@ -63,15 +81,30 @@ serve(async (req) => {
 
     console.log('Successfully fetched prices for', Object.keys(prices).join(', '));
     
+    // Return the successful response with prices
     return new Response(
       JSON.stringify({ prices }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=300' // Cache for 5 minutes
+        } 
+      }
     );
   } catch (error) {
     console.error('Error in crypto-prices function:', error.message);
+    
+    // Return a detailed error response
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        error: 'Internal server error', 
+        message: error.message 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   }
 });
