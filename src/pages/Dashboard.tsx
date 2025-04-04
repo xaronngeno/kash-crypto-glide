@@ -40,6 +40,12 @@ const Dashboard = () => {
     'MATIC': { id: '5', name: 'Polygon', symbol: 'MATIC', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
     'SUI': { id: '6', name: 'Sui', symbol: 'SUI', price: 0, amount: 0, value: 0, change: 0, icon: 'S' },
     'MONAD': { id: '7', name: 'Monad', symbol: 'MONAD', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
+    'BNB': { id: '8', name: 'Binance Coin', symbol: 'BNB', price: 0, amount: 0, value: 0, change: 0, icon: 'B' },
+    'XRP': { id: '9', name: 'XRP', symbol: 'XRP', price: 0, amount: 0, value: 0, change: 0, icon: 'X' },
+    'ADA': { id: '10', name: 'Cardano', symbol: 'ADA', price: 0, amount: 0, value: 0, change: 0, icon: 'A' },
+    'DOGE': { id: '11', name: 'Dogecoin', symbol: 'DOGE', price: 0, amount: 0, value: 0, change: 0, icon: 'D' },
+    'DOT': { id: '12', name: 'Polkadot', symbol: 'DOT', price: 0, amount: 0, value: 0, change: 0, icon: 'P' },
+    'LINK': { id: '13', name: 'Chainlink', symbol: 'LINK', price: 0, amount: 0, value: 0, change: 0, icon: 'L' }
   };
 
   // Create wallets for user if they don't exist
@@ -69,14 +75,14 @@ const Dashboard = () => {
       
       console.log("Creating wallets for user");
       // Call the edge function to create wallets with explicit content type
-      const response = await fetch(`${supabase.functions.url}/create-wallets`, {
+      const response = await fetch("https://hfdaowgithffhelybfve.supabase.co/functions/v1/create-wallets", {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
           'Content-Type': 'application/json',
-          'apikey': supabase.supabaseKey
+          'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmZGFvd2dpdGhmZmhlbHliZnZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM2OTEzODYsImV4cCI6MjA1OTI2NzM4Nn0.3bxf_yiII1_GBwKUK8qAW5P-Uot9ony993hYkqBfGEw"
         },
-        body: JSON.stringify({ userId: user.id }) // Send empty JSON object to prevent parsing issues
+        body: JSON.stringify({ userId: user.id })
       });
       
       if (!response.ok) {
@@ -159,7 +165,7 @@ const Dashboard = () => {
           wallets.forEach(wallet => {
             const currency = wallet.currency;
             // Ensure we're working with numbers and handle null/undefined values
-            const walletBalance = parseFloat(wallet.balance) || 0;
+            const walletBalance = parseFloat(String(wallet.balance)) || 0;
             
             if (!isNaN(walletBalance)) {
               if (!currencyBalances[currency]) {
