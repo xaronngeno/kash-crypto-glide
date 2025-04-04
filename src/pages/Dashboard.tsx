@@ -81,33 +81,40 @@ const Dashboard = () => {
         // Clone the default assets structure
         const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
         
+        // Create a map to sum up balances for each currency
+        const currencyBalances: Record<string, number> = {};
+
         if (wallets && wallets.length > 0) {
-          // Create a map of currency -> balance
-          const walletsMap = wallets.reduce((map, wallet) => {
+          // Process each wallet and aggregate balances by currency
+          wallets.forEach(wallet => {
             const currency = wallet.currency;
-            if (!map[currency]) {
-              map[currency] = 0;
+            // Ensure we're working with numbers
+            const walletBalance = Number(wallet.balance);
+            
+            if (!isNaN(walletBalance)) {
+              if (!currencyBalances[currency]) {
+                currencyBalances[currency] = 0;
+              }
+              currencyBalances[currency] += walletBalance;
             }
-            map[currency] += Number(wallet.balance);
-            return map;
-          }, {} as Record<string, number>);
+          });
           
-          console.log("Wallet balances map:", walletsMap);
+          console.log("Aggregated currency balances:", currencyBalances);
           
-          // Update our assets with the wallet balances
+          // Update assets with the aggregated balances
           const updatedAssets = initialAssets.map(asset => {
-            const walletBalance = walletsMap[asset.symbol] || 0;
+            const balance = currencyBalances[asset.symbol] || 0;
             const assetPrice = prices?.[asset.symbol]?.price || 0;
             
             return {
               ...asset,
-              amount: walletBalance,
+              amount: balance,
               price: assetPrice,
-              value: walletBalance * assetPrice
+              value: balance * assetPrice
             };
           });
           
-          console.log('Updated assets with wallets:', updatedAssets);
+          console.log('Updated assets with aggregated balances:', updatedAssets);
           
           setAssets(updatedAssets);
         } else {
@@ -130,7 +137,15 @@ const Dashboard = () => {
     fetchUserAssets();
   }, [user, prices]);
 
+  // Just for debugging - log the complete asset state whenever it changes
+  useEffect(() => {
+    console.log('Current assets state:', assets);
+  }, [assets]);
+
   const totalBalance = assets.reduce((acc, asset) => acc + asset.value, 0);
+
+  // Always display all assets, even those with zero balance
+  const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
 
   if (loading || pricesLoading) {
     return (
@@ -216,8 +231,8 @@ const Dashboard = () => {
           </div>
           
           <div className="space-y-3">
-            {/* Always display all assets for development purposes */}
-            {assets.map((asset) => (
+            {/* Display all assets, sorted by value */}
+            {sortedAssets.map((asset) => (
               <KashCard key={asset.id} className="hover:bg-kash-lightGray cursor-pointer transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
@@ -226,7 +241,12 @@ const Dashboard = () => {
                     </div>
                     <div className="ml-3">
                       <h3 className="font-medium">{asset.name}</h3>
-                      <p className="text-sm text-gray-500">{asset.amount.toFixed(asset.symbol === 'BTC' ? 8 : 6)} {asset.symbol}</p>
+                      <p className="text-sm text-gray-500">
+                        {asset.amount.toLocaleString('en-US', { 
+                          maximumFractionDigits: asset.symbol === 'BTC' ? 8 : 6,
+                          minimumFractionDigits: 0
+                        })} {asset.symbol}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
