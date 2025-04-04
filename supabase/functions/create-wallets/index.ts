@@ -32,11 +32,32 @@ serve(async (req) => {
     // Create a Supabase client with the auth header
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: {
         headers: { Authorization: authHeader }
       }
     });
+    
+    // Parse the request body
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = body?.userId;
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: 'Missing userId in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     // Get the current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -49,7 +70,6 @@ serve(async (req) => {
       );
     }
     
-    const userId = user.id;
     console.log(`Creating wallets for user ${userId}`);
     
     // Check if user already has wallets
@@ -122,6 +142,42 @@ serve(async (req) => {
         platform: 'Monad Testnet',
         address: `0xMonad${userId.substring(0, 8)}`,
         currency: 'MONAD'
+      },
+      {
+        blockchain: 'Binance Smart Chain',
+        platform: 'BSC',
+        address: `0xBnb${userId.substring(0, 8)}`,
+        currency: 'BNB'
+      },
+      {
+        blockchain: 'XRP Ledger',
+        platform: 'XRPL',
+        address: `xrp-${userId.substring(0, 8)}`,
+        currency: 'XRP'
+      },
+      {
+        blockchain: 'Cardano',
+        platform: 'Cardano',
+        address: `ada-${userId.substring(0, 8)}`,
+        currency: 'ADA'
+      },
+      {
+        blockchain: 'Dogecoin',
+        platform: 'Dogecoin',
+        address: `doge-${userId.substring(0, 8)}`,
+        currency: 'DOGE'
+      },
+      {
+        blockchain: 'Polkadot',
+        platform: 'Polkadot',
+        address: `dot-${userId.substring(0, 8)}`,
+        currency: 'DOT'
+      },
+      {
+        blockchain: 'Ethereum',
+        platform: 'Chainlink',
+        address: `0xLink${userId.substring(0, 8)}`,
+        currency: 'LINK'
       }
     ];
     
