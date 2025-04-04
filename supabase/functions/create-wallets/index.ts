@@ -52,7 +52,7 @@ serve(async (req) => {
       console.error('Error getting user:', userError);
       return new Response(
         JSON.stringify({ error: 'Error getting user', details: userError }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
