@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
     esbuildOptions: {
       target: 'esnext', // Needed for WebAssembly support
     },
-    include: ['bs58'] // Ensure bs58 is pre-bundled correctly
+    include: ['bs58', 'tweetnacl'] // Ensure bs58 and tweetnacl are pre-bundled correctly
   },
   build: {
     target: 'esnext', // Needed for WebAssembly support
@@ -40,8 +40,10 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       // Add an alias for bs58 to ensure it's properly imported
-      'bs58': path.resolve(__dirname, 'node_modules/bs58')
+      'bs58': path.resolve(__dirname, 'node_modules/bs58'),
+      // Add an alias for tweetnacl
+      'tweetnacl': path.resolve(__dirname, 'node_modules/tweetnacl')
     },
-    dedupe: ['bs58'] // Deduplicate bs58 to use a single instance
+    dedupe: ['bs58', 'tweetnacl'] // Deduplicate bs58 and tweetnacl to use a single instance
   },
 }));
