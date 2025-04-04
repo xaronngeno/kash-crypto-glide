@@ -42,7 +42,9 @@ export default defineConfig(({ mode }) => ({
       // Add an alias for bs58 to ensure it's properly imported
       'bs58': path.resolve(__dirname, 'node_modules/bs58'),
       // Add an alias for tweetnacl
-      'tweetnacl': path.resolve(__dirname, 'node_modules/tweetnacl')
+      'tweetnacl': path.resolve(__dirname, 'node_modules/tweetnacl'),
+      // Add an alias for ecpair
+      'ecpair': path.resolve(__dirname, 'node_modules/ecpair')
     },
     dedupe: ['bs58', 'tweetnacl'] // Deduplicate bs58 and tweetnacl to use a single instance
   },

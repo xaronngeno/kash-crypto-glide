@@ -3,7 +3,7 @@ import { Keypair } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import * as bitcoin from 'bitcoinjs-lib';
-import { ECPairFactory } from 'ecpair';
+import { ECPairFactory } from '@/utils/ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 
 // Interface for wallet data
