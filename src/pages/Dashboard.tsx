@@ -7,6 +7,7 @@ import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
+import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 
 interface Asset {
   id: string;
@@ -26,14 +27,35 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { prices, loading: pricesLoading } = useCryptoPrices();
   
-  // Default empty assets with zero balance
+  // Default assets with initial price and zero balance
   const defaultAssets = [
-    { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 67345.21, amount: 0, value: 0, change: 3.2, icon: '₿' },
-    { id: '2', name: 'Ethereum', symbol: 'ETH', price: 3219.45, amount: 0, value: 0, change: -1.7, icon: 'Ξ' },
-    { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 0, value: 0, change: 0.01, icon: '₮' },
-    { id: '4', name: 'Solana', symbol: 'SOL', price: 153.27, amount: 0, value: 0, change: 12.4, icon: 'Ѕ' },
+    { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0, value: 0, change: 0, icon: '₿' },
+    { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 0, value: 0, change: 0, icon: 'Ξ' },
+    { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 0, value: 0, change: 0, icon: '₮' },
+    { id: '4', name: 'Solana', symbol: 'SOL', price: 0, amount: 0, value: 0, change: 0, icon: 'Ѕ' },
   ];
+
+  // Update assets when prices change
+  useEffect(() => {
+    if (prices && Object.keys(prices).length > 0) {
+      setAssets(prevAssets => 
+        prevAssets.map(asset => {
+          const priceData = prices[asset.symbol];
+          if (priceData) {
+            return {
+              ...asset,
+              price: priceData.price,
+              change: priceData.change_24h,
+              value: asset.amount * priceData.price
+            };
+          }
+          return asset;
+        })
+      );
+    }
+  }, [prices]);
 
   useEffect(() => {
     const fetchUserAssets = async () => {
@@ -67,6 +89,7 @@ const Dashboard = () => {
             return {
               ...defaultAsset,
               amount: wallet.balance,
+              // We'll update price and value when we get real-time data
               value: wallet.balance * defaultAsset.price
             };
           }
@@ -89,7 +112,7 @@ const Dashboard = () => {
 
   const totalBalance = assets.reduce((acc, asset) => acc + asset.value, 0);
 
-  if (loading) {
+  if (loading || pricesLoading) {
     return (
       <MainLayout title="Portfolio">
         <div className="flex justify-center items-center h-64">
@@ -193,7 +216,7 @@ const Dashboard = () => {
                       {(currency === 'USD' ? asset.value : asset.value * 129).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                     </p>
                     <p className={`text-sm ${asset.change >= 0 ? 'text-kash-green' : 'text-kash-error'}`}>
-                      {asset.change >= 0 ? '+' : ''}{asset.change}%
+                      {asset.change >= 0 ? '+' : ''}{asset.change.toFixed(2)}%
                     </p>
                   </div>
                 </div>

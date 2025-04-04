@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
@@ -5,6 +6,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
+import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import {
   Wallet,
   ArrowRightLeft,
@@ -19,19 +21,22 @@ interface CryptoAsset {
   price: number;
 }
 
-const assets: CryptoAsset[] = [
-  { symbol: 'USDT', name: 'Tether', logo: '/usdt-logo.png', price: 1.00 },
-  { symbol: 'BTC', name: 'Bitcoin', logo: '/btc-logo.png', price: 60000 },
-  { symbol: 'ETH', name: 'Ethereum', logo: '/eth-logo.png', price: 3000 },
-];
-
 const SwapCrypto = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { prices, loading: pricesLoading } = useCryptoPrices();
 
-  const [fromToken, setFromToken] = useState<CryptoAsset | null>(assets[0]);
-  const [toToken, setToToken] = useState<CryptoAsset | null>(assets[1]);
+  // Initialize assets with default values
+  const [assets, setAssets] = useState<CryptoAsset[]>([
+    { symbol: 'USDT', name: 'Tether', logo: '/usdt-logo.png', price: 1.00 },
+    { symbol: 'BTC', name: 'Bitcoin', logo: '/btc-logo.png', price: 60000 },
+    { symbol: 'ETH', name: 'Ethereum', logo: '/eth-logo.png', price: 3000 },
+    { symbol: 'SOL', name: 'Solana', logo: '/sol-logo.png', price: 150 },
+  ]);
+
+  const [fromToken, setFromToken] = useState<CryptoAsset | null>(null);
+  const [toToken, setToToken] = useState<CryptoAsset | null>(null);
   const [fromAmount, setFromAmount] = useState('');
   const [swapping, setSwapping] = useState(false);
   const [swapComplete, setSwapComplete] = useState(false);
@@ -39,8 +44,35 @@ const SwapCrypto = () => {
     USDT: 1000,
     BTC: 0.01,
     ETH: 0.1,
+    SOL: 1,
   });
   const [transactions, setTransactions] = useState<any[]>([]);
+
+  // Update assets with real-time prices
+  useEffect(() => {
+    if (prices && Object.keys(prices).length > 0) {
+      setAssets(prevAssets => 
+        prevAssets.map(asset => {
+          const priceData = prices[asset.symbol];
+          if (priceData) {
+            return {
+              ...asset,
+              price: priceData.price,
+            };
+          }
+          return asset;
+        })
+      );
+    }
+  }, [prices]);
+
+  // Set default tokens when assets are loaded
+  useEffect(() => {
+    if (assets.length > 0 && !fromToken && !toToken) {
+      setFromToken(assets[0]);
+      setToToken(assets[1]);
+    }
+  }, [assets, fromToken, toToken]);
 
   const getExchangeRate = (from: string, to: string): number => {
     const fromAsset = assets.find((asset) => asset.symbol === from);
@@ -115,6 +147,18 @@ const SwapCrypto = () => {
     }
   };
 
+  if (pricesLoading) {
+    return (
+      <MainLayout title="Swap Crypto" showBack>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-pulse text-center">
+            <p className="text-gray-500">Loading current prices...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout title="Swap Crypto" showBack>
       <div className="space-y-6">
@@ -143,7 +187,7 @@ const SwapCrypto = () => {
                 >
                   {assets.map((asset) => (
                     <option key={asset.symbol} value={asset.symbol}>
-                      {asset.name} ({asset.symbol})
+                      {asset.name} ({asset.symbol}) - ${asset.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
                     </option>
                   ))}
                 </select>
@@ -197,7 +241,7 @@ const SwapCrypto = () => {
                 >
                   {assets.map((asset) => (
                     <option key={asset.symbol} value={asset.symbol}>
-                      {asset.name} ({asset.symbol})
+                      {asset.name} ({asset.symbol}) - ${asset.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
                     </option>
                   ))}
                 </select>
@@ -213,7 +257,7 @@ const SwapCrypto = () => {
                   <span className="text-xl font-semibold">{calculateToAmount()} {toToken?.symbol}</span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  Exchange Rate: 1 {fromToken?.symbol} = {getExchangeRate(fromToken?.symbol || 'USDT', toToken?.symbol || 'BTC')} {toToken?.symbol}
+                  Exchange Rate: 1 {fromToken?.symbol} = {getExchangeRate(fromToken?.symbol || 'USDT', toToken?.symbol || 'BTC').toFixed(6)} {toToken?.symbol}
                 </div>
               </div>
             </div>
