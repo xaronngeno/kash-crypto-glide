@@ -18,6 +18,7 @@ import History from "./pages/History";
 import Settings from "./pages/Settings";
 import TransactionConfirmation from "./pages/TransactionConfirmation";
 import SwapCrypto from "./pages/SwapCrypto";
+import SearchCrypto from "./pages/SearchCrypto";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,11 @@ const App = () => (
             <Route path="/swap" element={
               <ProtectedRoute>
                 <SwapCrypto />
+              </ProtectedRoute>
+            } />
+            <Route path="/search" element={
+              <ProtectedRoute>
+                <SearchCrypto />
               </ProtectedRoute>
             } />
             <Route path="/history" element={

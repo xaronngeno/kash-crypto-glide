@@ -6,29 +6,34 @@ import { Search } from 'lucide-react';
 import { KashCard } from '@/components/ui/KashCard';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 
-// Mock token data - would come from an API in a real app
+// Token data with popularity ranking (market cap order)
 const TOKENS = [
-  { id: 'btc', name: 'Bitcoin', symbol: 'BTC', icon: '₿', decimals: 8 },
-  { id: 'eth', name: 'Ethereum', symbol: 'ETH', icon: 'Ξ', decimals: 18 },
-  { id: 'usdt', name: 'Tether', symbol: 'USDT', icon: '₮', decimals: 6 },
-  { id: 'sol', name: 'Solana', symbol: 'SOL', icon: 'S', decimals: 9 },
-  { id: 'bnb', name: 'Binance Coin', symbol: 'BNB', icon: 'B', decimals: 18 },
-  { id: 'ada', name: 'Cardano', symbol: 'ADA', icon: 'A', decimals: 6 },
-  { id: 'xrp', name: 'XRP', symbol: 'XRP', icon: 'X', decimals: 6 },
-  { id: 'doge', name: 'Dogecoin', symbol: 'DOGE', icon: 'D', decimals: 8 },
-  { id: 'dot', name: 'Polkadot', symbol: 'DOT', icon: 'P', decimals: 10 },
-  { id: 'link', name: 'Chainlink', symbol: 'LINK', icon: 'L', decimals: 18 },
+  { id: 'btc', name: 'Bitcoin', symbol: 'BTC', icon: '₿', decimals: 8, popularity: 1 },
+  { id: 'eth', name: 'Ethereum', symbol: 'ETH', icon: 'Ξ', decimals: 18, popularity: 2 },
+  { id: 'usdt', name: 'Tether', symbol: 'USDT', icon: '₮', decimals: 6, popularity: 3 },
+  { id: 'sol', name: 'Solana', symbol: 'SOL', icon: 'S', decimals: 9, popularity: 4 },
+  { id: 'bnb', name: 'Binance Coin', symbol: 'BNB', icon: 'B', decimals: 18, popularity: 5 },
+  { id: 'xrp', name: 'XRP', symbol: 'XRP', icon: 'X', decimals: 6, popularity: 6 },
+  { id: 'ada', name: 'Cardano', symbol: 'ADA', icon: 'A', decimals: 6, popularity: 7 },
+  { id: 'doge', name: 'Dogecoin', symbol: 'DOGE', icon: 'D', decimals: 8, popularity: 8 },
+  { id: 'dot', name: 'Polkadot', symbol: 'DOT', icon: 'P', decimals: 10, popularity: 9 },
+  { id: 'link', name: 'Chainlink', symbol: 'LINK', icon: 'L', decimals: 18, popularity: 10 },
 ];
 
 const SearchCrypto = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+  const { prices } = useCryptoPrices();
 
+  // Filter tokens by search query
   const filteredTokens = TOKENS.filter(token => 
     token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  )
+  // Sort tokens by popularity (lower number = more popular)
+  .sort((a, b) => a.popularity - b.popularity);
 
   const handleTokenSelect = (tokenId: string) => {
     navigate(`/swap?token=${tokenId}`);
@@ -61,9 +66,20 @@ const SearchCrypto = () => {
                       <p className="text-sm text-gray-500">{token.symbol}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-kash-green">
-                    Swap
-                  </Button>
+                  <div className="flex flex-col items-end">
+                    {prices && prices[token.symbol] ? (
+                      <>
+                        <span className="font-medium">${prices[token.symbol].price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className={`text-xs ${prices[token.symbol].change_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {prices[token.symbol].change_24h >= 0 ? '+' : ''}{prices[token.symbol].change_24h.toFixed(2)}%
+                        </span>
+                      </>
+                    ) : (
+                      <Button variant="ghost" size="sm" className="text-kash-green">
+                        Swap
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </KashCard>
             ))

@@ -1,5 +1,5 @@
 
-import { ArrowLeft, Bell } from 'lucide-react';
+import { ArrowLeft, Bell, Search } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AppHeaderProps {
@@ -36,6 +36,12 @@ const AppHeader = ({
         {title && <h1 className="font-semibold text-lg">{title}</h1>}
       </div>
       <div className="flex items-center space-x-4">
+        <button 
+          onClick={() => navigate('/search')}
+          className="p-1.5 rounded-full hover:bg-kash-lightGray"
+        >
+          <Search size={20} />
+        </button>
         {showNotification && (
           <button className="p-1.5 rounded-full hover:bg-kash-lightGray">
             <Bell size={20} />
