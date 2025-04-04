@@ -4,35 +4,25 @@ import { Buffer as BufferPolyfill } from 'buffer';
 
 console.log('Setting up Buffer polyfill');
 
-// Make sure we're assigning the complete Buffer object with all methods
-const BufferClass = BufferPolyfill;
-
-// Verify that the required methods exist
-if (typeof BufferClass.alloc !== 'function') {
-  console.error('BufferPolyfill.alloc is not available!', BufferClass);
-  throw new Error('Buffer polyfill is incomplete - alloc method missing');
-}
-
-if (typeof BufferClass.from !== 'function') {
-  console.error('BufferPolyfill.from is not available!', BufferClass);
-  throw new Error('Buffer polyfill is incomplete - from method missing');
-}
-
 // Make Buffer globally available with all methods intact
-globalThis.Buffer = BufferClass;
-
-// Make Buffer available on window for compatibility
-if (typeof window !== 'undefined') {
-  // @ts-ignore
-  window.Buffer = BufferClass;
+if (typeof globalThis !== 'undefined') {
+  // Ensure Buffer is properly defined with all its methods
+  globalThis.Buffer = BufferPolyfill;
+  
+  // Log Buffer initialization success
+  console.log('Buffer polyfill loaded:', typeof globalThis.Buffer);
+  console.log('Buffer.alloc available:', typeof globalThis.Buffer.alloc === 'function');
+  console.log('Buffer.from available:', typeof globalThis.Buffer.from === 'function');
+  
+  // Make Buffer available on window for compatibility
+  if (typeof window !== 'undefined') {
+    // @ts-ignore
+    window.Buffer = BufferPolyfill;
+  }
 }
-
-console.log('Buffer polyfill loaded successfully:', typeof BufferClass);
-console.log('Buffer.alloc available:', typeof BufferClass.alloc === 'function');
-console.log('Buffer.from available:', typeof BufferClass.from === 'function');
 
 // Ensure global is defined
-if (typeof globalThis !== 'undefined') {
+if (typeof window !== 'undefined' && typeof globalThis !== 'undefined') {
   // @ts-ignore
   window.global = globalThis;
 }
@@ -47,5 +37,5 @@ if (typeof process === 'undefined') {
 }
 
 // Export the Buffer class to be used elsewhere if needed
-export { BufferClass as Buffer };
+export { BufferPolyfill as Buffer };
 export default {};

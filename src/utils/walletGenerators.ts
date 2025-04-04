@@ -3,7 +3,7 @@ import { Keypair } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { getBitcoin } from '@/utils/bitcoinjsWrapper';
-import { ECPairFactory } from '@/utils/ecpairWrapper';
+import { getECPairFactory } from '@/utils/ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 import { Buffer } from './globalPolyfills';
 
@@ -98,16 +98,10 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
     const bitcoinLib = await getBitcoin();
     console.log('Bitcoin library loaded successfully:', !!bitcoinLib);
     
-    // Initialize ECPair with explicit Buffer checks
+    // Initialize ECPair with explicit Buffer checks using the async version
     console.log('Initializing ECPair');
-    let ECPair;
-    try {
-      ECPair = ECPairFactory(ecc);
-      console.log('ECPair initialized successfully');
-    } catch (ecpairError) {
-      console.error('Failed to initialize ECPair:', ecpairError);
-      throw new Error('Could not initialize Bitcoin key generation: ' + ecpairError);
-    }
+    const ECPair = await getECPairFactory(ecc);
+    console.log('ECPair initialized successfully');
     
     console.log('Generating Bitcoin key pair');
     const keyPair = ECPair.makeRandom();

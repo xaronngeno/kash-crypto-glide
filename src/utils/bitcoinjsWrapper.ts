@@ -3,15 +3,16 @@
 import { Buffer } from './globalPolyfills';
 import * as bitcoinLib from 'bitcoinjs-lib';
 
-// Log the imported library for debugging
-console.log('Imported bitcoinLib:', bitcoinLib);
-
 // Create a proper export object
 const bitcoin = bitcoinLib;
 
 // Check if Buffer is available and working properly
 const isBufferAvailable = () => {
   try {
+    if (typeof globalThis.Buffer !== 'function') return false;
+    if (typeof globalThis.Buffer.alloc !== 'function') return false;
+    if (typeof globalThis.Buffer.from !== 'function') return false;
+    
     // Actually test Buffer methods to make sure they work
     const testBuffer = globalThis.Buffer.alloc(1);
     const testBuffer2 = globalThis.Buffer.from([1, 2, 3]);
@@ -22,21 +23,28 @@ const isBufferAvailable = () => {
   }
 };
 
+// Sleep function for polling
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Export an async function to get the bitcoin library when it's safe to use
 export const getBitcoin = async () => {
-  // Wait for Buffer to be available
-  for (let i = 0; i < 10; i++) { // Try up to 10 times
+  // Wait for Buffer to be available with timeout
+  const startTime = Date.now();
+  const timeout = 5000; // 5 second timeout
+  
+  while (Date.now() - startTime < timeout) {
     if (isBufferAvailable()) {
+      console.log('Buffer is fully available for bitcoinjs-lib');
       return bitcoin;
     }
     
-    console.log(`Waiting for Buffer to be available (attempt ${i + 1})...`);
+    console.log('Waiting for Buffer to be available...');
     // Wait 100ms before checking again
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await sleep(100);
   }
   
   if (!isBufferAvailable()) {
-    console.error('Buffer is not fully available for bitcoinjs-lib after multiple attempts');
+    console.error('Buffer is not fully available for bitcoinjs-lib after timeout');
     throw new Error('Buffer polyfill is not properly loaded after multiple attempts');
   }
   

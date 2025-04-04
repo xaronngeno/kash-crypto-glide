@@ -1,17 +1,18 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
-import './index.css';
-import { Toaster } from '@/components/ui/toaster';
-import { BrowserRouter } from 'react-router-dom';
 
 // Import polyfills first - before any other code
+// This needs to be imported and initialized before any other dependencies
 import './utils/globalPolyfills';
 
 // Function to check if Buffer is properly available
 const isBufferReady = () => {
   try {
+    if (typeof globalThis.Buffer !== 'function') return false;
+    if (typeof globalThis.Buffer.alloc !== 'function') return false;
+    if (typeof globalThis.Buffer.from !== 'function') return false;
+    
     // Test if Buffer methods actually work
     const testBuffer = globalThis.Buffer.alloc(1);
     const testBuffer2 = globalThis.Buffer.from([1, 2, 3]);
@@ -21,6 +22,12 @@ const isBufferReady = () => {
     return false;
   }
 };
+
+// After polyfill imports, import the rest
+import App from './App.tsx';
+import './index.css';
+import { Toaster } from '@/components/ui/toaster';
+import { BrowserRouter } from 'react-router-dom';
 
 // Wait for polyfills to be initialized before rendering
 const initApp = () => {
