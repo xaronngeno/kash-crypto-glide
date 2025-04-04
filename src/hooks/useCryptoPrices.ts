@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,50 +26,51 @@ export function useCryptoPrices() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Define fetchPrices as a useCallback to avoid dependency issues
+  const fetchPrices = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error: functionError } = await supabase.functions.invoke('crypto-prices');
+      
+      if (functionError) {
+        throw new Error(functionError.message);
+      }
+      
+      if (data && data.prices) {
+        setPrices(data.prices);
+        setError(null); // Clear any previous errors
+      } else {
+        // If we get an invalid response format, use fallback prices
+        console.warn('Invalid response format from API, using fallback prices');
+        setError('Could not fetch live prices');
+      }
+    } catch (err) {
+      console.error('Error fetching crypto prices:', err);
+      
+      // Use fallback prices when the API call fails
+      // Don't update the state if we already have prices
+      if (Object.keys(prices).length === 0) {
+        setPrices(fallbackPrices);
+      }
+      
+      setError('Failed to fetch live prices');
+      
+      // Only show the toast once
+      if (!error) {
+        toast({
+          title: "Using cached prices",
+          description: "Could not connect to price service. Using latest available prices.",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [prices, error, toast]);
 
   useEffect(() => {
-    const fetchPrices = async () => {
-      try {
-        setLoading(true);
-        
-        const { data, error: functionError } = await supabase.functions.invoke('crypto-prices');
-        
-        if (functionError) {
-          throw new Error(functionError.message);
-        }
-        
-        if (data && data.prices) {
-          setPrices(data.prices);
-          setError(null); // Clear any previous errors
-        } else {
-          // If we get an invalid response format, use fallback prices
-          console.warn('Invalid response format from API, using fallback prices');
-          setError('Could not fetch live prices');
-        }
-      } catch (err) {
-        console.error('Error fetching crypto prices:', err);
-        
-        // Use fallback prices when the API call fails
-        // Don't update the state if we already have prices
-        if (Object.keys(prices).length === 0) {
-          setPrices(fallbackPrices);
-        }
-        
-        setError('Failed to fetch live prices');
-        
-        // Only show the toast once
-        if (!error) {
-          toast({
-            title: "Using cached prices",
-            description: "Could not connect to price service. Using latest available prices.",
-            variant: "destructive"
-          });
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     // Fetch immediately on mount
     fetchPrices();
     
@@ -77,7 +78,7 @@ export function useCryptoPrices() {
     const intervalId = setInterval(fetchPrices, 5 * 60 * 1000);
     
     return () => clearInterval(intervalId);
-  }, [error, prices, toast]);
+  }, [fetchPrices]);
 
   return { prices, loading, error };
 }
