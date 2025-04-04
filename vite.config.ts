@@ -18,13 +18,19 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     // Tell Vite to exclude certain dependencies from optimization
     exclude: ['@mysten/sui.js', 'tiny-secp256k1', 'bitcoinjs-lib', 'ecpair'],
+    esbuildOptions: {
+      target: 'esnext', // Needed for WebAssembly support
+    }
+  },
+  build: {
+    target: 'esnext', // Needed for WebAssembly support
   },
   plugins: [
+    // Ensure wasm and topLevelAwait plugins are ordered first
     wasm(),
     topLevelAwait(),
     react(),
-    mode === 'development' &&
-    componentTagger(),
+    mode === 'development' && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
