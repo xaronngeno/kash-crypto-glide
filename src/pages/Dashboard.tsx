@@ -28,6 +28,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [walletsCreated, setWalletsCreated] = useState(false);
+  const [creatingWallets, setCreatingWallets] = useState(false);
   const { user } = useAuth();
   const { prices, loading: pricesLoading } = useCryptoPrices();
   
@@ -43,14 +44,21 @@ const Dashboard = () => {
 
   // Create wallets for user if they don't exist
   const createWalletsForUser = async () => {
-    if (!user) return;
+    if (!user || creatingWallets) return;
     
     try {
+      setCreatingWallets(true);
       console.log("Checking if user needs wallets created");
-      const { data: existingWallets } = await supabase
+      
+      // Check if user already has wallets
+      const { data: existingWallets, error: walletCheckError } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', user.id);
+      
+      if (walletCheckError) {
+        throw walletCheckError;
+      }
         
       // If wallets already exist, no need to create new ones
       if (existingWallets && existingWallets.length > 0) {
@@ -60,27 +68,40 @@ const Dashboard = () => {
       }
       
       console.log("Creating wallets for user");
-      // Call the edge function to create wallets
-      const { data, error } = await supabase.functions.invoke('create-wallets');
+      // Call the edge function to create wallets with explicit content type
+      const response = await fetch(`${supabase.functions.url}/create-wallets`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': supabase.supabaseKey
+        },
+        body: JSON.stringify({ userId: user.id }) // Send empty JSON object to prevent parsing issues
+      });
       
-      if (error) {
-        console.error("Error creating wallets:", error);
-        toast({
-          title: 'Error',
-          description: 'Failed to create user wallets. Please refresh or try again later.',
-          variant: 'destructive'
-        });
-      } else {
-        console.log("Wallets created successfully:", data);
-        setWalletsCreated(true);
-        toast({
-          title: 'Success',
-          description: 'Your wallets have been created!',
-          variant: 'default'
-        });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Function returned status ${response.status}: ${errorText}`);
       }
+      
+      const data = await response.json();
+      
+      console.log("Wallets created successfully:", data);
+      setWalletsCreated(true);
+      toast({
+        title: 'Success',
+        description: 'Your wallets have been created!',
+        variant: 'default'
+      });
     } catch (err) {
-      console.error("Unexpected error creating wallets:", err);
+      console.error("Error creating wallets:", err);
+      toast({
+        title: 'Error',
+        description: 'Failed to create user wallets. Please refresh or try again later.',
+        variant: 'destructive'
+      });
+    } finally {
+      setCreatingWallets(false);
     }
   };
 
@@ -111,7 +132,7 @@ const Dashboard = () => {
         setLoading(true);
         
         // Check if user has wallets, if not create them
-        if (!walletsCreated) {
+        if (!walletsCreated && !creatingWallets) {
           await createWalletsForUser();
         }
         
@@ -128,7 +149,7 @@ const Dashboard = () => {
         console.log("Fetched wallets:", wallets);
         
         // Clone the default assets structure
-        const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+        const initialAssets: Asset[] = Object.values(defaultAssetsMap).map(asset => ({...asset}));
         
         // Create a map to sum up balances for each currency
         const currencyBalances: Record<string, number> = {};
@@ -137,8 +158,8 @@ const Dashboard = () => {
           // Process each wallet and aggregate balances by currency
           wallets.forEach(wallet => {
             const currency = wallet.currency;
-            // Ensure we're working with numbers
-            const walletBalance = Number(wallet.balance);
+            // Ensure we're working with numbers and handle null/undefined values
+            const walletBalance = parseFloat(wallet.balance) || 0;
             
             if (!isNaN(walletBalance)) {
               if (!currencyBalances[currency]) {
@@ -153,7 +174,7 @@ const Dashboard = () => {
           // Update assets with the aggregated balances
           const updatedAssets = initialAssets.map(asset => {
             const balance = currencyBalances[asset.symbol] || 0;
-            const assetPrice = prices?.[asset.symbol]?.price || 0;
+            const assetPrice = prices?.[asset.symbol]?.price || asset.price;
             
             return {
               ...asset,
@@ -184,14 +205,18 @@ const Dashboard = () => {
     };
 
     fetchUserAssets();
-  }, [user, prices, walletsCreated]);
+  }, [user, prices, walletsCreated, creatingWallets]);
 
   // Just for debugging - log the complete asset state whenever it changes
   useEffect(() => {
     console.log('Current assets state:', assets);
   }, [assets]);
 
-  const totalBalance = assets.reduce((acc, asset) => acc + asset.value, 0);
+  const totalBalance = assets.reduce((acc, asset) => {
+    // Ensure we're dealing with numbers
+    const value = typeof asset.value === 'number' ? asset.value : 0;
+    return acc + value;
+  }, 0);
 
   // Always display all assets, even those with zero balance
   const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
@@ -310,13 +335,6 @@ const Dashboard = () => {
                 </div>
               </KashCard>
             ))}
-            
-            {assets.filter(asset => asset.amount > 0).length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <p>No assets with balance found.</p>
-                <KashButton className="mt-4" onClick={() => window.location.href = '/buy'}>Buy Crypto</KashButton>
-              </div>
-            )}
           </div>
         </div>
         
