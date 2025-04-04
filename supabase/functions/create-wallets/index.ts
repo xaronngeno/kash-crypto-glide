@@ -1,140 +1,170 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { corsHeaders } from '../_shared/cors.ts';
 
-// Define CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+console.log("Create wallets function initialized");
 
+interface WalletData {
+  blockchain: string;
+  platform: string;
+  address: string;
+  currency: string;
+}
+
+// This edge function will create wallets for a user if they don't exist
 serve(async (req) => {
-  // Handle CORS preflight request
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Parse the request body
-    const { userId } = await req.json();
-
-    if (!userId) {
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: "User ID is required" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        JSON.stringify({ error: 'No authorization header' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Initialize Supabase client with service role key for admin access
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
-    );
-
-    // Check if user exists
-    const { data: userExists, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    // Create a Supabase client with the auth header
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: {
+        headers: { Authorization: authHeader }
+      }
+    });
     
-    if (userError || !userExists) {
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('Error getting user:', userError);
       return new Response(
-        JSON.stringify({ error: "User not found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        JSON.stringify({ error: 'Error getting user', details: userError }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Sample wallet generation (for security, actual wallet private keys would be handled more securely)
-    const wallets = [
-      {
-        user_id: userId,
-        blockchain: "Solana",
-        currency: "SOL",
-        address: `sol${Math.random().toString(36).substring(2, 15)}`,
-        balance: 0,
-        wallet_type: "Default"
-      },
-      {
-        user_id: userId,
-        blockchain: "Ethereum",
-        currency: "ETH",
-        address: `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        balance: 0,
-        wallet_type: "Default"
-      },
-      {
-        user_id: userId,
-        blockchain: "Monad",
-        currency: "MONAD",
-        address: `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        balance: 0,
-        wallet_type: "Testnet"
-      },
-      {
-        user_id: userId,
-        blockchain: "Base",
-        currency: "ETH",
-        address: `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        balance: 0,
-        wallet_type: "Default"
-      },
-      {
-        user_id: userId,
-        blockchain: "Sui",
-        currency: "SUI",
-        address: `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        balance: 0,
-        wallet_type: "Default"
-      },
-      {
-        user_id: userId,
-        blockchain: "Polygon",
-        currency: "MATIC",
-        address: `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        balance: 0,
-        wallet_type: "Default"
-      },
-      {
-        user_id: userId,
-        blockchain: "Bitcoin",
-        currency: "BTC",
-        address: `bc1${Math.random().toString(36).substring(2, 15)}`,
-        balance: 0,
-        wallet_type: "Taproot"
-      },
-      {
-        user_id: userId,
-        blockchain: "Bitcoin",
-        currency: "BTC",
-        address: `bc1${Math.random().toString(36).substring(2, 15)}`,
-        balance: 0,
-        wallet_type: "Native SegWit"
-      },
-    ];
-
-    // Insert wallets into database
-    const { error: walletError } = await supabaseAdmin
+    
+    const userId = user.id;
+    console.log(`Creating wallets for user ${userId}`);
+    
+    // Check if user already has wallets
+    const { data: existingWallets, error: walletsError } = await supabase
       .from('wallets')
-      .insert(wallets);
-
-    if (walletError) {
-      console.error("Error creating wallets:", walletError);
+      .select('*')
+      .eq('user_id', userId);
+      
+    if (walletsError) {
+      console.error('Error checking existing wallets:', walletsError);
       return new Response(
-        JSON.stringify({ error: "Failed to create wallets", details: walletError }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        JSON.stringify({ error: 'Error checking existing wallets', details: walletsError }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
+    
+    // If user already has wallets, return them
+    if (existingWallets && existingWallets.length > 0) {
+      console.log(`User ${userId} already has ${existingWallets.length} wallets`);
+      return new Response(
+        JSON.stringify({ 
+          message: `User already has ${existingWallets.length} wallets`, 
+          wallets: existingWallets 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Generate wallet addresses (these would be externally generated in production)
+    // For now, we'll create demo wallet addresses
+    const wallets: WalletData[] = [
+      {
+        blockchain: 'Bitcoin',
+        platform: 'Bitcoin',
+        address: `btc-${userId.substring(0, 8)}`,
+        currency: 'BTC'
+      },
+      {
+        blockchain: 'Ethereum',
+        platform: 'Ethereum',
+        address: `0xEth${userId.substring(0, 8)}`,
+        currency: 'ETH'
+      },
+      {
+        blockchain: 'Solana',
+        platform: 'Solana',
+        address: `sol-${userId.substring(0, 8)}`,
+        currency: 'SOL'
+      },
+      {
+        blockchain: 'Sui',
+        platform: 'Sui',
+        address: `sui-${userId.substring(0, 8)}`,
+        currency: 'SUI'
+      },
+      {
+        blockchain: 'Ethereum',
+        platform: 'USDT',
+        address: `0xUsdt${userId.substring(0, 8)}`,
+        currency: 'USDT'
+      },
+      {
+        blockchain: 'Polygon',
+        platform: 'Polygon',
+        address: `0xMatic${userId.substring(0, 8)}`,
+        currency: 'MATIC'
+      },
+      {
+        blockchain: 'Monad',
+        platform: 'Monad Testnet',
+        address: `0xMonad${userId.substring(0, 8)}`,
+        currency: 'MONAD'
+      }
+    ];
+    
+    // Insert generated wallets into the database
+    const walletsToInsert = wallets.map(wallet => ({
+      user_id: userId,
+      blockchain: wallet.blockchain,
+      currency: wallet.currency,
+      address: wallet.address,
+      balance: Math.random() * 10 // Random demo balance for testing
+    }));
+    
+    console.log(`Inserting ${walletsToInsert.length} wallets for user ${userId}`);
+    
+    const { data: insertedWallets, error: insertError } = await supabase
+      .from('wallets')
+      .insert(walletsToInsert)
+      .select();
+      
+    if (insertError) {
+      console.error('Error inserting wallets:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Error inserting wallets', details: insertError }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log(`Successfully created ${insertedWallets?.length} wallets`);
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Wallets created successfully",
-        walletCount: wallets.length
+        message: `Created ${insertedWallets?.length} wallets for user ${userId}`,
+        wallets: insertedWallets 
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+    
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ error: "Unexpected error occurred", details: error.message }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      JSON.stringify({ error: 'Internal Server Error', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

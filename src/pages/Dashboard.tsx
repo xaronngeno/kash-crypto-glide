@@ -27,6 +27,7 @@ const Dashboard = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [walletsCreated, setWalletsCreated] = useState(false);
   const { user } = useAuth();
   const { prices, loading: pricesLoading } = useCryptoPrices();
   
@@ -38,6 +39,49 @@ const Dashboard = () => {
     'MATIC': { id: '5', name: 'Polygon', symbol: 'MATIC', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
     'SUI': { id: '6', name: 'Sui', symbol: 'SUI', price: 0, amount: 0, value: 0, change: 0, icon: 'S' },
     'MONAD': { id: '7', name: 'Monad', symbol: 'MONAD', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
+  };
+
+  // Create wallets for user if they don't exist
+  const createWalletsForUser = async () => {
+    if (!user) return;
+    
+    try {
+      console.log("Checking if user needs wallets created");
+      const { data: existingWallets } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      // If wallets already exist, no need to create new ones
+      if (existingWallets && existingWallets.length > 0) {
+        console.log("User already has wallets:", existingWallets);
+        setWalletsCreated(true);
+        return;
+      }
+      
+      console.log("Creating wallets for user");
+      // Call the edge function to create wallets
+      const { data, error } = await supabase.functions.invoke('create-wallets');
+      
+      if (error) {
+        console.error("Error creating wallets:", error);
+        toast({
+          title: 'Error',
+          description: 'Failed to create user wallets. Please refresh or try again later.',
+          variant: 'destructive'
+        });
+      } else {
+        console.log("Wallets created successfully:", data);
+        setWalletsCreated(true);
+        toast({
+          title: 'Success',
+          description: 'Your wallets have been created!',
+          variant: 'default'
+        });
+      }
+    } catch (err) {
+      console.error("Unexpected error creating wallets:", err);
+    }
   };
 
   useEffect(() => {
@@ -65,6 +109,11 @@ const Dashboard = () => {
       
       try {
         setLoading(true);
+        
+        // Check if user has wallets, if not create them
+        if (!walletsCreated) {
+          await createWalletsForUser();
+        }
         
         // Get all wallets for the current user
         const { data: wallets, error: walletsError } = await supabase
@@ -135,7 +184,7 @@ const Dashboard = () => {
     };
 
     fetchUserAssets();
-  }, [user, prices]);
+  }, [user, prices, walletsCreated]);
 
   // Just for debugging - log the complete asset state whenever it changes
   useEffect(() => {
