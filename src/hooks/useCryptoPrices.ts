@@ -33,6 +33,8 @@ export function useCryptoPrices() {
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef<number>(0);
   const cachedPricesRef = useRef<CryptoPrices | null>(null);
+  const retryCountRef = useRef<number>(0);
+  const maxRetries = 3;
   
   const fetchPrices = useCallback(async (forceFetch = false) => {
     // Check if we're already fetching
@@ -59,13 +61,12 @@ export function useCryptoPrices() {
       
       // Call the edge function with a timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       
       const response = await fetch('https://hfdaowgithffhelybfve.supabase.co/functions/v1/crypto-prices', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          // No authorization header needed as we disabled JWT verification
         },
         signal: controller.signal
       });
@@ -84,9 +85,13 @@ export function useCryptoPrices() {
         setPrices(data.prices);
         cachedPricesRef.current = data.prices;
         lastFetchTimeRef.current = now;
+        retryCountRef.current = 0; // Reset retry counter on success
         
         if (data.source === 'fallback') {
           console.log('Using fallback prices from the Edge Function');
+          if (data.error) {
+            console.warn('Edge function reported error:', data.error);
+          }
           toast({
             title: "Using cached prices",
             description: data.error ? `Error: ${data.error}` : "Could not connect to price service.",
@@ -96,15 +101,17 @@ export function useCryptoPrices() {
           console.log('Using real-time prices from CoinMarketCap');
         }
       } else {
-        console.warn('Edge function returned invalid data format');
+        console.warn('Edge function returned invalid data format:', data);
         throw new Error('Invalid data format');
       }
     } catch (err) {
       console.error('Failed to fetch prices:', err);
       setError(err instanceof Error ? err.message : 'Unable to fetch live prices');
+      retryCountRef.current += 1;
       
       // Use cached prices if available, otherwise fallback prices
       if (cachedPricesRef.current) {
+        console.log('Using cached prices due to fetch error');
         setPrices(cachedPricesRef.current);
         toast({
           title: "Using cached prices",
@@ -112,12 +119,23 @@ export function useCryptoPrices() {
           variant: "default"
         });
       } else {
+        console.log('Using default fallback prices');
         setPrices(fallbackPrices);
         toast({
           title: "Using default prices",
           description: err instanceof Error ? err.message : "Could not connect to price service.",
           variant: "default"
         });
+      }
+      
+      // If we haven't exceeded max retries, try again after a delay
+      if (retryCountRef.current <= maxRetries) {
+        console.log(`Retry attempt ${retryCountRef.current} of ${maxRetries} in 10 seconds...`);
+        setTimeout(() => {
+          if (!forceFetch) {
+            fetchPrices(true);
+          }
+        }, 10000); // Retry after 10 seconds
       }
     } finally {
       setLoading(false);
@@ -129,16 +147,15 @@ export function useCryptoPrices() {
     // Fetch immediately on mount
     fetchPrices();
     
-    // Set up polling every 5 minutes instead of every 2 minutes
-    // This reduces the likelihood of hitting rate limits
-    const intervalId = setInterval(fetchPrices, 5 * 60 * 1000);
+    // Set up polling every 5 minutes to reduce the likelihood of hitting rate limits
+    const intervalId = setInterval(() => fetchPrices(), 5 * 60 * 1000);
     
     return () => clearInterval(intervalId);
   }, [fetchPrices]);
 
   // For debugging - log the current prices whenever they change
   useEffect(() => {
-    console.log('Current crypto prices:', prices);
+    console.log('Current crypto prices in state:', prices);
   }, [prices]);
 
   return { 
