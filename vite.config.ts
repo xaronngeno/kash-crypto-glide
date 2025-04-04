@@ -48,6 +48,11 @@ export default defineConfig(({ mode }) => ({
       // Add an alias for bitcoinjs-lib
       'bitcoinjs-lib': path.resolve(__dirname, 'node_modules/bitcoinjs-lib')
     },
-    dedupe: ['bs58', 'tweetnacl'] // Deduplicate bs58 and tweetnacl to use a single instance
+    dedupe: ['bs58', 'tweetnacl'], // Deduplicate bs58 and tweetnacl to use a single instance
+  },
+  define: {
+    // Add global definitions to help with CommonJS modules
+    'process.env': {},
+    'global': 'window'
   },
 }));

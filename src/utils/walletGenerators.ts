@@ -73,6 +73,9 @@ export const generateSuiWallet = (): WalletData => {
 // Generate Bitcoin wallets
 export const generateBitcoinWallet = (type: 'taproot' | 'segwit'): WalletData => {
   try {
+    console.log('Bitcoin object:', bitcoin);
+    console.log('ECPair object:', ECPair);
+    
     const keyPair = ECPair.makeRandom();
     
     // Ensure keyPair.publicKey exists before using it
