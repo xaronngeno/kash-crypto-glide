@@ -34,77 +34,45 @@ export function useCryptoPrices() {
       
       console.log('Fetching crypto prices...');
       
-      // Maximum number of retries
-      const maxRetries = 2;
-      let currentRetry = 0;
-      let success = false;
+      // Simple approach - no retries, just directly use the edge function
+      const { data, error: functionError } = await supabase.functions.invoke('crypto-prices');
       
-      while (currentRetry <= maxRetries && !success) {
-        try {
-          if (currentRetry > 0) {
-            console.log(`Retry attempt ${currentRetry}/${maxRetries}...`);
-          }
-          
-          const { data, error: functionError } = await supabase.functions.invoke('crypto-prices', {
-            body: { timestamp: new Date().toISOString() }
+      if (functionError) {
+        console.error('Edge function error:', functionError);
+        throw new Error(functionError.message || 'Failed to invoke crypto prices function');
+      }
+      
+      if (data && data.prices) {
+        console.log('Successfully fetched crypto prices:', data.prices);
+        setPrices(data.prices);
+        
+        if (data.source === 'fallback') {
+          console.log('Using fallback prices from the Edge Function');
+          toast({
+            title: "Using cached prices",
+            description: data.error ? `Error: ${data.error}` : "Could not connect to price service.",
+            variant: "default"
           });
-          
-          if (functionError) {
-            console.error('Edge function error:', functionError);
-            throw new Error(functionError.message || 'Failed to invoke crypto prices function');
-          }
-          
-          if (data && data.prices) {
-            console.log('Successfully fetched crypto prices:', data.prices);
-            setPrices(data.prices);
-            
-            if (data.source === 'fallback') {
-              console.log('Using fallback prices from the Edge Function');
-              toast({
-                title: "Using cached prices",
-                description: data.error ? `Error: ${data.error}` : "Could not connect to price service.",
-                variant: "default"
-              });
-            } else {
-              console.log('Using real-time prices from CoinMarketCap');
-            }
-            
-            success = true;
-            break;
-          } else {
-            console.warn('Edge function returned invalid data format');
-            throw new Error('Invalid data format');
-          }
-        } catch (retryError) {
-          console.error(`Attempt ${currentRetry + 1} failed:`, retryError);
-          currentRetry++;
-          
-          if (currentRetry > maxRetries) {
-            throw retryError;
-          }
-          
-          // Wait before next retry (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * currentRetry));
+        } else {
+          console.log('Using real-time prices from CoinMarketCap');
         }
+      } else {
+        console.warn('Edge function returned invalid data format');
+        throw new Error('Invalid data format');
       }
     } catch (err) {
-      console.error('All fetch attempts failed:', err);
+      console.error('Failed to fetch prices:', err);
       setError(err instanceof Error ? err.message : 'Unable to fetch live prices');
       
       toast({
         title: "Using cached prices",
-        description: err instanceof Error ? err.message : "Could not connect to price service after multiple attempts.",
+        description: err instanceof Error ? err.message : "Could not connect to price service.",
         variant: "default"
       });
-      
-      // Ensure we always have prices
-      if (Object.keys(prices).length === 0) {
-        setPrices(fallbackPrices);
-      }
     } finally {
       setLoading(false);
     }
-  }, [toast, prices]);
+  }, [toast]);
 
   useEffect(() => {
     // Fetch immediately on mount

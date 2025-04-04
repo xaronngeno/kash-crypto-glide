@@ -29,6 +29,15 @@ serve(async (req) => {
   }
 
   try {
+    // Parse request body for logging purposes only
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log("Received request with body:", requestBody);
+    } catch (e) {
+      console.log("No request body or invalid JSON");
+    }
+    
     const apiKey = Deno.env.get('COINMARKETCAP_API_KEY');
     
     if (!apiKey) {
