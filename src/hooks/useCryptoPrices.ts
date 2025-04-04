@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,7 +20,6 @@ interface CryptoPrices {
   [symbol: string]: CryptoPrice;
 }
 
-// Default prices to use when API is unavailable
 const fallbackPrices: CryptoPrices = {
   BTC: { 
     price: 64000, 
@@ -61,8 +59,7 @@ const fallbackPrices: CryptoPrices = {
   }
 };
 
-// Cache duration in milliseconds (5 minutes)
-const CACHE_DURATION = 5 * 60 * 1000; 
+const CACHE_DURATION = 60 * 1000; 
 
 export function useCryptoPrices() {
   const [prices, setPrices] = useState<CryptoPrices>(fallbackPrices);
@@ -70,7 +67,6 @@ export function useCryptoPrices() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  // Use these refs to prevent multiple simultaneous requests and for caching
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef<number>(0);
   const cachedPricesRef = useRef<CryptoPrices | null>(null);
@@ -78,13 +74,11 @@ export function useCryptoPrices() {
   const maxRetries = 3;
   
   const fetchPrices = useCallback(async (forceFetch = false) => {
-    // Check if we're already fetching
     if (isFetchingRef.current) {
       console.log('Fetch already in progress, skipping...');
       return;
     }
     
-    // Check if cache is still valid (unless force fetch is requested)
     const now = Date.now();
     if (!forceFetch && cachedPricesRef.current && now - lastFetchTimeRef.current < CACHE_DURATION) {
       console.log('Using cached prices from memory');
@@ -100,7 +94,6 @@ export function useCryptoPrices() {
       
       console.log('Fetching crypto prices...');
       
-      // Call the edge function with a timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
@@ -126,13 +119,10 @@ export function useCryptoPrices() {
         setPrices(data.prices);
         cachedPricesRef.current = data.prices;
         lastFetchTimeRef.current = now;
-        retryCountRef.current = 0; // Reset retry counter on success
+        retryCountRef.current = 0;
         
         if (data.source === 'fallback') {
           console.log('Using fallback prices from the Edge Function');
-          if (data.error) {
-            console.warn('Edge function reported error:', data.error);
-          }
           toast({
             title: "Using cached prices",
             description: data.error ? `Error: ${data.error}` : "Could not connect to price service.",
@@ -150,7 +140,6 @@ export function useCryptoPrices() {
       setError(err instanceof Error ? err.message : 'Unable to fetch live prices');
       retryCountRef.current += 1;
       
-      // Use cached prices if available, otherwise fallback prices
       if (cachedPricesRef.current) {
         console.log('Using cached prices due to fetch error');
         setPrices(cachedPricesRef.current);
@@ -169,14 +158,13 @@ export function useCryptoPrices() {
         });
       }
       
-      // If we haven't exceeded max retries, try again after a delay
       if (retryCountRef.current <= maxRetries) {
         console.log(`Retry attempt ${retryCountRef.current} of ${maxRetries} in 10 seconds...`);
         setTimeout(() => {
           if (!forceFetch) {
             fetchPrices(true);
           }
-        }, 10000); // Retry after 10 seconds
+        }, 10000);
       }
     } finally {
       setLoading(false);
@@ -184,22 +172,18 @@ export function useCryptoPrices() {
     }
   }, [toast]);
 
-  // Use a stable reference for the fetchPrices function in useEffect
   const stableFetchPrices = useCallback(() => {
     fetchPrices();
   }, [fetchPrices]);
 
   useEffect(() => {
-    // Fetch immediately on mount
     stableFetchPrices();
     
-    // Set up polling every 5 minutes to reduce the likelihood of hitting rate limits
-    const intervalId = setInterval(stableFetchPrices, 5 * 60 * 1000);
+    const intervalId = setInterval(stableFetchPrices, 1 * 60 * 1000);
     
     return () => clearInterval(intervalId);
   }, [stableFetchPrices]);
 
-  // For debugging - log the current prices whenever they change
   useEffect(() => {
     console.log('Current crypto prices in state:', Object.keys(prices).length, 'coins');
   }, [prices]);
