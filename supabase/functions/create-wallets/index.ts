@@ -20,14 +20,19 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Received request to create wallets");
+    
     // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error("No authorization header found");
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log("Authorization header found, creating Supabase client");
 
     // Create a Supabase client with the auth header
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -40,6 +45,7 @@ serve(async (req) => {
     });
     
     // Get the current user
+    console.log("Getting authenticated user");
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {

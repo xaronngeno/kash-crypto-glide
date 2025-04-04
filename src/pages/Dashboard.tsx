@@ -68,22 +68,27 @@ const Dashboard = () => {
         
       // If wallets already exist, no need to create new ones
       if (existingWallets && existingWallets.length > 0) {
-        console.log("User already has wallets:", existingWallets);
+        console.log("User already has wallets:", existingWallets.length);
         setWalletsCreated(true);
         return;
       }
       
       console.log("Creating wallets for user");
+
+      // Get a fresh session
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session?.access_token) {
+        throw new Error('Failed to get authentication session: ' + (sessionError?.message || 'No access token'));
+      }
       
       // Call the edge function to create wallets with explicit content type
       const response = await fetch("https://hfdaowgithffhelybfve.supabase.co/functions/v1/create-wallets", {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Authorization': `Bearer ${sessionData.session.access_token}`,
           'Content-Type': 'application/json',
           'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmZGFvd2dpdGhmZmhlbHliZnZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM2OTEzODYsImV4cCI6MjA1OTI2NzM4Nn0.3bxf_yiII1_GBwKUK8qAW5P-Uot9ony993hYkqBfGEw"
-        },
-        body: JSON.stringify({ userId: user.id })
+        }
       });
       
       if (!response.ok) {
@@ -166,7 +171,9 @@ const Dashboard = () => {
           wallets.forEach(wallet => {
             const currency = wallet.currency;
             // Ensure we're working with numbers and handle null/undefined values
-            const walletBalance = parseFloat(String(wallet.balance)) || 0;
+            const walletBalance = typeof wallet.balance === 'number' 
+              ? wallet.balance 
+              : parseFloat(String(wallet.balance)) || 0;
             
             if (!isNaN(walletBalance)) {
               if (!currencyBalances[currency]) {
