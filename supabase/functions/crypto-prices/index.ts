@@ -150,6 +150,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Dummy serve handler to prevent Deno.serve() error
-export default { serve };
