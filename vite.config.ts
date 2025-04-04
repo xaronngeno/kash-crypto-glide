@@ -5,6 +5,7 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -17,11 +18,11 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     // Tell Vite to exclude certain dependencies from optimization
-    exclude: ['@mysten/sui.js', 'tiny-secp256k1', 'bitcoinjs-lib', 'ecpair'],
+    exclude: ['@mysten/sui.js'],
     esbuildOptions: {
       target: 'esnext', // Needed for WebAssembly support
     },
-    include: ['bs58', 'tweetnacl'] // Ensure bs58 and tweetnacl are pre-bundled correctly
+    include: ['bs58', 'tweetnacl', 'bitcoinjs-lib', 'ecpair', 'tiny-secp256k1'] // Pre-bundle these packages
   },
   build: {
     target: 'esnext', // Needed for WebAssembly support
@@ -33,26 +34,31 @@ export default defineConfig(({ mode }) => ({
     // Ensure wasm and topLevelAwait plugins are ordered first
     wasm(),
     topLevelAwait(),
+    // Add Node.js polyfills
+    nodePolyfills({
+      // Whether to polyfill `node:` protocol imports.
+      protocolImports: true,
+    }),
     react(),
     mode === 'development' && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      // Add an alias for bs58 to ensure it's properly imported
+      // Add aliases for packages to ensure they're properly imported
       'bs58': path.resolve(__dirname, 'node_modules/bs58'),
-      // Add an alias for tweetnacl
       'tweetnacl': path.resolve(__dirname, 'node_modules/tweetnacl'),
-      // Add an alias for ecpair
       'ecpair': path.resolve(__dirname, 'node_modules/ecpair'),
-      // Add an alias for bitcoinjs-lib
-      'bitcoinjs-lib': path.resolve(__dirname, 'node_modules/bitcoinjs-lib')
+      'bitcoinjs-lib': path.resolve(__dirname, 'node_modules/bitcoinjs-lib'),
+      'buffer': 'vite-plugin-node-polyfills/polyfills/buffer',
+      'process': 'vite-plugin-node-polyfills/polyfills/process',
     },
     dedupe: ['bs58', 'tweetnacl'], // Deduplicate bs58 and tweetnacl to use a single instance
   },
   define: {
     // Add global definitions to help with CommonJS modules
     'process.env': {},
-    'global': 'window'
+    'global': 'globalThis',
+    'Buffer': ['buffer', 'Buffer']
   },
 }));

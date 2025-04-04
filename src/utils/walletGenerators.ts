@@ -73,10 +73,21 @@ export const generateSuiWallet = (): WalletData => {
 // Generate Bitcoin wallets
 export const generateBitcoinWallet = (type: 'taproot' | 'segwit'): WalletData => {
   try {
-    console.log('Bitcoin object:', bitcoin);
-    console.log('ECPair object:', ECPair);
+    console.log('Bitcoin library available?', !!bitcoin);
+    console.log('ECPair available?', !!ECPair);
+    
+    if (!bitcoin || !ECPair) {
+      throw new Error('Bitcoin libraries not properly loaded');
+    }
+    
+    // Add defensive check for Buffer
+    if (typeof Buffer === 'undefined') {
+      console.error('Buffer is not defined');
+      throw new Error('Buffer is not available, required for Bitcoin wallet generation');
+    }
     
     const keyPair = ECPair.makeRandom();
+    console.log('Generated Bitcoin keyPair:', keyPair);
     
     // Ensure keyPair.publicKey exists before using it
     if (!keyPair.publicKey) {
@@ -112,25 +123,47 @@ export const generateBitcoinWallet = (type: 'taproot' | 'segwit'): WalletData =>
     };
   } catch (error) {
     console.error(`Error generating Bitcoin ${type} wallet:`, error);
-    throw new Error(`Failed to generate Bitcoin ${type} wallet`);
+    throw new Error(`Failed to generate Bitcoin ${type} wallet: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
 // Generate all wallets for a user
 export const generateAllWallets = (): WalletData[] => {
+  const wallets: WalletData[] = [];
+  
   try {
-    return [
-      generateSolanaWallet(),
-      generateEthWallet('Ethereum', 'Ethereum'),
-      generateEthWallet('Monad', 'Monad Testnet'),
-      generateEthWallet('Base', 'Base'),
-      generateSuiWallet(),
-      generateEthWallet('Polygon', 'Polygon'),
-      generateBitcoinWallet('taproot'),
-      generateBitcoinWallet('segwit')
-    ];
+    // Add Solana wallet
+    wallets.push(generateSolanaWallet());
+    
+    // Add Ethereum wallet
+    wallets.push(generateEthWallet('Ethereum', 'Ethereum'));
+    
+    // Add other Ethereum-compatible wallets
+    wallets.push(generateEthWallet('Monad', 'Monad Testnet'));
+    wallets.push(generateEthWallet('Base', 'Base'));
+    
+    // Add Sui wallet
+    wallets.push(generateSuiWallet());
+    
+    // Add Polygon wallet
+    wallets.push(generateEthWallet('Polygon', 'Polygon'));
+    
+    try {
+      // Try to generate Bitcoin wallets, but don't fail the entire function if they fail
+      const taprootWallet = generateBitcoinWallet('taproot');
+      wallets.push(taprootWallet);
+      
+      const segwitWallet = generateBitcoinWallet('segwit');
+      wallets.push(segwitWallet);
+    } catch (bitcoinError) {
+      console.error('Failed to generate Bitcoin wallets:', bitcoinError);
+      // Continue without Bitcoin wallets
+    }
+    
+    return wallets;
   } catch (error) {
     console.error('Error generating wallets:', error);
-    throw new Error('Failed to generate one or more wallets');
+    // Return whatever wallets were successfully created
+    return wallets.length > 0 ? wallets : [];
   }
 };
