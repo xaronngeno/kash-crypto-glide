@@ -29,13 +29,16 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { prices, loading: pricesLoading } = useCryptoPrices();
   
-  // Default assets with initial price and zero balance
-  const defaultAssets = [
-    { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0, value: 0, change: 0, icon: '₿' },
-    { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 0, value: 0, change: 0, icon: 'Ξ' },
-    { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 0, value: 0, change: 0, icon: '₮' },
-    { id: '4', name: 'Solana', symbol: 'SOL', price: 0, amount: 0, value: 0, change: 0, icon: 'Ѕ' },
-  ];
+  // Default assets mapping
+  const defaultAssetsMap = {
+    'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0, value: 0, change: 0, icon: '₿' },
+    'ETH': { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 0, value: 0, change: 0, icon: 'Ξ' },
+    'USDT': { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 0, value: 0, change: 0, icon: '₮' },
+    'SOL': { id: '4', name: 'Solana', symbol: 'SOL', price: 0, amount: 0, value: 0, change: 0, icon: 'Ѕ' },
+    'MATIC': { id: '5', name: 'Polygon', symbol: 'MATIC', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
+    'SUI': { id: '6', name: 'Sui', symbol: 'SUI', price: 0, amount: 0, value: 0, change: 0, icon: 'S' },
+    'MONAD': { id: '7', name: 'Monad', symbol: 'MONAD', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
+  };
 
   // Update assets when prices change
   useEffect(() => {
@@ -74,34 +77,39 @@ const Dashboard = () => {
           throw walletsError;
         }
         
-        // If no wallets found, use default assets with zero amounts
-        if (!wallets || wallets.length === 0) {
-          setAssets(defaultAssets);
-          setLoading(false);
-          return;
-        }
+        // Initialize with default assets
+        const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
         
-        // Map wallet data to assets
-        const userAssets = defaultAssets.map(defaultAsset => {
-          const wallet = wallets.find(w => w.currency === defaultAsset.symbol);
+        // If wallets found, update the amounts in our assets
+        if (wallets && wallets.length > 0) {
+          // Create a map for quick lookups
+          const walletsMap = wallets.reduce((map, wallet) => {
+            if (!map[wallet.currency]) {
+              map[wallet.currency] = 0;
+            }
+            map[wallet.currency] += wallet.balance;
+            return map;
+          }, {} as Record<string, number>);
           
-          if (wallet) {
-            return {
-              ...defaultAsset,
-              amount: wallet.balance,
-              // We'll update price and value when we get real-time data
-              value: wallet.balance * defaultAsset.price
-            };
+          // Update asset amounts from wallets
+          for (const asset of initialAssets) {
+            if (walletsMap[asset.symbol]) {
+              asset.amount = walletsMap[asset.symbol];
+              asset.value = asset.amount * asset.price;
+            }
           }
           
-          return defaultAsset;
-        });
+          console.log('Wallets loaded:', wallets.length, 'Updated assets:', initialAssets);
+        } else {
+          console.log('No wallets found, using default assets with zero amounts');
+        }
         
-        setAssets(userAssets);
+        setAssets(initialAssets);
       } catch (err) {
         console.error('Error fetching wallets:', err);
         setError('Failed to load wallet data');
-        setAssets(defaultAssets);
+        // Still set default assets even if there's an error
+        setAssets(Object.values(defaultAssetsMap));
       } finally {
         setLoading(false);
       }
@@ -198,30 +206,40 @@ const Dashboard = () => {
           </div>
           
           <div className="space-y-3">
-            {assets.map((asset) => (
-              <KashCard key={asset.id} className="hover:bg-kash-lightGray cursor-pointer transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold">
-                      {asset.icon}
+            {assets.filter(asset => asset.amount > 0).length > 0 ? (
+              assets
+                .filter(asset => asset.amount > 0)
+                .sort((a, b) => b.value - a.value)
+                .map((asset) => (
+                  <KashCard key={asset.id} className="hover:bg-kash-lightGray cursor-pointer transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold">
+                          {asset.icon}
+                        </div>
+                        <div className="ml-3">
+                          <h3 className="font-medium">{asset.name}</h3>
+                          <p className="text-sm text-gray-500">{asset.amount.toFixed(asset.symbol === 'BTC' ? 8 : 4)} {asset.symbol}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          {currency === 'USD' ? '$' : 'KES '}
+                          {(currency === 'USD' ? asset.value : asset.value * 129).toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                        </p>
+                        <p className={`text-sm ${asset.change >= 0 ? 'text-kash-green' : 'text-kash-error'}`}>
+                          {asset.change >= 0 ? '+' : ''}{asset.change.toFixed(2)}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="ml-3">
-                      <h3 className="font-medium">{asset.name}</h3>
-                      <p className="text-sm text-gray-500">{asset.amount} {asset.symbol}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {currency === 'USD' ? '$' : 'KES '}
-                      {(currency === 'USD' ? asset.value : asset.value * 129).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </p>
-                    <p className={`text-sm ${asset.change >= 0 ? 'text-kash-green' : 'text-kash-error'}`}>
-                      {asset.change >= 0 ? '+' : ''}{asset.change.toFixed(2)}%
-                    </p>
-                  </div>
-                </div>
-              </KashCard>
-            ))}
+                  </KashCard>
+                ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No assets with balance found.</p>
+                <KashButton className="mt-4" onClick={() => window.location.href = '/buy'}>Buy Crypto</KashButton>
+              </div>
+            )}
           </div>
         </div>
         
