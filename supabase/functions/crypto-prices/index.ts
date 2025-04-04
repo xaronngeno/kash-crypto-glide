@@ -1,9 +1,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Improved CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 // Fallback prices to use if API is unavailable
@@ -19,26 +21,12 @@ serve(async (req) => {
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      headers: {
-        ...corsHeaders,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      },
-      status: 204
-    });
+    return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
   try {
-    // Parse request body for logging purposes only
-    let requestBody;
-    try {
-      requestBody = await req.json();
-      console.log("Received request with body:", requestBody);
-    } catch (e) {
-      console.log("No request body or invalid JSON");
-    }
-    
     const apiKey = Deno.env.get('COINMARKETCAP_API_KEY');
+    console.log("API key exists:", !!apiKey);
     
     if (!apiKey) {
       console.error('Missing CoinMarketCap API key');
@@ -50,10 +38,7 @@ serve(async (req) => {
         }),
         { 
           status: 200, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -78,7 +63,9 @@ serve(async (req) => {
       );
       
       clearTimeout(timeoutId);
-
+      
+      console.log("CoinMarketCap API response status:", response.status);
+      
       if (!response.ok) {
         const errorText = await response.text();
         console.error('CoinMarketCap API error:', errorText);
@@ -105,22 +92,11 @@ serve(async (req) => {
         }
       }
 
-      if (Object.keys(prices).length === 0) {
-        console.error('No prices returned from API');
-        throw new Error('No prices returned from API');
-      }
-
       console.log('Successfully fetched prices for', Object.keys(prices).join(', '));
       
       return new Response(
         JSON.stringify({ prices, source: 'api' }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=300'
-          } 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (fetchError) {
       console.error('Error fetching from CoinMarketCap:', fetchError.message);
@@ -131,13 +107,7 @@ serve(async (req) => {
           source: 'fallback',
           error: fetchError.message
         }),
-        { 
-          status: 200, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
   } catch (error) {
@@ -149,13 +119,7 @@ serve(async (req) => {
         source: 'fallback',
         error: error.message
       }),
-      { 
-        status: 200, 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

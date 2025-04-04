@@ -34,13 +34,21 @@ export function useCryptoPrices() {
       
       console.log('Fetching crypto prices...');
       
-      // Simple approach - no retries, just directly use the edge function
-      const { data, error: functionError } = await supabase.functions.invoke('crypto-prices');
+      // Call the edge function directly with no auth requirement
+      const response = await fetch('https://hfdaowgithffhelybfve.supabase.co/functions/v1/crypto-prices', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // No authorization header needed since we disabled JWT verification
+        }
+      });
       
-      if (functionError) {
-        console.error('Edge function error:', functionError);
-        throw new Error(functionError.message || 'Failed to invoke crypto prices function');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API responded with status ${response.status}: ${errorText}`);
       }
+      
+      const data = await response.json();
       
       if (data && data.prices) {
         console.log('Successfully fetched crypto prices:', data.prices);
@@ -64,8 +72,11 @@ export function useCryptoPrices() {
       console.error('Failed to fetch prices:', err);
       setError(err instanceof Error ? err.message : 'Unable to fetch live prices');
       
+      // Always make sure we have prices, even if there's an error
+      setPrices(fallbackPrices);
+      
       toast({
-        title: "Using cached prices",
+        title: "Using default prices",
         description: err instanceof Error ? err.message : "Could not connect to price service.",
         variant: "default"
       });
