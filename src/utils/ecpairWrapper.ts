@@ -16,12 +16,17 @@ export const ECPairFactory = (ecc: any) => {
   // If not, it might be a named export or the function itself
   if (typeof ecpairLib === 'function') {
     console.log('Using direct function for ECPairFactory');
-    return ecpairLib(ecc);
+    return (ecpairLib as any)(ecc);
   }
   
   // Last resort - maybe it's a property
   console.log('Using property for ECPairFactory');
-  return ecpairLib.ECPairFactory ? ecpairLib.ECPairFactory(ecc) : null;
+  const factory = ecpairLib.ECPairFactory || ecpairLib;
+  if (typeof factory === 'function') {
+    return factory(ecc);
+  }
+  
+  throw new Error('Could not find a valid ECPairFactory function');
 };
 
 // Also provide default export

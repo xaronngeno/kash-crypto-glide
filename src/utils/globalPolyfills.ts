@@ -1,25 +1,22 @@
 
-// This file provides polyfills for CommonJS modules used in the browser
+// Import buffer module directly
+import { Buffer as BufferModule } from 'buffer';
 
 // Ensure Buffer is properly defined with ALL required methods
-if (typeof globalThis.Buffer === 'undefined') {
-  console.log('Setting up Buffer polyfill');
-  
-  // Import the buffer module synchronously to ensure it's available immediately
-  import('buffer').then(({ Buffer }) => {
-    console.log('Buffer polyfill loaded:', Buffer);
-    globalThis.Buffer = Buffer;
-    
-    // Make Buffer globally available on window for compatibility
-    if (typeof window !== 'undefined') {
-      // @ts-ignore
-      window.Buffer = Buffer;
-    }
-    
-    console.log('Buffer.alloc available:', typeof Buffer.alloc === 'function');
-    console.log('Buffer.from available:', typeof Buffer.from === 'function');
-  });
+console.log('Setting up Buffer polyfill');
+
+// Make Buffer globally available
+globalThis.Buffer = BufferModule;
+
+// Make Buffer available on window for compatibility
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  window.Buffer = BufferModule;
 }
+
+console.log('Buffer polyfill loaded:', typeof BufferModule);
+console.log('Buffer.alloc available:', typeof BufferModule.alloc === 'function');
+console.log('Buffer.from available:', typeof BufferModule.from === 'function');
 
 // Ensure global is defined
 if (typeof globalThis !== 'undefined') {

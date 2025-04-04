@@ -75,7 +75,8 @@ const SignUp = () => {
         // Create wallets for the new user
         if (data.user) {
           try {
-            const wallets = generateAllWallets();
+            // Generate wallets (now properly handling Promise)
+            const wallets = await generateAllWallets();
             console.log("Generated wallets:", wallets.length);
             
             // Prepare wallet data for database storage

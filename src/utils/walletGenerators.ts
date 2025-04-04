@@ -15,12 +15,6 @@ export interface WalletData {
   walletType?: string; // For different wallet types like "Taproot" or "Native Segwit"
 }
 
-// Initialize ECPair factory for Bitcoin
-const ECPair = ECPairFactory(ecc);
-
-// Bitcoin network selection (mainnet for now, could be testnet)
-const bitcoinNetwork = bitcoin.networks.bitcoin;
-
 // Generate a Solana wallet
 export const generateSolanaWallet = (): WalletData => {
   try {
@@ -84,11 +78,17 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
     }
     
     // Get the initialized bitcoin library
-    const bitcoinLib = await getBitcoin();
+    const bitcoinLib = getBitcoin();
     console.log('Bitcoin library loaded:', !!bitcoinLib);
     
-    if (!bitcoinLib || !ECPair) {
-      throw new Error('Bitcoin libraries not properly loaded');
+    // Initialize ECPair
+    let ECPair;
+    try {
+      ECPair = ECPairFactory(ecc);
+      console.log('ECPair initialized successfully');
+    } catch (ecpairError) {
+      console.error('Failed to initialize ECPair:', ecpairError);
+      throw new Error('Could not initialize Bitcoin key generation');
     }
     
     console.log('Generating Bitcoin key pair');
@@ -135,7 +135,7 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
   }
 };
 
-// Generate all wallets for a user
+// Generate all wallets for a user - fixed to handle async wallet generation
 export const generateAllWallets = async (): Promise<WalletData[]> => {
   const wallets: WalletData[] = [];
   

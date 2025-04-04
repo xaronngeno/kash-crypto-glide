@@ -8,27 +8,22 @@ console.log('Imported bitcoinLib:', bitcoinLib);
 // Create a proper export object
 const bitcoin = bitcoinLib;
 
-// Wait for Buffer to be available before allowing bitcoinjs-lib to be used
-const ensureBufferAvailable = () => {
-  return new Promise((resolve) => {
-    const checkBuffer = () => {
-      if (typeof globalThis.Buffer !== 'undefined' && 
-          typeof globalThis.Buffer.alloc === 'function' && 
-          typeof globalThis.Buffer.from === 'function') {
-        console.log('Buffer is fully available with required methods');
-        resolve(true);
-      } else {
-        console.log('Buffer not yet fully available, waiting...');
-        setTimeout(checkBuffer, 50);
-      }
-    };
-    checkBuffer();
-  });
+// Check if Buffer is available
+const isBufferAvailable = () => {
+  return (
+    typeof globalThis.Buffer !== 'undefined' &&
+    typeof globalThis.Buffer.alloc === 'function' &&
+    typeof globalThis.Buffer.from === 'function'
+  );
 };
 
 // Export an async function to get the bitcoin library when it's safe to use
-export const getBitcoin = async () => {
-  await ensureBufferAvailable();
+export const getBitcoin = () => {
+  if (!isBufferAvailable()) {
+    console.error('Buffer is not fully available for bitcoinjs-lib');
+    throw new Error('Buffer polyfill is not properly loaded');
+  }
+  
   return bitcoin;
 };
 
