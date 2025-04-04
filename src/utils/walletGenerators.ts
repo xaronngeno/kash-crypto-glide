@@ -1,16 +1,10 @@
 
 import { Keypair } from '@solana/web3.js';
-import { Wallet, ethers } from 'ethers';
-import { Ed25519Keypair } from '@mysten/sui.js/cryptography';
+import { ethers } from 'ethers';
+import { Ed25519Keypair } from '@mysten/sui.js/keypairs';
 import * as bitcoin from 'bitcoinjs-lib';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-
-// Initialize ECPair factory for Bitcoin
-const ECPair = ECPairFactory(ecc);
-
-// Bitcoin network selection (mainnet for now, could be testnet)
-const bitcoinNetwork = bitcoin.networks.bitcoin;
 
 // Interface for wallet data
 export interface WalletData {
@@ -20,6 +14,12 @@ export interface WalletData {
   privateKey?: string; // Only passed temporarily, never stored on frontend
   walletType?: string; // For different wallet types like "Taproot" or "Native Segwit"
 }
+
+// Initialize ECPair factory for Bitcoin
+const ECPair = ECPairFactory(ecc);
+
+// Bitcoin network selection (mainnet for now, could be testnet)
+const bitcoinNetwork = bitcoin.networks.bitcoin;
 
 // Generate a Solana wallet
 export const generateSolanaWallet = (): WalletData => {
@@ -73,20 +73,36 @@ export const generateSuiWallet = (): WalletData => {
 export const generateBitcoinWallet = (type: 'taproot' | 'segwit'): WalletData => {
   try {
     const keyPair = ECPair.makeRandom();
-    const { address } = type === 'taproot' 
-      ? bitcoin.payments.p2tr({ 
-          internalPubkey: keyPair.publicKey.slice(1, 33),
-          network: bitcoinNetwork 
-        })
-      : bitcoin.payments.p2wpkh({ 
-          pubkey: keyPair.publicKey, 
-          network: bitcoinNetwork 
-        });
-
+    
+    // Ensure keyPair.publicKey exists before using it
+    if (!keyPair.publicKey) {
+      throw new Error('Failed to generate Bitcoin key pair');
+    }
+    
+    let address: string | undefined;
+    
+    if (type === 'taproot') {
+      const payment = bitcoin.payments.p2tr({ 
+        internalPubkey: keyPair.publicKey.slice(1, 33),
+        network: bitcoinNetwork 
+      });
+      address = payment.address;
+    } else {
+      const payment = bitcoin.payments.p2wpkh({ 
+        pubkey: keyPair.publicKey, 
+        network: bitcoinNetwork 
+      });
+      address = payment.address;
+    }
+    
+    if (!address) {
+      throw new Error('Failed to generate Bitcoin address');
+    }
+    
     return {
       blockchain: 'Bitcoin',
       platform: 'Bitcoin',
-      address: address!,
+      address: address,
       privateKey: keyPair.privateKey?.toString('hex'),
       walletType: type === 'taproot' ? 'Taproot' : 'Native SegWit'
     };
