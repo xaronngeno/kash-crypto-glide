@@ -44,7 +44,9 @@ export default defineConfig(({ mode }) => ({
       // Add an alias for tweetnacl
       'tweetnacl': path.resolve(__dirname, 'node_modules/tweetnacl'),
       // Add an alias for ecpair
-      'ecpair': path.resolve(__dirname, 'node_modules/ecpair')
+      'ecpair': path.resolve(__dirname, 'node_modules/ecpair'),
+      // Add an alias for bitcoinjs-lib
+      'bitcoinjs-lib': path.resolve(__dirname, 'node_modules/bitcoinjs-lib')
     },
     dedupe: ['bs58', 'tweetnacl'] // Deduplicate bs58 and tweetnacl to use a single instance
   },
