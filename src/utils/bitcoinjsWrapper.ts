@@ -1,5 +1,5 @@
 
-// This file serves as a wrapper to properly export bitcoinjs-lib
+// This file serves as a wrapper to properly export bitcoinjs-lib for ESM compatibility
 import * as bitcoinjsLib from 'bitcoinjs-lib';
 
 // Re-export everything
