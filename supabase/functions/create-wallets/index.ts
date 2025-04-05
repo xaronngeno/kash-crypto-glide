@@ -35,23 +35,24 @@ serve(async (req) => {
     const jwt = authHeader.split(' ')[1];
     console.log("Authorization token found, creating Supabase client");
 
-    // Create a Supabase client with the JWT token
+    // Create a Supabase client with the JWT token AND use the service role key for admin privileges
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    // Use the service role key for admin privileges
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Also create a client with the user token to get the user info
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: { Authorization: authHeader }
       },
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      }
     });
     
     // Get the current user using the token
     console.log("Getting authenticated user");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
+    const { data: { user }, error: userError } = await userClient.auth.getUser(jwt);
     
     if (userError || !user) {
       console.error('Error getting user:', userError);
@@ -65,7 +66,7 @@ serve(async (req) => {
     console.log(`Creating wallets for user ${userId}`);
     
     // Check if user already has wallets
-    const { data: existingWallets, error: walletsError } = await supabase
+    const { data: existingWallets, error: walletsError } = await userClient
       .from('wallets')
       .select('*')
       .eq('user_id', userId);
@@ -173,7 +174,8 @@ serve(async (req) => {
       }
     ];
     
-    // Insert generated wallets into the database
+    // Insert generated wallets into the database USING THE ADMIN CLIENT
+    // This bypasses RLS policies since it uses the service role key
     const walletsToInsert = wallets.map(wallet => ({
       user_id: userId,
       blockchain: wallet.blockchain,
@@ -182,9 +184,9 @@ serve(async (req) => {
       balance: Math.random() * 10 // Random demo balance for testing
     }));
     
-    console.log(`Inserting ${walletsToInsert.length} wallets for user ${userId}`);
+    console.log(`Inserting ${walletsToInsert.length} wallets for user ${userId} using admin client`);
     
-    const { data: insertedWallets, error: insertError } = await supabase
+    const { data: insertedWallets, error: insertError } = await adminClient
       .from('wallets')
       .insert(walletsToInsert)
       .select();

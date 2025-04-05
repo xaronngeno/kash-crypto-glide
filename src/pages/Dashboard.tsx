@@ -54,10 +54,11 @@ const Dashboard = () => {
       setCreatingWallets(true);
       console.log("Creating wallets for user");
       
-      // Use the supabase functions.invoke method instead of direct fetch
+      // Use the supabase functions.invoke method with proper authorization
       const { data, error } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
         body: {}
