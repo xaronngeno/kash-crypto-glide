@@ -7,10 +7,10 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Auto-redirect to sign in after a brief splash screen
+    // Increase timeout to give more time to see the splash screen
     const timer = setTimeout(() => {
       navigate('/signin');
-    }, 2000);
+    }, 5000); // Changed from 2000ms to 5000ms (5 seconds)
 
     return () => clearTimeout(timer);
   }, [navigate]);
@@ -23,6 +23,7 @@ const Index = () => {
         </div>
         <h1 className="text-4xl font-bold mb-2">Kash</h1>
         <p className="text-gray-600 text-lg">Your minimalist crypto wallet</p>
+        <p className="text-gray-500 text-sm mt-4">Redirecting to sign in...</p>
       </div>
     </div>
   );
