@@ -99,6 +99,33 @@ const fallbackPrices = {
     name: "Chainlink",
     symbol: "LINK",
     platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
+  },
+  MATIC: { 
+    price: 0.75, 
+    change_24h: 1.2, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png",
+    name: "Polygon",
+    symbol: "MATIC",
+    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
+  },
+  SUI: { 
+    price: 0.85, 
+    change_24h: 1.5, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/20947.png",
+    name: "Sui",
+    symbol: "SUI",
+    platform: { name: "Sui", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/20947.png" }
+  },
+  MONAD: { 
+    price: 12.25, 
+    change_24h: 3.7, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/28126.png",
+    name: "Monad",
+    symbol: "MONAD",
+    platform: { name: "Monad", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/28126.png" }
   }
 };
 
@@ -120,7 +147,6 @@ serve(async (req) => {
     return new Response(null, { 
       headers: {
         ...corsHeaders,
-        'Access-Control-Allow-Origin': '*',
       }, 
       status: 204 
     });
@@ -165,7 +191,7 @@ serve(async (req) => {
       );
     }
 
-    const symbols = ['BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'LINK'];
+    const symbols = ['BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'LINK', 'MATIC', 'SUI', 'MONAD'];
     const limit = 100; // Number of top cryptocurrencies to fetch
     
     try {

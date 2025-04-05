@@ -8,4 +8,5 @@ export interface Asset {
   value: number;
   change: number;
   icon: string;
+  logo?: string;
 }

@@ -1,5 +1,7 @@
+
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CryptoPlatform {
   name: string;
@@ -56,6 +58,33 @@ const fallbackPrices: CryptoPrices = {
     name: "Solana",
     symbol: "SOL",
     platform: { name: "Solana", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png" }
+  },
+  MATIC: { 
+    price: 0.75, 
+    change_24h: 1.2, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png",
+    name: "Polygon",
+    symbol: "MATIC",
+    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
+  },
+  SUI: { 
+    price: 0.85, 
+    change_24h: 1.5, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/20947.png",
+    name: "Sui",
+    symbol: "SUI",
+    platform: { name: "Sui", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/20947.png" }
+  },
+  MONAD: { 
+    price: 12.25, 
+    change_24h: 3.7, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/28126.png",
+    name: "Monad",
+    symbol: "MONAD",
+    platform: { name: "Monad", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/28126.png" }
   }
 };
 
@@ -94,25 +123,13 @@ export function useCryptoPrices() {
       
       console.log('Fetching crypto prices...');
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
-      const response = await fetch('https://hfdaowgithffhelybfve.supabase.co/functions/v1/crypto-prices', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal
+      const { data, error } = await supabase.functions.invoke('crypto-prices', {
+        method: 'GET'
       });
       
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API responded with status ${response.status}: ${errorText}`);
+      if (error) {
+        throw new Error(`Function returned error: ${error.message}`);
       }
-      
-      const data = await response.json();
       
       if (data && data.prices) {
         console.log('Successfully fetched crypto prices:', Object.keys(data.prices).length, 'coins');
