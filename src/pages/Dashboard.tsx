@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, Repeat, CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -53,21 +54,20 @@ const Dashboard = () => {
       setCreatingWallets(true);
       console.log("Creating wallets for user");
       
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-wallets`, {
+      // Use the supabase functions.invoke method instead of direct fetch
+      const { data, error } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: {}
       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Error creating wallets: Status ${response.status}`, errorText);
-        throw new Error(`Function returned status ${response.status}: ${errorText}`);
+      if (error) {
+        console.error(`Error creating wallets:`, error);
+        throw new Error(`Function returned error: ${error.message}`);
       }
       
-      const data = await response.json();
       console.log("Wallets created successfully:", data);
       setWalletsCreated(true);
       toast({
