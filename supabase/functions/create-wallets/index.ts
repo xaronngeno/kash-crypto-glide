@@ -91,8 +91,7 @@ serve(async (req) => {
       );
     }
     
-    // Generate wallet addresses (these would be externally generated in production)
-    // For now, we'll create demo wallet addresses
+    // Generate wallet addresses
     const wallets: WalletData[] = [
       {
         blockchain: 'Bitcoin',
@@ -186,29 +185,63 @@ serve(async (req) => {
     
     console.log(`Inserting ${walletsToInsert.length} wallets for user ${userId} using admin client`);
     
-    const { data: insertedWallets, error: insertError } = await adminClient
-      .from('wallets')
-      .insert(walletsToInsert)
-      .select();
+    try {
+      const { data: insertedWallets, error: insertError } = await adminClient
+        .from('wallets')
+        .insert(walletsToInsert)
+        .select();
+        
+      if (insertError) {
+        console.error('Error inserting wallets:', insertError);
+        
+        // If we get a unique constraint violation, let's fetch existing wallets instead
+        if (insertError.code === '23505') {
+          console.log('Some wallets already exist for this user. Fetching all existing wallets.');
+          const { data: allWallets, error: fetchError } = await adminClient
+            .from('wallets')
+            .select('*')
+            .eq('user_id', userId);
+            
+          if (fetchError) {
+            return new Response(
+              JSON.stringify({ error: 'Error fetching existing wallets', details: fetchError }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              message: `Found ${allWallets?.length} existing wallets for user ${userId}`,
+              wallets: allWallets 
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ error: 'Error inserting wallets', details: insertError }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       
-    if (insertError) {
-      console.error('Error inserting wallets:', insertError);
+      console.log(`Successfully created ${insertedWallets?.length} wallets`);
+      
       return new Response(
-        JSON.stringify({ error: 'Error inserting wallets', details: insertError }),
+        JSON.stringify({ 
+          success: true, 
+          message: `Created ${insertedWallets?.length} wallets for user ${userId}`,
+          wallets: insertedWallets 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (insertError) {
+      console.error('Unexpected error during wallet insertion:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Unexpected error during wallet insertion', details: insertError }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    console.log(`Successfully created ${insertedWallets?.length} wallets`);
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `Created ${insertedWallets?.length} wallets for user ${userId}`,
-        wallets: insertedWallets 
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
     
   } catch (error) {
     console.error('Unexpected error:', error);
