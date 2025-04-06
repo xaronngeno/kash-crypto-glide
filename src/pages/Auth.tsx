@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail } from 'lucide-react';
@@ -25,17 +24,14 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Send the OTP directly without checking if user exists
-      // The Supabase Auth API will handle both new and existing users
+      // Explicitly request a numeric OTP for email verification
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          // Set OTP expiration to 10 minutes
-          emailRedirectTo: window.location.origin,
           shouldCreateUser: true,
-          data: {
-            email_otp_type: 'numeric'
-          }
+          // Set OTP type to numeric explicitly
+          channel: 'email',
+          emailRedirectTo: window.location.origin,
         }
       });
 
