@@ -11,14 +11,14 @@ import './index.css';
 import { Toaster } from '@/components/ui/toaster';
 import { BrowserRouter } from 'react-router-dom';
 
-// Make sure Buffer is available in the global scope
-if (typeof window !== 'undefined' && !window.Buffer) {
-  window.Buffer = globalThis.Buffer;
-}
-
-console.log("Buffer availability check:", {
+// Add a debug check to make sure Buffer is properly loaded
+console.log("Buffer availability check in main.tsx:", {
   globalBuffer: typeof globalThis.Buffer,
   windowBuffer: typeof window.Buffer,
+  bufferMethods: globalThis.Buffer ? {
+    alloc: typeof globalThis.Buffer.alloc,
+    from: typeof globalThis.Buffer.from
+  } : null
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
