@@ -32,7 +32,7 @@ const Auth = () => {
           shouldCreateUser: true,
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           channel: 'email',
-          type: 'otp'
+          email_otp_type: 'numeric'
         }
       });
 
