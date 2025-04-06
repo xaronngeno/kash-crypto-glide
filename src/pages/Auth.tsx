@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail } from 'lucide-react';
@@ -30,8 +29,7 @@ const Auth = () => {
         email,
         options: {
           shouldCreateUser: true,
-          // Using the correct property for OTP type
-          channel: 'email',
+          // Instead of using channel: 'email', we set the data object properly
           data: {
             email_otp_type: 'numeric'  // Setting this in the data object
           },
