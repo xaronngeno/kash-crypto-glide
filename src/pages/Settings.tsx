@@ -26,13 +26,10 @@ const Settings = () => {
     phone: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showRecoveryPhrase, setShowRecoveryPhrase] = useState(false);
   const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  const [phraseType, setPhraseType] = useState<'recovery' | 'seed' | null>(null);
   
-  // Mock phrases - in a real app, these would be securely stored and retrieved
-  const mockRecoveryPhrase = "wheel expand crowd satisfy vacuum crystal dwarf ready pretty tribe right spare";
+  // Mock seed phrase - in a real app, this would be securely stored and retrieved
   const mockSeedPhrase = "point coffee twist knock deposit differ yard adjust battle reason million elite";
   
   useEffect(() => {
@@ -118,12 +115,7 @@ const Settings = () => {
       // Mock authentication - in real app, verify with Supabase
       setTimeout(() => {
         setIsAuthDialogOpen(false);
-        
-        if (phraseType === 'recovery') {
-          setShowRecoveryPhrase(true);
-        } else if (phraseType === 'seed') {
-          setShowSeedPhrase(true);
-        }
+        setShowSeedPhrase(true);
         
         toast({
           title: "Authentication successful",
@@ -139,8 +131,7 @@ const Settings = () => {
     }
   };
   
-  const handleViewSecureInfo = (type: 'recovery' | 'seed') => {
-    setPhraseType(type);
+  const handleViewSecureInfo = () => {
     setIsAuthDialogOpen(true);
   };
 
@@ -186,48 +177,14 @@ const Settings = () => {
           </KashCard>
         </div>
         
-        {/* Secret Recovery Section - NEW */}
+        {/* Wallet Recovery Section */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Wallet Recovery</h2>
           <KashCard className="divide-y divide-gray-100">
             <div className="py-3 px-1">
               <button 
                 className="w-full flex items-center justify-between"
-                onClick={() => handleViewSecureInfo('recovery')}
-              >
-                <div className="flex items-center">
-                  <Key size={18} className="mr-2 text-kash-green" />
-                  <span className="text-gray-800">Secret Recovery Phrase</span>
-                </div>
-                <ChevronRight size={18} className="text-gray-400" />
-              </button>
-              
-              {showRecoveryPhrase && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-md">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Recovery Phrase</span>
-                    <button 
-                      onClick={() => setShowRecoveryPhrase(false)}
-                      className="text-sm text-kash-green flex items-center"
-                    >
-                      <EyeOff size={16} className="mr-1" />
-                      Hide
-                    </button>
-                  </div>
-                  <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono">
-                    {mockRecoveryPhrase}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Write this phrase down and store it in a secure location. This is the only way to recover your wallet.
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <div className="py-3 px-1">
-              <button 
-                className="w-full flex items-center justify-between"
-                onClick={() => handleViewSecureInfo('seed')}
+                onClick={handleViewSecureInfo}
               >
                 <div className="flex items-center">
                   <Lock size={18} className="mr-2 text-kash-green" />
