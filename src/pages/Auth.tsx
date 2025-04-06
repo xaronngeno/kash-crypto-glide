@@ -30,8 +30,11 @@ const Auth = () => {
         email,
         options: {
           shouldCreateUser: true,
-          // Explicitly set to use a 6-digit numeric OTP
-          emailOtpType: 'numeric',
+          // Using the correct property for OTP type
+          channel: 'email',
+          data: {
+            email_otp_type: 'numeric'  // Setting this in the data object
+          },
           emailRedirectTo: window.location.origin,
         }
       });
