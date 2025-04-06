@@ -25,15 +25,13 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Request a numeric OTP for email verification
+      console.log("Requesting OTP for email:", email);
+      
+      // Using signInWithOtp without the email_otp_type to let Supabase use its default settings
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
-          // Setting email_otp_type in the data object to force numeric OTP
-          data: {
-            email_otp_type: 'numeric'
-          },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         }
       });
@@ -76,6 +74,8 @@ const Auth = () => {
     setVerifyingOtp(true);
     
     try {
+      console.log("Verifying OTP:", otpValue, "for email:", email);
+      
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: otpValue,
