@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail } from 'lucide-react';
@@ -24,13 +25,13 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Explicitly request a numeric OTP for email verification
+      // Request a numeric OTP for email verification
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
-          // Set OTP type to numeric explicitly
-          channel: 'email',
+          // Explicitly set to use a 6-digit numeric OTP
+          emailOtpType: 'numeric',
           emailRedirectTo: window.location.origin,
         }
       });
