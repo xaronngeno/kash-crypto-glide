@@ -12,11 +12,11 @@ import { KashCard } from '@/components/ui/KashCard';
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [otpValue, setOtpValue] = useState('');
-  const [showOtpInput, setShowOtpInput] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [email, setEmail] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [otpValue, setOtpValue] = useState<string>('');
+  const [showOtpInput, setShowOtpInput] = useState<boolean>(false);
+  const [verifyingOtp, setVerifyingOtp] = useState<boolean>(false);
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +29,7 @@ const Auth = () => {
       const { data: existingUser, error: checkError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('email', email)
+        .eq('id', email)
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
