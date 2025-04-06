@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail } from 'lucide-react';
@@ -31,8 +32,8 @@ const Auth = () => {
         options: {
           shouldCreateUser: true,
           emailRedirectTo: `${window.location.origin}/auth/callback`,
-          channel: 'email',
-          email_otp_type: 'numeric'
+          // For OTP numeric codes:
+          emailOtpType: 'numeric'
         }
       });
 
