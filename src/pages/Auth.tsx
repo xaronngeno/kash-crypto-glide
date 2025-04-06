@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail } from 'lucide-react';
@@ -25,14 +24,15 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      console.log("Requesting OTP for email:", email);
+      console.log("Requesting numeric OTP for email:", email);
       
-      // Using signInWithOtp without the email_otp_type to let Supabase use its default settings
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
           emailRedirectTo: `${window.location.origin}/auth/callback`,
+          channel: 'email',
+          type: 'otp'
         }
       });
 
