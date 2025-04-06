@@ -9,7 +9,7 @@ const Index = () => {
   useEffect(() => {
     // Increase timeout to give more time to see the splash screen
     const timer = setTimeout(() => {
-      navigate('/signin');
+      navigate('/auth');
     }, 5000); // Changed from 2000ms to 5000ms (5 seconds)
 
     return () => clearTimeout(timer);

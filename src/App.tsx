@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -9,8 +8,7 @@ import { AuthProvider } from "./components/AuthProvider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import SignIn from "./pages/SignIn";
-import SignUp from "./pages/SignUp";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Receive from "./pages/Receive";
 import Send from "./pages/Send";
@@ -36,8 +34,9 @@ const App: React.FC = () => {
           <AuthProvider>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/signin" element={<SignIn />} />
-              <Route path="/signup" element={<SignUp />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/signin" element={<Auth />} />
+              <Route path="/signup" element={<Auth />} />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Dashboard />
