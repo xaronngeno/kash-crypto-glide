@@ -32,6 +32,10 @@ const Auth = () => {
         options: {
           // Set OTP expiration to 10 minutes
           emailRedirectTo: window.location.origin,
+          shouldCreateUser: true,
+          data: {
+            email_otp_type: 'numeric'
+          }
         }
       });
 
