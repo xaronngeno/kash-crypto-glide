@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
     esbuildOptions: {
       target: 'esnext', // Needed for WebAssembly support
     },
-    include: ['bs58', 'tweetnacl', 'bitcoinjs-lib', 'ecpair', 'tiny-secp256k1'] // Pre-bundle these packages
+    include: ['bs58', 'tweetnacl', 'bitcoinjs-lib', 'ecpair', 'tiny-secp256k1', 'buffer'] // Pre-bundle these packages
   },
   build: {
     target: 'esnext', // Needed for WebAssembly support
@@ -38,6 +38,11 @@ export default defineConfig(({ mode }) => ({
     nodePolyfills({
       // Whether to polyfill `node:` protocol imports.
       protocolImports: true,
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
     }),
     react(),
     mode === 'development' && componentTagger(),
@@ -50,15 +55,13 @@ export default defineConfig(({ mode }) => ({
       'tweetnacl': path.resolve(__dirname, 'node_modules/tweetnacl'),
       'ecpair': path.resolve(__dirname, 'node_modules/ecpair'),
       'bitcoinjs-lib': path.resolve(__dirname, 'node_modules/bitcoinjs-lib'),
-      'buffer': 'vite-plugin-node-polyfills/polyfills/buffer',
-      'process': 'vite-plugin-node-polyfills/polyfills/process',
+      'buffer': path.resolve(__dirname, 'node_modules/buffer'),
     },
-    dedupe: ['bs58', 'tweetnacl'], // Deduplicate bs58 and tweetnacl to use a single instance
+    dedupe: ['bs58', 'tweetnacl', 'buffer'], // Deduplicate packages to use a single instance
   },
   define: {
     // Add global definitions to help with CommonJS modules
     'process.env': {},
     'global': 'globalThis',
-    'Buffer': ['buffer', 'Buffer']
   },
 }));
