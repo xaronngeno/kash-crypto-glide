@@ -7,18 +7,27 @@ import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
+import TokenSelector from '@/components/swap/TokenSelector';
+import SwapRateInfo from '@/components/swap/SwapRateInfo';
+import SwapConfirmationModal from '@/components/swap/SwapConfirmationModal';
+import { Input } from '@/components/ui/input';
+
 import {
-  Wallet,
+  ArrowDownUp,
   ArrowRightLeft,
-  TrendingUp,
-  TrendingDown,
+  Info,
+  Settings,
+  RefreshCw,
 } from 'lucide-react';
 
 interface CryptoAsset {
+  id: string;
   symbol: string;
   name: string;
   logo: string;
   price: number;
+  decimals: number;
+  icon?: string;
 }
 
 const SwapCrypto = () => {
@@ -29,17 +38,18 @@ const SwapCrypto = () => {
 
   // Initialize assets with default values
   const [assets, setAssets] = useState<CryptoAsset[]>([
-    { symbol: 'USDT', name: 'Tether', logo: '/usdt-logo.png', price: 1.00 },
-    { symbol: 'BTC', name: 'Bitcoin', logo: '/btc-logo.png', price: 60000 },
-    { symbol: 'ETH', name: 'Ethereum', logo: '/eth-logo.png', price: 3000 },
-    { symbol: 'SOL', name: 'Solana', logo: '/sol-logo.png', price: 150 },
+    { id: 'usdt', symbol: 'USDT', name: 'Tether', logo: '/usdt-logo.png', price: 1.00, decimals: 6 },
+    { id: 'btc', symbol: 'BTC', name: 'Bitcoin', logo: '/btc-logo.png', price: 60000, decimals: 8 },
+    { id: 'eth', symbol: 'ETH', name: 'Ethereum', logo: '/eth-logo.png', price: 3000, decimals: 18 },
+    { id: 'sol', symbol: 'SOL', name: 'Solana', logo: '/sol-logo.png', price: 150, decimals: 9 },
   ]);
 
   const [fromToken, setFromToken] = useState<CryptoAsset | null>(null);
   const [toToken, setToToken] = useState<CryptoAsset | null>(null);
   const [fromAmount, setFromAmount] = useState('');
+  const [toAmount, setToAmount] = useState('');
   const [swapping, setSwapping] = useState(false);
-  const [swapComplete, setSwapComplete] = useState(false);
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [balances, setBalances] = useState({
     USDT: 1000,
     BTC: 0.01,
@@ -47,6 +57,7 @@ const SwapCrypto = () => {
     SOL: 1,
   });
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [networkFee, setNetworkFee] = useState(0.001);
 
   // Update assets with real-time prices
   useEffect(() => {
@@ -86,41 +97,73 @@ const SwapCrypto = () => {
     return fromAsset.price / toAsset.price;
   };
 
-  const calculateToAmount = (): string => {
-    if (!fromToken || !toToken || !fromAmount) return '0.00';
-    return (Number(fromAmount) * getExchangeRate(fromToken.symbol, toToken.symbol)).toFixed(6);
+  // Auto-calculate toAmount when fromAmount, fromToken, or toToken changes
+  useEffect(() => {
+    if (fromToken && toToken && fromAmount) {
+      const calculatedAmount = (Number(fromAmount) * getExchangeRate(fromToken.symbol, toToken.symbol)).toFixed(6);
+      setToAmount(calculatedAmount);
+    } else {
+      setToAmount('');
+    }
+  }, [fromAmount, fromToken, toToken]);
+
+  const handleSwitchTokens = () => {
+    const tempToken = fromToken;
+    setFromToken(toToken);
+    setToToken(tempToken);
+    // Reset amounts to avoid confusion
+    setFromAmount('');
+    setToAmount('');
   };
 
-  useEffect(() => {
-    if (swapComplete) {
+  const isInsufficientBalance = () => {
+    if (!fromToken || !fromAmount) return false;
+    return Number(fromAmount) > (balances[fromToken.symbol as keyof typeof balances] || 0);
+  };
+
+  const openConfirmation = () => {
+    if (isInsufficientBalance()) {
       toast({
-        title: 'Swap Successful',
-        description: `You have successfully swapped ${fromAmount} ${fromToken?.symbol} for ${calculateToAmount()} ${toToken?.symbol}.`,
+        title: "Insufficient Balance",
+        description: `You don't have enough ${fromToken?.symbol} to complete this swap.`,
+        variant: "destructive"
       });
-      setTimeout(() => setSwapComplete(false), 3000);
+      return;
     }
-  }, [swapComplete, fromAmount, fromToken, toToken, toast]);
+    
+    if (!fromToken || !toToken || !fromAmount || Number(fromAmount) <= 0) {
+      toast({
+        title: "Invalid Swap",
+        description: "Please enter a valid amount to swap.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsConfirmationOpen(true);
+  };
 
   const handleSwap = async () => {
-    if (!fromToken || !toToken || !fromAmount || !toToken) return;
+    if (!fromToken || !toToken || !fromAmount || !toAmount) return;
     
     setSwapping(true);
+    setIsConfirmationOpen(false);
     
     try {
       // Simulating exchange execution
       setTimeout(() => {
         // Calculate toAmount based on exchange rate
-        const calculatedToAmount = Number(fromAmount) * getExchangeRate(fromToken.symbol, toToken.symbol);
+        const calculatedToAmount = Number(toAmount);
         
         // Update balances
         const newBalances = { ...balances };
-        newBalances[fromToken.symbol] = Number(newBalances[fromToken.symbol]) - Number(fromAmount);
+        newBalances[fromToken.symbol] = Number(newBalances[fromToken.symbol]) - Number(fromAmount) - networkFee;
         newBalances[toToken.symbol] = Number(newBalances[toToken.symbol]) + calculatedToAmount;
         setBalances(newBalances);
         
         // Add to transaction history
         const newTransaction = {
-          id: Date.now().toString(), // Using string instead of number for id
+          id: Date.now().toString(),
           type: 'swap',
           status: 'completed',
           amount: fromAmount,
@@ -133,7 +176,14 @@ const SwapCrypto = () => {
         setTransactions([newTransaction, ...transactions]);
         
         // Show confirmation
-        setSwapComplete(true);
+        toast({
+          title: 'Swap Successful',
+          description: `You have successfully swapped ${fromAmount} ${fromToken.symbol} for ${calculatedToAmount.toFixed(6)} ${toToken.symbol}.`,
+        });
+        
+        // Reset form
+        setFromAmount('');
+        setToAmount('');
         setSwapping(false);
       }, 1500);
     } catch (error) {
@@ -149,7 +199,7 @@ const SwapCrypto = () => {
 
   if (pricesLoading) {
     return (
-      <MainLayout title="Swap Crypto" showBack>
+      <MainLayout title="Swap" showBack>
         <div className="flex justify-center items-center h-64">
           <div className="animate-pulse text-center">
             <p className="text-gray-500">Loading current prices...</p>
@@ -160,157 +210,192 @@ const SwapCrypto = () => {
   }
 
   return (
-    <MainLayout title="Swap Crypto" showBack>
-      <div className="space-y-6">
-        <div className="text-center mb-6">
-          <h2 className="text-xl font-semibold mb-1">Swap Crypto</h2>
-          <p className="text-gray-600">
-            Easily swap between different cryptocurrencies
-          </p>
-        </div>
-
-        <KashCard>
-          <div className="space-y-5">
-            {/* From Token */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                From
-              </label>
-              <div className="relative">
-                <select
-                  className="block appearance-none w-full bg-white border border-gray-300 hover:border-gray-400 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
-                  value={fromToken?.symbol}
-                  onChange={(e) => {
-                    const selectedAsset = assets.find((asset) => asset.symbol === e.target.value);
-                    setFromToken(selectedAsset || null);
-                  }}
-                >
-                  {assets.map((asset) => (
-                    <option key={asset.symbol} value={asset.symbol}>
-                      {asset.name} ({asset.symbol}) - ${asset.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                  </svg>
-                </div>
-              </div>
-              <input
-                type="number"
-                placeholder="Enter amount"
-                value={fromAmount}
-                onChange={(e) => setFromAmount(e.target.value)}
-                className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-base"
-              />
-              {fromToken && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Balance: {balances[fromToken.symbol as keyof typeof balances]} {fromToken.symbol}
-                </p>
-              )}
-            </div>
-
-            {/* Switch Tokens */}
-            <div className="flex justify-center">
-              <button
-                onClick={() => {
-                  const tempToken = fromToken;
-                  setFromToken(toToken);
-                  setToToken(tempToken);
-                }}
-                className="bg-gray-100 hover:bg-gray-200 rounded-full p-2"
-              >
-                <ArrowRightLeft size={20} className="text-gray-600" />
+    <MainLayout title="Swap" showBack>
+      <div className="max-w-md mx-auto">
+        {/* Main Swap Card */}
+        <KashCard className="mb-4">
+          <div className="flex justify-between items-center pb-4">
+            <h2 className="text-lg font-medium">Swap</h2>
+            <div className="flex items-center gap-2">
+              <button className="p-1.5 rounded-full hover:bg-gray-100" title="Refresh rates">
+                <RefreshCw size={18} className="text-gray-600" />
+              </button>
+              <button className="p-1.5 rounded-full hover:bg-gray-100" title="Settings">
+                <Settings size={18} className="text-gray-600" />
               </button>
             </div>
-
-            {/* To Token */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                To
-              </label>
-              <div className="relative">
-                <select
-                  className="block appearance-none w-full bg-white border border-gray-300 hover:border-gray-400 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
-                  value={toToken?.symbol}
-                  onChange={(e) => {
-                    const selectedAsset = assets.find((asset) => asset.symbol === e.target.value);
-                    setToToken(selectedAsset || null);
+          </div>
+          
+          {/* From Token */}
+          <div className="bg-gray-50 p-4 rounded-xl mb-1">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">From</span>
+              {fromToken && (
+                <span className="text-sm text-gray-600">
+                  Balance: {balances[fromToken.symbol as keyof typeof balances]} {fromToken.symbol}
+                </span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {fromToken && (
+                <div className="w-32">
+                  <TokenSelector
+                    selectedToken={fromToken}
+                    onSelectToken={setFromToken}
+                    tokens={assets}
+                  />
+                </div>
+              )}
+              
+              <Input
+                type="number"
+                value={fromAmount}
+                onChange={(e) => setFromAmount(e.target.value)}
+                className="flex-1 bg-transparent border-none text-lg font-medium focus-visible:ring-0 focus-visible:outline-none p-0"
+                placeholder="0.00"
+              />
+            </div>
+            
+            <div className="flex justify-end mt-1">
+              <div className="flex gap-2">
+                <button 
+                  className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-700"
+                  onClick={() => {
+                    if (fromToken) {
+                      const balance = balances[fromToken.symbol as keyof typeof balances] || 0;
+                      setFromAmount((balance / 2).toString());
+                    }
                   }}
                 >
-                  {assets.map((asset) => (
-                    <option key={asset.symbol} value={asset.symbol}>
-                      {asset.name} ({asset.symbol}) - ${asset.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="bg-kash-lightGray p-4 rounded-lg mt-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Estimated Amount</span>
-                  <span className="text-xl font-semibold">{calculateToAmount()} {toToken?.symbol}</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Exchange Rate: 1 {fromToken?.symbol} = {getExchangeRate(fromToken?.symbol || 'USDT', toToken?.symbol || 'BTC').toFixed(6)} {toToken?.symbol}
-                </div>
+                  50%
+                </button>
+                <button 
+                  className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-700"
+                  onClick={() => {
+                    if (fromToken) {
+                      const balance = balances[fromToken.symbol as keyof typeof balances] || 0;
+                      setFromAmount(balance.toString());
+                    }
+                  }}
+                >
+                  MAX
+                </button>
               </div>
             </div>
-
-            <KashButton
-              fullWidth
-              disabled={swapping}
-              onClick={handleSwap}
-            >
-              {swapping ? 'Swapping...' : 'Swap'}
-            </KashButton>
           </div>
+          
+          {/* Switch Button */}
+          <div className="flex justify-center -my-2 z-10 relative">
+            <button
+              onClick={handleSwitchTokens}
+              className="bg-white border border-gray-200 rounded-full p-2 shadow-sm hover:bg-gray-50"
+            >
+              <ArrowDownUp size={16} className="text-gray-600" />
+            </button>
+          </div>
+          
+          {/* To Token */}
+          <div className="bg-gray-50 p-4 rounded-xl mt-1">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">To (Estimated)</span>
+              {toToken && (
+                <span className="text-sm text-gray-600">
+                  Balance: {balances[toToken.symbol as keyof typeof balances]} {toToken.symbol}
+                </span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {toToken && (
+                <div className="w-32">
+                  <TokenSelector
+                    selectedToken={toToken}
+                    onSelectToken={setToToken}
+                    tokens={assets.filter(asset => asset.symbol !== fromToken?.symbol)}
+                  />
+                </div>
+              )}
+              
+              <Input
+                type="text"
+                value={toAmount}
+                readOnly
+                className="flex-1 bg-transparent border-none text-lg font-medium focus-visible:ring-0 focus-visible:outline-none p-0"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          
+          {/* Rate Info */}
+          {fromToken && toToken && fromAmount && toAmount && (
+            <div className="mt-4 mb-3">
+              <SwapRateInfo
+                fromToken={fromToken}
+                toToken={toToken}
+                rate={getExchangeRate(fromToken.symbol, toToken.symbol)}
+                fee={networkFee}
+              />
+            </div>
+          )}
+          
+          {/* Swap Button */}
+          <KashButton
+            fullWidth
+            disabled={swapping || !fromAmount || Number(fromAmount) <= 0 || isInsufficientBalance()}
+            onClick={openConfirmation}
+            className="mt-2"
+          >
+            {swapping ? 'Swapping...' : isInsufficientBalance() ? 'Insufficient Balance' : 'Review Swap'}
+          </KashButton>
         </KashCard>
-
+        
         {/* Transaction History */}
-        <div className="space-y-4 mt-6">
-          <h3 className="font-medium">Transaction History</h3>
-          {transactions.length > 0 ? (
-            <div className="space-y-3">
-              {transactions.map((transaction) => (
+        {transactions.length > 0 && (
+          <div className="mt-6">
+            <h3 className="font-medium mb-3">Recent Transactions</h3>
+            <div className="space-y-2">
+              {transactions.slice(0, 5).map((transaction) => (
                 <KashCard key={transaction.id} variant="outline" padding="sm">
                   <div className="flex justify-between items-center">
                     <div>
-                      <h4 className="font-semibold text-sm">
-                        {transaction.type === 'swap' ? 'Swap' : 'Transaction'}
+                      <h4 className="font-medium text-sm">
+                        Swap {transaction.fromAsset} → {transaction.toAsset}
                       </h4>
                       <p className="text-xs text-gray-500">
                         {new Date(transaction.timestamp).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="text-right">
-                      {transaction.type === 'swap' && (
-                        <>
-                          <p className="text-sm">
-                            {transaction.amount} {transaction.fromAsset} <ArrowRightLeft size={14} className="inline-block mx-1" /> {transaction.toAmount} {transaction.toAsset}
-                          </p>
-                          {transaction.status === 'completed' ? (
-                            <span className="text-green-500 text-xs">Completed</span>
-                          ) : (
-                            <span className="text-yellow-500 text-xs">Pending</span>
-                          )}
-                        </>
-                      )}
+                      <p className="text-sm">
+                        {transaction.amount} {transaction.fromAsset}
+                      </p>
+                      <p className="text-sm text-green-600">
+                        {Number(transaction.toAmount).toFixed(6)} {transaction.toAsset}
+                      </p>
                     </div>
                   </div>
                 </KashCard>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-gray-600">No transactions yet.</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+      
+      {/* Confirmation Modal */}
+      {fromToken && toToken && (
+        <SwapConfirmationModal
+          isOpen={isConfirmationOpen}
+          onClose={() => setIsConfirmationOpen(false)}
+          onConfirm={handleSwap}
+          fromToken={fromToken}
+          toToken={toToken}
+          amount={Number(fromAmount)}
+          estimatedReceived={Number(toAmount)}
+          fee={networkFee}
+          rate={getExchangeRate(fromToken.symbol, toToken.symbol)}
+        />
+      )}
     </MainLayout>
   );
 };
