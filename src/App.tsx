@@ -20,6 +20,7 @@ import Settings from "./pages/Settings";
 import TransactionConfirmation from "./pages/TransactionConfirmation";
 import SwapCrypto from "./pages/SwapCrypto";
 import SearchCrypto from "./pages/SearchCrypto";
+import SellUsdt from "./pages/SellUsdt";
 
 // Create a client
 const queryClient = new QueryClient();
@@ -60,6 +61,11 @@ const App: React.FC = () => {
               <Route path="/swap" element={
                 <ProtectedRoute>
                   <SwapCrypto />
+                </ProtectedRoute>
+              } />
+              <Route path="/sell-usdt" element={
+                <ProtectedRoute>
+                  <SellUsdt />
                 </ProtectedRoute>
               } />
               <Route path="/search" element={
