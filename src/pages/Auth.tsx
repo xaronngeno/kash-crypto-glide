@@ -25,18 +25,8 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // First check if the user exists
-      const { data: existingUser, error: checkError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', email)
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-        throw checkError;
-      }
-
-      // Send the OTP
+      // Send the OTP directly without checking if user exists
+      // The Supabase Auth API will handle both new and existing users
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -50,7 +40,7 @@ const Auth = () => {
       }
 
       toast({
-        title: existingUser ? "Welcome back" : "Welcome to Kash",
+        title: "Verification code sent",
         description: "We've sent a verification code to your email.",
       });
       
