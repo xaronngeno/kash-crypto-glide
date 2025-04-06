@@ -30,11 +30,11 @@ const Auth = () => {
         email,
         options: {
           shouldCreateUser: true,
-          // Instead of using channel: 'email', we set the data object properly
+          // Setting email_otp_type in the data object to force numeric OTP
           data: {
-            email_otp_type: 'numeric'  // Setting this in the data object
+            email_otp_type: 'numeric'
           },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         }
       });
 
@@ -42,6 +42,8 @@ const Auth = () => {
         throw error;
       }
 
+      console.log("OTP request response:", data);
+      
       toast({
         title: "Verification code sent",
         description: "We've sent a verification code to your email.",
@@ -81,6 +83,8 @@ const Auth = () => {
       });
 
       if (error) throw error;
+
+      console.log("OTP verification response:", data);
 
       toast({
         title: "Verification successful",
