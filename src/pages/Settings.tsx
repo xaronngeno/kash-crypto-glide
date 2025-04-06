@@ -1,13 +1,19 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight } from 'lucide-react';
+import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -20,6 +26,14 @@ const Settings = () => {
     phone: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showRecoveryPhrase, setShowRecoveryPhrase] = useState(false);
+  const [showSeedPhrase, setShowSeedPhrase] = useState(false);
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [phraseType, setPhraseType] = useState<'recovery' | 'seed' | null>(null);
+  
+  // Mock phrases - in a real app, these would be securely stored and retrieved
+  const mockRecoveryPhrase = "wheel expand crowd satisfy vacuum crystal dwarf ready pretty tribe right spare";
+  const mockSeedPhrase = "point coffee twist knock deposit differ yard adjust battle reason million elite";
   
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -86,6 +100,49 @@ const Settings = () => {
     }
     return user?.email || 'User';
   };
+  
+  const authFormSchema = z.object({
+    password: z.string().min(6, "Password must be at least 6 characters"),
+  });
+  
+  const authForm = useForm<z.infer<typeof authFormSchema>>({
+    resolver: zodResolver(authFormSchema),
+    defaultValues: {
+      password: "",
+    },
+  });
+  
+  const onAuthSubmit = async (data: z.infer<typeof authFormSchema>) => {
+    // In a real app, verify password with Supabase or your auth provider
+    try {
+      // Mock authentication - in real app, verify with Supabase
+      setTimeout(() => {
+        setIsAuthDialogOpen(false);
+        
+        if (phraseType === 'recovery') {
+          setShowRecoveryPhrase(true);
+        } else if (phraseType === 'seed') {
+          setShowSeedPhrase(true);
+        }
+        
+        toast({
+          title: "Authentication successful",
+          description: "You can now view your secure information.",
+        });
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "Authentication failed",
+        description: "Please check your password and try again.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const handleViewSecureInfo = (type: 'recovery' | 'seed') => {
+    setPhraseType(type);
+    setIsAuthDialogOpen(true);
+  };
 
   return (
     <MainLayout title="Settings">
@@ -125,6 +182,80 @@ const Settings = () => {
                 </div>
                 <ChevronRight size={18} className="text-gray-400" />
               </button>
+            </div>
+          </KashCard>
+        </div>
+        
+        {/* Secret Recovery Section - NEW */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Wallet Recovery</h2>
+          <KashCard className="divide-y divide-gray-100">
+            <div className="py-3 px-1">
+              <button 
+                className="w-full flex items-center justify-between"
+                onClick={() => handleViewSecureInfo('recovery')}
+              >
+                <div className="flex items-center">
+                  <Key size={18} className="mr-2 text-kash-green" />
+                  <span className="text-gray-800">Secret Recovery Phrase</span>
+                </div>
+                <ChevronRight size={18} className="text-gray-400" />
+              </button>
+              
+              {showRecoveryPhrase && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Recovery Phrase</span>
+                    <button 
+                      onClick={() => setShowRecoveryPhrase(false)}
+                      className="text-sm text-kash-green flex items-center"
+                    >
+                      <EyeOff size={16} className="mr-1" />
+                      Hide
+                    </button>
+                  </div>
+                  <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono">
+                    {mockRecoveryPhrase}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Write this phrase down and store it in a secure location. This is the only way to recover your wallet.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="py-3 px-1">
+              <button 
+                className="w-full flex items-center justify-between"
+                onClick={() => handleViewSecureInfo('seed')}
+              >
+                <div className="flex items-center">
+                  <Lock size={18} className="mr-2 text-kash-green" />
+                  <span className="text-gray-800">Wallet Seed Phrase</span>
+                </div>
+                <ChevronRight size={18} className="text-gray-400" />
+              </button>
+              
+              {showSeedPhrase && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Seed Phrase</span>
+                    <button 
+                      onClick={() => setShowSeedPhrase(false)}
+                      className="text-sm text-kash-green flex items-center"
+                    >
+                      <EyeOff size={16} className="mr-1" />
+                      Hide
+                    </button>
+                  </div>
+                  <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono">
+                    {mockSeedPhrase}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    This seed phrase gives access to all your individual wallet addresses. Never share it with anyone.
+                  </p>
+                </div>
+              )}
             </div>
           </KashCard>
         </div>
@@ -197,6 +328,46 @@ const Settings = () => {
           <p className="mt-1">© 2023 Kash. All rights reserved.</p>
         </div>
       </div>
+      
+      {/* Authentication Dialog */}
+      <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Authenticate to Continue</DialogTitle>
+            <DialogDescription>
+              Please enter your password to view your secure information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...authForm}>
+            <form onSubmit={authForm.handleSubmit(onAuthSubmit)} className="space-y-4">
+              <FormField
+                control={authForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder="Enter your password" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex justify-end">
+                <KashButton type="submit">
+                  Authenticate
+                </KashButton>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
