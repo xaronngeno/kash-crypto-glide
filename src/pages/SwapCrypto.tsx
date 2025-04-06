@@ -7,7 +7,6 @@ import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import TokenSelector from '@/components/swap/TokenSelector';
 import SwapRateInfo from '@/components/swap/SwapRateInfo';
 import SwapConfirmationModal from '@/components/swap/SwapConfirmationModal';
-import SellUsdtSection from '@/components/swap/SellUsdtSection';
 import { Input } from '@/components/ui/input';
 import { RefreshCw } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
@@ -272,140 +271,117 @@ const SwapCrypto = () => {
   return (
     <MainLayout title="Swap" showBack>
       <div className="max-w-md mx-auto">
-        <Tabs defaultValue="swap" className="w-full mb-6">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="swap">Swap</TabsTrigger>
-            <TabsTrigger value="sell">Sell USDT</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="swap">
-            <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100">
-              <div className="mb-1">
-                <div className="text-gray-500 mb-2">You Pay</div>
-                <div className="flex items-end justify-between mb-2">
-                  <Input
-                    type="number"
-                    value={fromAmount}
-                    onChange={(e) => setFromAmount(e.target.value)}
-                    className="flex-1 bg-transparent border-none text-4xl font-medium text-gray-900 focus-visible:ring-0 focus-visible:outline-none p-0 h-auto"
-                    placeholder="0"
-                  />
-                  
-                  {fromToken && (
-                    <div className="ml-2">
-                      <TokenSelector
-                        selectedToken={fromToken as any}
-                        onSelectToken={(token) => setFromToken(token as unknown as CryptoAsset)}
-                        tokens={assets as any[]}
-                        darkMode={false}
-                      />
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <div className="text-gray-500">
-                    ${fromAmount ? (Number(fromAmount) * (fromToken?.price || 0)).toFixed(2) : '0.00'}
-                    &nbsp;
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <RefreshCw size={12} className="inline" />
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    {fromToken && (
-                      <>
-                        <button 
-                          className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full text-gray-800"
-                          onClick={() => {
-                            if (fromToken) {
-                              const balance = balances[fromToken.symbol as keyof typeof balances] || 0;
-                              setFromAmount((balance / 2).toString());
-                            }
-                          }}
-                        >
-                          50%
-                        </button>
-                        <button 
-                          className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full text-gray-800"
-                          onClick={() => {
-                            if (fromToken) {
-                              const balance = balances[fromToken.symbol as keyof typeof balances] || 0;
-                              setFromAmount(balance.toString());
-                            }
-                          }}
-                        >
-                          Max
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+        <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100">
+          <div className="mb-1">
+            <div className="text-gray-500 mb-2">You Pay</div>
+            <div className="flex items-end justify-between mb-2">
+              <Input
+                type="number"
+                value={fromAmount}
+                onChange={(e) => setFromAmount(e.target.value)}
+                className="flex-1 bg-transparent border-none text-4xl font-medium text-gray-900 focus-visible:ring-0 focus-visible:outline-none p-0 h-auto"
+                placeholder="0"
+              />
               
-              <div className="relative flex justify-center -my-3 z-10">
-                <button
-                  onClick={handleSwitchTokens}
-                  className="bg-kash-green rounded-full p-2 hover:bg-opacity-90 text-white"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3v18" /><path d="M19 9l-7-6-7 6" /><path d="M19 15l-7 6-7-6" />
-                  </svg>
+              {fromToken && (
+                <div className="ml-2">
+                  <TokenSelector
+                    selectedToken={fromToken as any}
+                    onSelectToken={(token) => setFromToken(token as unknown as CryptoAsset)}
+                    tokens={assets as any[]}
+                    darkMode={false}
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center justify-between text-sm">
+              <div className="text-gray-500">
+                ${fromAmount ? (Number(fromAmount) * (fromToken?.price || 0)).toFixed(2) : '0.00'}
+                &nbsp;
+                <button className="text-gray-400 hover:text-gray-600">
+                  <RefreshCw size={12} className="inline" />
                 </button>
               </div>
-              
-              <div className="mt-1">
-                <div className="text-gray-500 mb-2">You Receive</div>
-                <div className="flex items-end justify-between mb-2">
-                  <Input
-                    type="text"
-                    value={toAmount}
-                    readOnly
-                    className="flex-1 bg-transparent border-none text-4xl font-medium text-gray-900 focus-visible:ring-0 focus-visible:outline-none p-0 h-auto"
-                    placeholder="0"
-                  />
-                  
-                  {toToken && (
-                    <div className="ml-2">
-                      <TokenSelector
-                        selectedToken={toToken as any}
-                        onSelectToken={(token) => setToToken(token as unknown as CryptoAsset)}
-                        tokens={assets.filter(asset => asset.symbol !== fromToken?.symbol) as any[]}
-                        darkMode={false}
-                      />
-                    </div>
-                  )}
-                </div>
-                
-                <div className="text-sm text-gray-500">
-                  ${toAmount ? (Number(toAmount) * (toToken?.price || 0)).toFixed(2) : '0.00'}
-                </div>
+              <div className="flex gap-2">
+                {fromToken && (
+                  <>
+                    <button 
+                      className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full text-gray-800"
+                      onClick={() => {
+                        if (fromToken) {
+                          const balance = balances[fromToken.symbol as keyof typeof balances] || 0;
+                          setFromAmount((balance / 2).toString());
+                        }
+                      }}
+                    >
+                      50%
+                    </button>
+                    <button 
+                      className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full text-gray-800"
+                      onClick={() => {
+                        if (fromToken) {
+                          const balance = balances[fromToken.symbol as keyof typeof balances] || 0;
+                          setFromAmount(balance.toString());
+                        }
+                      }}
+                    >
+                      Max
+                    </button>
+                  </>
+                )}
               </div>
-              
-              <KashButton
-                fullWidth
-                disabled={swapping || !fromAmount || Number(fromAmount) <= 0 || isInsufficientBalance()}
-                onClick={openConfirmation}
-                className="mt-6 bg-kash-green text-white"
-              >
-                {swapping ? 'Swapping...' : isInsufficientBalance() ? 'Insufficient Balance' : 'Swap'}
-              </KashButton>
             </div>
-          </TabsContent>
+          </div>
           
-          <TabsContent value="sell">
-            <SellUsdtSection 
-              asset={assets.find(a => a.symbol === "USDT")} 
-              balance={balances.USDT || 0} 
-              onSellComplete={(amount) => {
-                setBalances({...balances, USDT: (balances.USDT || 0) - amount});
-                toast({
-                  title: "USDT Sold",
-                  description: `You have successfully sold ${amount} USDT.`,
-                });
-              }}
-            />
-          </TabsContent>
-        </Tabs>
+          <div className="relative flex justify-center -my-3 z-10">
+            <button
+              onClick={handleSwitchTokens}
+              className="bg-kash-green rounded-full p-2 hover:bg-opacity-90 text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v18" /><path d="M19 9l-7-6-7 6" /><path d="M19 15l-7 6-7-6" />
+              </svg>
+            </button>
+          </div>
+          
+          <div className="mt-1">
+            <div className="text-gray-500 mb-2">You Receive</div>
+            <div className="flex items-end justify-between mb-2">
+              <Input
+                type="text"
+                value={toAmount}
+                readOnly
+                className="flex-1 bg-transparent border-none text-4xl font-medium text-gray-900 focus-visible:ring-0 focus-visible:outline-none p-0 h-auto"
+                placeholder="0"
+              />
+              
+              {toToken && (
+                <div className="ml-2">
+                  <TokenSelector
+                    selectedToken={toToken as any}
+                    onSelectToken={(token) => setToToken(token as unknown as CryptoAsset)}
+                    tokens={assets.filter(asset => asset.symbol !== fromToken?.symbol) as any[]}
+                    darkMode={false}
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div className="text-sm text-gray-500">
+              ${toAmount ? (Number(toAmount) * (toToken?.price || 0)).toFixed(2) : '0.00'}
+            </div>
+          </div>
+          
+          <KashButton
+            fullWidth
+            disabled={swapping || !fromAmount || Number(fromAmount) <= 0 || isInsufficientBalance()}
+            onClick={openConfirmation}
+            className="mt-6 bg-kash-green text-white"
+          >
+            {swapping ? 'Swapping...' : isInsufficientBalance() ? 'Insufficient Balance' : 'Swap'}
+          </KashButton>
+        </div>
         
         <div>
           <h2 className="text-xl font-bold mb-3 text-gray-800">Tokens</h2>
