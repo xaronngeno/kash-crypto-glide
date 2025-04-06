@@ -20,10 +20,11 @@ interface Token {
   id: string;
   name: string;
   symbol: string;
-  icon: string;
+  icon?: string;
   decimals: number;
   platform?: Platform;
   logo?: string;
+  price?: number; // Made optional for compatibility
 }
 
 interface TokenSelectorProps {
@@ -42,7 +43,7 @@ const TokenSelector = ({ selectedToken, onSelectToken, tokens }: TokenSelectorPr
     const priceData = prices[token.symbol];
     return {
       ...token,
-      logo: priceData?.logo || token.icon || '',
+      logo: priceData?.logo || token.logo || token.icon || '',
       platform: priceData?.platform || { name: '', logo: '' },
     };
   });

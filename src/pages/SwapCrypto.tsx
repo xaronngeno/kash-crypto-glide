@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
@@ -27,7 +26,7 @@ interface CryptoAsset {
   logo: string;
   price: number;
   decimals: number;
-  icon?: string;
+  icon: string;
 }
 
 const SwapCrypto = () => {
@@ -36,12 +35,11 @@ const SwapCrypto = () => {
   const { toast } = useToast();
   const { prices, loading: pricesLoading } = useCryptoPrices();
 
-  // Initialize assets with default values
   const [assets, setAssets] = useState<CryptoAsset[]>([
-    { id: 'usdt', symbol: 'USDT', name: 'Tether', logo: '/usdt-logo.png', price: 1.00, decimals: 6 },
-    { id: 'btc', symbol: 'BTC', name: 'Bitcoin', logo: '/btc-logo.png', price: 60000, decimals: 8 },
-    { id: 'eth', symbol: 'ETH', name: 'Ethereum', logo: '/eth-logo.png', price: 3000, decimals: 18 },
-    { id: 'sol', symbol: 'SOL', name: 'Solana', logo: '/sol-logo.png', price: 150, decimals: 9 },
+    { id: 'usdt', symbol: 'USDT', name: 'Tether', logo: '/usdt-logo.png', price: 1.00, decimals: 6, icon: '/usdt-logo.png' },
+    { id: 'btc', symbol: 'BTC', name: 'Bitcoin', logo: '/btc-logo.png', price: 60000, decimals: 8, icon: '/btc-logo.png' },
+    { id: 'eth', symbol: 'ETH', name: 'Ethereum', logo: '/eth-logo.png', price: 3000, decimals: 18, icon: '/eth-logo.png' },
+    { id: 'sol', symbol: 'SOL', name: 'Solana', logo: '/sol-logo.png', price: 150, decimals: 9, icon: '/sol-logo.png' },
   ]);
 
   const [fromToken, setFromToken] = useState<CryptoAsset | null>(null);
@@ -59,7 +57,6 @@ const SwapCrypto = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [networkFee, setNetworkFee] = useState(0.001);
 
-  // Update assets with real-time prices
   useEffect(() => {
     if (prices && Object.keys(prices).length > 0) {
       setAssets(prevAssets => 
@@ -69,6 +66,8 @@ const SwapCrypto = () => {
             return {
               ...asset,
               price: priceData.price,
+              logo: priceData.logo || asset.logo,
+              icon: priceData.logo || asset.icon,
             };
           }
           return asset;
@@ -77,7 +76,6 @@ const SwapCrypto = () => {
     }
   }, [prices]);
 
-  // Set default tokens when assets are loaded
   useEffect(() => {
     if (assets.length > 0 && !fromToken && !toToken) {
       setFromToken(assets[0]);
@@ -97,7 +95,6 @@ const SwapCrypto = () => {
     return fromAsset.price / toAsset.price;
   };
 
-  // Auto-calculate toAmount when fromAmount, fromToken, or toToken changes
   useEffect(() => {
     if (fromToken && toToken && fromAmount) {
       const calculatedAmount = (Number(fromAmount) * getExchangeRate(fromToken.symbol, toToken.symbol)).toFixed(6);
@@ -111,7 +108,6 @@ const SwapCrypto = () => {
     const tempToken = fromToken;
     setFromToken(toToken);
     setToToken(tempToken);
-    // Reset amounts to avoid confusion
     setFromAmount('');
     setToAmount('');
   };
@@ -150,18 +146,14 @@ const SwapCrypto = () => {
     setIsConfirmationOpen(false);
     
     try {
-      // Simulating exchange execution
       setTimeout(() => {
-        // Calculate toAmount based on exchange rate
         const calculatedToAmount = Number(toAmount);
         
-        // Update balances
         const newBalances = { ...balances };
         newBalances[fromToken.symbol] = Number(newBalances[fromToken.symbol]) - Number(fromAmount) - networkFee;
         newBalances[toToken.symbol] = Number(newBalances[toToken.symbol]) + calculatedToAmount;
         setBalances(newBalances);
         
-        // Add to transaction history
         const newTransaction = {
           id: Date.now().toString(),
           type: 'swap',
@@ -175,13 +167,11 @@ const SwapCrypto = () => {
         
         setTransactions([newTransaction, ...transactions]);
         
-        // Show confirmation
         toast({
           title: 'Swap Successful',
           description: `You have successfully swapped ${fromAmount} ${fromToken.symbol} for ${calculatedToAmount.toFixed(6)} ${toToken.symbol}.`,
         });
         
-        // Reset form
         setFromAmount('');
         setToAmount('');
         setSwapping(false);
@@ -212,7 +202,6 @@ const SwapCrypto = () => {
   return (
     <MainLayout title="Swap" showBack>
       <div className="max-w-md mx-auto">
-        {/* Main Swap Card */}
         <KashCard className="mb-4">
           <div className="flex justify-between items-center pb-4">
             <h2 className="text-lg font-medium">Swap</h2>
@@ -226,7 +215,6 @@ const SwapCrypto = () => {
             </div>
           </div>
           
-          {/* From Token */}
           <div className="bg-gray-50 p-4 rounded-xl mb-1">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-600">From</span>
@@ -242,8 +230,8 @@ const SwapCrypto = () => {
                 <div className="w-32">
                   <TokenSelector
                     selectedToken={fromToken}
-                    onSelectToken={setFromToken}
-                    tokens={assets}
+                    onSelectToken={(token) => setFromToken(token as CryptoAsset)}
+                    tokens={assets as any[]}
                   />
                 </div>
               )}
@@ -285,7 +273,6 @@ const SwapCrypto = () => {
             </div>
           </div>
           
-          {/* Switch Button */}
           <div className="flex justify-center -my-2 z-10 relative">
             <button
               onClick={handleSwitchTokens}
@@ -295,7 +282,6 @@ const SwapCrypto = () => {
             </button>
           </div>
           
-          {/* To Token */}
           <div className="bg-gray-50 p-4 rounded-xl mt-1">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-600">To (Estimated)</span>
@@ -311,8 +297,8 @@ const SwapCrypto = () => {
                 <div className="w-32">
                   <TokenSelector
                     selectedToken={toToken}
-                    onSelectToken={setToToken}
-                    tokens={assets.filter(asset => asset.symbol !== fromToken?.symbol)}
+                    onSelectToken={(token) => setToToken(token as CryptoAsset)}
+                    tokens={assets.filter(asset => asset.symbol !== fromToken?.symbol) as any[]}
                   />
                 </div>
               )}
@@ -327,7 +313,6 @@ const SwapCrypto = () => {
             </div>
           </div>
           
-          {/* Rate Info */}
           {fromToken && toToken && fromAmount && toAmount && (
             <div className="mt-4 mb-3">
               <SwapRateInfo
@@ -339,7 +324,6 @@ const SwapCrypto = () => {
             </div>
           )}
           
-          {/* Swap Button */}
           <KashButton
             fullWidth
             disabled={swapping || !fromAmount || Number(fromAmount) <= 0 || isInsufficientBalance()}
@@ -350,7 +334,6 @@ const SwapCrypto = () => {
           </KashButton>
         </KashCard>
         
-        {/* Transaction History */}
         {transactions.length > 0 && (
           <div className="mt-6">
             <h3 className="font-medium mb-3">Recent Transactions</h3>
@@ -382,7 +365,6 @@ const SwapCrypto = () => {
         )}
       </div>
       
-      {/* Confirmation Modal */}
       {fromToken && toToken && (
         <SwapConfirmationModal
           isOpen={isConfirmationOpen}
