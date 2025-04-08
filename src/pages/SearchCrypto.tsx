@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashInput } from '@/components/ui/KashInput';
@@ -39,8 +38,10 @@ const SearchCrypto = () => {
     platform: data.platform || { name: '', logo: '' },
     price: data.price,
     change_24h: data.change_24h,
+    change_7d: data.change_7d || 0,
+    change_30d: data.change_30d || 0,
     volume: data.volume || 0,
-    marketCap: data.marketCap || data.price * 1000000, // Fallback calculation
+    marketCap: data.marketCap || (data.price * 1000000), // Fallback calculation
   }));
   
   // Filter tokens by search query and network

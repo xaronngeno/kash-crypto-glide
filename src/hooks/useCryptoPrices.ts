@@ -16,6 +16,10 @@ interface CryptoPrice {
   name: string;
   symbol: string;
   platform: CryptoPlatform;
+  volume?: number;
+  marketCap?: number;
+  change_7d?: number;
+  change_30d?: number;
 }
 
 interface CryptoPrices {
