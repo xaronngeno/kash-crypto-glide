@@ -1,107 +1,70 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { KashCard } from '@/components/ui/KashCard';
+import { Link } from 'react-router-dom';
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [otpValue, setOtpValue] = useState<string>('');
-  const [showOtpInput, setShowOtpInput] = useState<boolean>(false);
-  const [verifyingOtp, setVerifyingOtp] = useState<boolean>(false);
+  const [isSignUp, setIsSignUp] = useState<boolean>(false);
 
-  const handleContinue = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
     
     setLoading(true);
     
     try {
-      console.log("Requesting numeric OTP for email:", email);
-      
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          // For OTP numeric codes:
-          emailOtpType: 'numeric'
-        }
-      });
+      // Handle sign up
+      if (isSignUp) {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          }
+        });
 
-      if (error) {
-        throw error;
+        if (error) throw error;
+        
+        toast({
+          title: "Account created",
+          description: "Please check your email to verify your account.",
+        });
+      } 
+      // Handle sign in
+      else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+        
+        toast({
+          title: "Login successful",
+          description: "You've been successfully signed in.",
+        });
+        
+        navigate('/dashboard');
       }
-
-      console.log("OTP request response:", data);
-      
-      toast({
-        title: "Verification code sent",
-        description: "We've sent a verification code to your email.",
-      });
-      
-      setShowOtpInput(true);
     } catch (error: any) {
       console.error("Authentication error:", error);
       toast({
         title: "Authentication failed",
-        description: error.message || "Failed to send verification code. Please try again.",
+        description: error.message || "Failed to authenticate. Please try again.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpValue.length !== 6) {
-      toast({
-        title: "Invalid code",
-        description: "Please enter the 6-digit code sent to your email",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setVerifyingOtp(true);
-    
-    try {
-      console.log("Verifying OTP:", otpValue, "for email:", email);
-      
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: otpValue,
-        type: 'email'
-      });
-
-      if (error) throw error;
-
-      console.log("OTP verification response:", data);
-
-      toast({
-        title: "Verification successful",
-        description: "You've been successfully authenticated.",
-      });
-      
-      navigate('/dashboard');
-    } catch (error: any) {
-      console.error("OTP verification error:", error);
-      toast({
-        title: "Verification failed",
-        description: error.message || "Failed to verify code. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setVerifyingOtp(false);
     }
   };
 
@@ -111,67 +74,65 @@ const Auth = () => {
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">Welcome to Kash</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            {showOtpInput ? 'Enter the verification code sent to your email' : 'Log in or sign up to get started'}
+            {isSignUp ? 'Create your account' : 'Sign in to your account'}
           </p>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <KashCard className="bg-white py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
-            {!showOtpInput ? (
-              <form className="space-y-6" onSubmit={handleContinue}>
-                <KashInput
-                  label="Email address"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  icon={<Mail size={18} className="text-gray-400" />}
-                  required
-                />
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <KashInput
+                label="Email address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                icon={<Mail size={18} className="text-gray-400" />}
+                required
+              />
 
-                <KashButton 
-                  type="submit" 
-                  fullWidth 
-                  disabled={loading}
-                >
-                  {loading ? 'Processing...' : 'Continue'}
-                </KashButton>
-              </form>
-            ) : (
-              <form className="space-y-6" onSubmit={handleVerifyOtp}>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-4">
-                    Verification Code
-                  </label>
-                  <InputOTP maxLength={6} value={otpValue} onChange={setOtpValue}>
-                    <InputOTPGroup className="gap-2 justify-center">
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <InputOTPSlot key={i} index={i} className="h-12 w-12 border-gray-300 focus:border-kash-green" />
-                      ))}
-                    </InputOTPGroup>
-                  </InputOTP>
+              <KashInput
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                icon={<Lock size={18} className="text-gray-400" />}
+                required
+              />
+
+              <KashButton 
+                type="submit" 
+                fullWidth 
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : isSignUp ? 'Sign up' : 'Sign in'}
+              </KashButton>
+            </form>
+
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
                 </div>
-
-                <KashButton 
-                  type="submit" 
-                  fullWidth 
-                  disabled={verifyingOtp || otpValue.length !== 6}
-                >
-                  {verifyingOtp ? 'Verifying...' : 'Verify'}
-                </KashButton>
-
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={handleContinue}
-                    disabled={loading}
-                    className="text-sm font-medium text-kash-green hover:text-kash-green/80"
-                  >
-                    {loading ? 'Sending...' : 'Resend code'}
-                  </button>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">
+                    {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}
+                  </span>
                 </div>
-              </form>
-            )}
+              </div>
+
+              <div className="mt-6">
+                <KashButton 
+                  type="button" 
+                  variant="outline" 
+                  fullWidth
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp ? 'Sign in instead' : 'Create an account'}
+                </KashButton>
+              </div>
+            </div>
           </KashCard>
 
           <div className="mt-6 flex justify-center space-x-4 text-xs text-gray-500">
