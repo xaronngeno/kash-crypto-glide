@@ -2,22 +2,30 @@
 import { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashInput } from '@/components/ui/KashInput';
-import { Search } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import { KashCard } from '@/components/ui/KashCard';
 import { useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type TimeFilter = '24h' | '7d' | '30d';
 type NetworkFilter = 'All' | 'Ethereum' | 'Solana' | 'Bitcoin' | 'Polygon' | 'Base';
 type TokenFilter = 'Trending' | 'All' | 'Favorites';
+type TrendingMetric = 'Trending' | 'Volume' | 'Price' | 'Price Change' | 'Market Cap';
 
 const SearchCrypto = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [networkFilter, setNetworkFilter] = useState<NetworkFilter>('All');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('24h');
   const [tokenFilter, setTokenFilter] = useState<TokenFilter>('Trending');
+  const [trendingMetric, setTrendingMetric] = useState<TrendingMetric>('Trending');
   
   const navigate = useNavigate();
   const { prices, loading } = useCryptoPrices();
@@ -31,6 +39,8 @@ const SearchCrypto = () => {
     platform: data.platform || { name: '', logo: '' },
     price: data.price,
     change_24h: data.change_24h,
+    volume: data.volume || 0,
+    marketCap: data.marketCap || data.price * 1000000, // Fallback calculation
   }));
   
   // Filter tokens by search query and network
@@ -47,8 +57,21 @@ const SearchCrypto = () => {
       
     return matchesSearch && matchesNetwork;
   })
-  // Sort by price (market cap) descending
-  .sort((a, b) => b.price - a.price);
+  // Sort based on the selected trending metric
+  .sort((a, b) => {
+    switch (trendingMetric) {
+      case 'Volume':
+        return (b.volume || 0) - (a.volume || 0);
+      case 'Price':
+        return b.price - a.price;
+      case 'Price Change':
+        return getChangeValue(b) - getChangeValue(a);
+      case 'Market Cap':
+        return (b.marketCap || 0) - (a.marketCap || 0);
+      default: // Default "Trending" uses price change
+        return getChangeValue(b) - getChangeValue(a);
+    }
+  });
 
   const handleTokenSelect = (tokenId: string) => {
     navigate(`/swap?token=${tokenId}`);
@@ -78,32 +101,74 @@ const SearchCrypto = () => {
 
         {/* Filter section with three distinct areas */}
         <div className="space-y-3 mb-4">
-          {/* Token type filter (Trending) */}
-          <ToggleGroup 
-            type="single" 
-            value={tokenFilter} 
-            onValueChange={(value) => value && setTokenFilter(value as TokenFilter)}
-            className="justify-start w-full bg-gray-100 p-1 rounded-full"
-          >
-            <ToggleGroupItem 
-              value="Trending" 
-              className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Trending' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-            >
-              Trending
-            </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="Favorites" 
-              className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Favorites' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-            >
-              Favorites
-            </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="All" 
-              className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'All' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-            >
-              All
-            </ToggleGroupItem>
-          </ToggleGroup>
+          {/* Token type filter with dropdown */}
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1 bg-gray-100 text-gray-800 px-4 py-2 rounded-full text-sm font-medium">
+                {trendingMetric} <ChevronDown size={16} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-black text-white rounded-lg border-none shadow-lg p-1 min-w-[160px]">
+                <DropdownMenuItem 
+                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
+                  onClick={() => setTrendingMetric("Trending")}
+                >
+                  Trending
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
+                  onClick={() => setTrendingMetric("Volume")}
+                >
+                  Volume
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
+                  onClick={() => setTrendingMetric("Price")}
+                >
+                  Price
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
+                  onClick={() => setTrendingMetric("Price Change")}
+                >
+                  Price Change
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
+                  onClick={() => setTrendingMetric("Market Cap")}
+                >
+                  Market Cap
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <div className="ml-2 flex-1">
+              <ToggleGroup 
+                type="single" 
+                value={tokenFilter} 
+                onValueChange={(value) => value && setTokenFilter(value as TokenFilter)}
+                className="justify-start w-full bg-gray-100 p-1 rounded-full"
+              >
+                <ToggleGroupItem 
+                  value="Trending" 
+                  className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Trending' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  Trending
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="Favorites" 
+                  className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Favorites' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  Favorites
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="All" 
+                  className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'All' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  All
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          </div>
           
           {/* Network filter (Solana, Ethereum, etc.) */}
           <div className="overflow-x-auto pb-1">
