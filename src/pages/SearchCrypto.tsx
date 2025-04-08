@@ -6,8 +6,7 @@ import { KashCard } from '@/components/ui/KashCard';
 import { useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import {
+import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -100,150 +99,121 @@ const SearchCrypto = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
 
-        {/* Filter section with three distinct areas */}
-        <div className="space-y-3 mb-4">
-          {/* Token type filter with dropdown */}
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 bg-gray-100 text-gray-800 px-4 py-2 rounded-full text-sm font-medium">
-                {trendingMetric} <ChevronDown size={16} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-black text-white rounded-lg border-none shadow-lg p-1 min-w-[160px]">
-                <DropdownMenuItem 
-                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
-                  onClick={() => setTrendingMetric("Trending")}
-                >
-                  Trending
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
-                  onClick={() => setTrendingMetric("Volume")}
-                >
-                  Volume
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
-                  onClick={() => setTrendingMetric("Price")}
-                >
-                  Price
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
-                  onClick={() => setTrendingMetric("Price Change")}
-                >
-                  Price Change
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="hover:bg-gray-800 rounded-md cursor-pointer px-3 py-2"
-                  onClick={() => setTrendingMetric("Market Cap")}
-                >
-                  Market Cap
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            <div className="ml-2 flex-1">
-              <ToggleGroup 
-                type="single" 
-                value={tokenFilter} 
-                onValueChange={(value) => value && setTokenFilter(value as TokenFilter)}
-                className="justify-start w-full bg-gray-100 p-1 rounded-full"
+        {/* Filter section with three distinct areas matching the inspiration image */}
+        <div className="flex items-center gap-2 mb-4">
+          {/* Trending metric dropdown - darker background, rounded like in the inspo */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between">
+              <span>{trendingMetric}</span>
+              <ChevronDown size={18} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setTrendingMetric("Trending")}
               >
-                <ToggleGroupItem 
-                  value="Trending" 
-                  className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Trending' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-                >
-                  Trending
-                </ToggleGroupItem>
-                <ToggleGroupItem 
-                  value="Favorites" 
-                  className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Favorites' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-                >
-                  Favorites
-                </ToggleGroupItem>
-                <ToggleGroupItem 
-                  value="All" 
-                  className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'All' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-                >
-                  All
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          </div>
+                Trending
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setTrendingMetric("Volume")}
+              >
+                Volume
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setTrendingMetric("Price")}
+              >
+                Price
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setTrendingMetric("Price Change")}
+              >
+                Price Change
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setTrendingMetric("Market Cap")}
+              >
+                Market Cap
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           
-          {/* Network filter (Solana, Ethereum, etc.) */}
-          <div className="overflow-x-auto pb-1">
-            <ToggleGroup 
-              type="single" 
-              value={networkFilter} 
-              onValueChange={(value) => value && setNetworkFilter(value as NetworkFilter)}
-              className="justify-start w-max bg-gray-100 p-1 rounded-full"
-            >
-              <ToggleGroupItem 
-                value="All" 
-                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'All' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+          {/* Network dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between">
+              <span>{networkFilter}</span>
+              <ChevronDown size={18} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setNetworkFilter("All")}
               >
                 All
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="Solana" 
-                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Solana' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setNetworkFilter("Solana")}
               >
                 Solana
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="Ethereum" 
-                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Ethereum' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setNetworkFilter("Ethereum")}
               >
                 Ethereum
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="Bitcoin" 
-                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Bitcoin' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setNetworkFilter("Bitcoin")}
               >
                 Bitcoin
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="Base" 
-                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Base' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setNetworkFilter("Base")}
               >
                 Base
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="Polygon" 
-                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Polygon' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setNetworkFilter("Polygon")}
               >
                 Polygon
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           
-          {/* Time period filter (24h, 7d, 30d) */}
-          <ToggleGroup 
-            type="single" 
-            value={timeFilter} 
-            onValueChange={(value) => value && setTimeFilter(value as TimeFilter)}
-            className="justify-start w-full bg-gray-100 p-1 rounded-full"
-          >
-            <ToggleGroupItem 
-              value="24h" 
-              className={`rounded-full px-4 py-2 text-sm ${timeFilter === '24h' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-            >
-              24h
-            </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="7d" 
-              className={`rounded-full px-4 py-2 text-sm ${timeFilter === '7d' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-            >
-              7d
-            </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="30d" 
-              className={`rounded-full px-4 py-2 text-sm ${timeFilter === '30d' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
-            >
-              30d
-            </ToggleGroupItem>
-          </ToggleGroup>
+          {/* Time period dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[90px] flex items-center justify-between">
+              <span>{timeFilter}</span>
+              <ChevronDown size={18} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setTimeFilter("24h")}
+              >
+                24h
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setTimeFilter("7d")}
+              >
+                7d
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                onClick={() => setTimeFilter("30d")}
+              >
+                30d
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="space-y-2 mt-2">
