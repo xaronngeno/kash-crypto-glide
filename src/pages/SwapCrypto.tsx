@@ -10,7 +10,7 @@ import SwapConfirmationModal from '@/components/swap/SwapConfirmationModal';
 import { Input } from '@/components/ui/input';
 import { RefreshCw } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 interface CryptoAsset {
   id: string;
@@ -30,7 +30,7 @@ interface CryptoAsset {
 }
 
 type TimeFilter = '24h' | '7d' | '30d';
-type NetworkFilter = 'All' | 'Ethereum' | 'Solana' | 'Bitcoin' | 'Polygon';
+type NetworkFilter = 'All' | 'Ethereum' | 'Solana' | 'Bitcoin' | 'Polygon' | 'Base';
 type TokenFilter = 'Trending' | 'All' | 'Favorites';
 
 const SwapCrypto = () => {
@@ -385,43 +385,105 @@ const SwapCrypto = () => {
         
         <div>
           <h2 className="text-xl font-bold mb-3 text-gray-800">Tokens</h2>
-          <div className="flex space-x-2 mb-4 overflow-x-auto pb-2">
-            <button 
-              className={`px-4 py-2 rounded-full text-sm ${tokenFilter === 'Trending' ? 'bg-kash-green text-white' : 'bg-gray-100 text-gray-600'}`} 
-              onClick={() => setTokenFilter('Trending')}
+          
+          <div className="space-y-3 mb-4">
+            <ToggleGroup 
+              type="single" 
+              value={tokenFilter} 
+              onValueChange={(value) => value && setTokenFilter(value as TokenFilter)}
+              className="justify-start w-full bg-gray-100 p-1 rounded-full"
             >
-              Trending
-            </button>
-            <button 
-              className={`px-4 py-2 rounded-full text-sm ${networkFilter === 'Solana' ? 'bg-kash-green text-white' : 'bg-gray-100 text-gray-600'}`} 
-              onClick={() => setNetworkFilter('Solana')}
+              <ToggleGroupItem 
+                value="Trending" 
+                className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Trending' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                Trending
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="Favorites" 
+                className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Favorites' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                Favorites
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="All" 
+                className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'All' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                All
+              </ToggleGroupItem>
+            </ToggleGroup>
+            
+            <div className="overflow-x-auto pb-1">
+              <ToggleGroup 
+                type="single" 
+                value={networkFilter} 
+                onValueChange={(value) => value && setNetworkFilter(value as NetworkFilter)}
+                className="justify-start w-max bg-gray-100 p-1 rounded-full"
+              >
+                <ToggleGroupItem 
+                  value="All" 
+                  className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'All' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  All
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="Solana" 
+                  className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Solana' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  Solana
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="Ethereum" 
+                  className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Ethereum' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  Ethereum
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="Bitcoin" 
+                  className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Bitcoin' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  Bitcoin
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="Base" 
+                  className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Base' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  Base
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="Polygon" 
+                  className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Polygon' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+                >
+                  Polygon
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            
+            <ToggleGroup 
+              type="single" 
+              value={timeFilter} 
+              onValueChange={(value) => value && setTimeFilter(value as TimeFilter)}
+              className="justify-start w-full bg-gray-100 p-1 rounded-full"
             >
-              Solana
-            </button>
-            <button 
-              className={`px-4 py-2 rounded-full text-sm ${networkFilter === 'Ethereum' ? 'bg-kash-green text-white' : 'bg-gray-100 text-gray-600'}`} 
-              onClick={() => setNetworkFilter('Ethereum')}
-            >
-              Ethereum
-            </button>
-            <button 
-              className={`px-4 py-2 rounded-full text-sm ${timeFilter === '24h' ? 'bg-kash-green text-white' : 'bg-gray-100 text-gray-600'}`} 
-              onClick={() => setTimeFilter('24h')}
-            >
-              24h
-            </button>
-            <button 
-              className={`px-4 py-2 rounded-full text-sm ${timeFilter === '7d' ? 'bg-kash-green text-white' : 'bg-gray-100 text-gray-600'}`} 
-              onClick={() => setTimeFilter('7d')}
-            >
-              7d
-            </button>
-            <button 
-              className={`px-4 py-2 rounded-full text-sm ${timeFilter === '30d' ? 'bg-kash-green text-white' : 'bg-gray-100 text-gray-600'}`} 
-              onClick={() => setTimeFilter('30d')}
-            >
-              30d
-            </button>
+              <ToggleGroupItem 
+                value="24h" 
+                className={`rounded-full px-4 py-2 text-sm ${timeFilter === '24h' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                24h
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="7d" 
+                className={`rounded-full px-4 py-2 text-sm ${timeFilter === '7d' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                7d
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="30d" 
+                className={`rounded-full px-4 py-2 text-sm ${timeFilter === '30d' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                30d
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
           
           <div className="grid grid-cols-12 text-sm text-gray-500 mb-2 px-1">

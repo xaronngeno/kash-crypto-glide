@@ -4,13 +4,21 @@ import MainLayout from '@/components/layout/MainLayout';
 import { KashInput } from '@/components/ui/KashInput';
 import { Search } from 'lucide-react';
 import { KashCard } from '@/components/ui/KashCard';
-import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+
+type TimeFilter = '24h' | '7d' | '30d';
+type NetworkFilter = 'All' | 'Ethereum' | 'Solana' | 'Bitcoin' | 'Polygon' | 'Base';
+type TokenFilter = 'Trending' | 'All' | 'Favorites';
 
 const SearchCrypto = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [networkFilter, setNetworkFilter] = useState<NetworkFilter>('All');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('24h');
+  const [tokenFilter, setTokenFilter] = useState<TokenFilter>('Trending');
+  
   const navigate = useNavigate();
   const { prices, loading } = useCryptoPrices();
 
@@ -25,17 +33,36 @@ const SearchCrypto = () => {
     change_24h: data.change_24h,
   }));
   
-  // Filter tokens by search query
-  const filteredTokens = tokensArray.filter(token => 
-    token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    token.platform.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Filter tokens by search query and network
+  const filteredTokens = tokensArray.filter(token => {
+    const matchesSearch = 
+      token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (token.platform?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+    const matchesNetwork = 
+      networkFilter === 'All' || 
+      token.platform?.name === networkFilter ||
+      (networkFilter === 'Solana' && !token.platform); // Default to Solana if no platform specified
+      
+    return matchesSearch && matchesNetwork;
+  })
   // Sort by price (market cap) descending
   .sort((a, b) => b.price - a.price);
 
   const handleTokenSelect = (tokenId: string) => {
     navigate(`/swap?token=${tokenId}`);
+  };
+
+  const getChangeValue = (token: any): number => {
+    switch (timeFilter) {
+      case '7d':
+        return token.change_7d || token.change_24h || 0;
+      case '30d':
+        return token.change_30d || token.change_24h || 0;
+      default:
+        return token.change_24h || 0;
+    }
   };
 
   return (
@@ -48,6 +75,110 @@ const SearchCrypto = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
+
+        {/* Filter section with three distinct areas */}
+        <div className="space-y-3 mb-4">
+          {/* Token type filter (Trending) */}
+          <ToggleGroup 
+            type="single" 
+            value={tokenFilter} 
+            onValueChange={(value) => value && setTokenFilter(value as TokenFilter)}
+            className="justify-start w-full bg-gray-100 p-1 rounded-full"
+          >
+            <ToggleGroupItem 
+              value="Trending" 
+              className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Trending' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+            >
+              Trending
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="Favorites" 
+              className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'Favorites' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+            >
+              Favorites
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="All" 
+              className={`rounded-full px-4 py-2 text-sm ${tokenFilter === 'All' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+            >
+              All
+            </ToggleGroupItem>
+          </ToggleGroup>
+          
+          {/* Network filter (Solana, Ethereum, etc.) */}
+          <div className="overflow-x-auto pb-1">
+            <ToggleGroup 
+              type="single" 
+              value={networkFilter} 
+              onValueChange={(value) => value && setNetworkFilter(value as NetworkFilter)}
+              className="justify-start w-max bg-gray-100 p-1 rounded-full"
+            >
+              <ToggleGroupItem 
+                value="All" 
+                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'All' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                All
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="Solana" 
+                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Solana' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                Solana
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="Ethereum" 
+                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Ethereum' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                Ethereum
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="Bitcoin" 
+                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Bitcoin' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                Bitcoin
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="Base" 
+                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Base' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                Base
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="Polygon" 
+                className={`rounded-full px-4 py-2 text-sm ${networkFilter === 'Polygon' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+              >
+                Polygon
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          
+          {/* Time period filter (24h, 7d, 30d) */}
+          <ToggleGroup 
+            type="single" 
+            value={timeFilter} 
+            onValueChange={(value) => value && setTimeFilter(value as TimeFilter)}
+            className="justify-start w-full bg-gray-100 p-1 rounded-full"
+          >
+            <ToggleGroupItem 
+              value="24h" 
+              className={`rounded-full px-4 py-2 text-sm ${timeFilter === '24h' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+            >
+              24h
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="7d" 
+              className={`rounded-full px-4 py-2 text-sm ${timeFilter === '7d' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+            >
+              7d
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="30d" 
+              className={`rounded-full px-4 py-2 text-sm ${timeFilter === '30d' ? 'bg-kash-green text-white' : 'text-gray-600'}`}
+            >
+              30d
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
 
         <div className="space-y-2 mt-2">
           {loading ? (
@@ -114,8 +245,8 @@ const SearchCrypto = () => {
                   </div>
                   <div className="flex flex-col items-end">
                     <span className="font-medium">${token.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                    <span className={`text-xs ${token.change_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {token.change_24h >= 0 ? '+' : ''}{token.change_24h.toFixed(2)}%
+                    <span className={`text-xs ${getChangeValue(token) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {getChangeValue(token) >= 0 ? '+' : ''}{getChangeValue(token).toFixed(2)}%
                     </span>
                   </div>
                 </div>
