@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import MainLayout from '@/components/layout/MainLayout';
@@ -393,25 +393,25 @@ const SwapCrypto = () => {
           
           <div className="flex items-center gap-2 mb-4">
             <DropdownMenu>
-              <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between">
+              <DropdownMenuTrigger className="bg-white text-gray-800 border border-gray-300 rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between hover:bg-gray-100">
                 <span>{tokenFilter}</span>
-                <ChevronDown size={18} />
+                <ChevronDown size={18} className="text-gray-600" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+              <DropdownMenuContent align="start" className="bg-white border border-gray-200 rounded-xl p-1 shadow-md">
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setTokenFilter("Trending")}
                 >
                   Trending
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setTokenFilter("Favorites")}
                 >
                   Favorites
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setTokenFilter("All")}
                 >
                   All
@@ -420,43 +420,43 @@ const SwapCrypto = () => {
             </DropdownMenu>
             
             <DropdownMenu>
-              <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between">
+              <DropdownMenuTrigger className="bg-white text-gray-800 border border-gray-300 rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between hover:bg-gray-100">
                 <span>{networkFilter}</span>
-                <ChevronDown size={18} />
+                <ChevronDown size={18} className="text-gray-600" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+              <DropdownMenuContent align="start" className="bg-white border border-gray-200 rounded-xl p-1 shadow-md">
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setNetworkFilter("All")}
                 >
                   All
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setNetworkFilter("Solana")}
                 >
                   Solana
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setNetworkFilter("Ethereum")}
                 >
                   Ethereum
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setNetworkFilter("Bitcoin")}
                 >
                   Bitcoin
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setNetworkFilter("Base")}
                 >
                   Base
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setNetworkFilter("Polygon")}
                 >
                   Polygon
@@ -465,25 +465,25 @@ const SwapCrypto = () => {
             </DropdownMenu>
             
             <DropdownMenu>
-              <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[90px] flex items-center justify-between">
+              <DropdownMenuTrigger className="bg-white text-gray-800 border border-gray-300 rounded-full px-4 py-2 min-w-[90px] flex items-center justify-between hover:bg-gray-100">
                 <span>{timeFilter}</span>
-                <ChevronDown size={18} />
+                <ChevronDown size={18} className="text-gray-600" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+              <DropdownMenuContent align="start" className="bg-white border border-gray-200 rounded-xl p-1 shadow-md">
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setTimeFilter("24h")}
                 >
                   24h
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setTimeFilter("7d")}
                 >
                   7d
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                  className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                   onClick={() => setTimeFilter("30d")}
                 >
                   30d

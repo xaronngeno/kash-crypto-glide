@@ -28,7 +28,6 @@ const SearchCrypto = () => {
   const navigate = useNavigate();
   const { prices, loading } = useCryptoPrices();
 
-  // Convert prices object to array for easier filtering
   const tokensArray = Object.entries(prices || {}).map(([symbol, data]) => ({
     id: symbol.toLowerCase(),
     name: data.name || symbol,
@@ -40,10 +39,9 @@ const SearchCrypto = () => {
     change_7d: data.change_7d || 0,
     change_30d: data.change_30d || 0,
     volume: data.volume || 0,
-    marketCap: data.marketCap || (data.price * 1000000), // Fallback calculation
+    marketCap: data.marketCap || (data.price * 1000000),
   }));
-  
-  // Filter tokens by search query and network
+
   const filteredTokens = tokensArray.filter(token => {
     const matchesSearch = 
       token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -53,11 +51,10 @@ const SearchCrypto = () => {
     const matchesNetwork = 
       networkFilter === 'All' || 
       token.platform?.name === networkFilter ||
-      (networkFilter === 'Solana' && !token.platform); // Default to Solana if no platform specified
-      
+      (networkFilter === 'Solana' && !token.platform);
+
     return matchesSearch && matchesNetwork;
   })
-  // Sort based on the selected trending metric
   .sort((a, b) => {
     switch (trendingMetric) {
       case 'Volume':
@@ -68,7 +65,7 @@ const SearchCrypto = () => {
         return getChangeValue(b) - getChangeValue(a);
       case 'Market Cap':
         return (b.marketCap || 0) - (a.marketCap || 0);
-      default: // Default "Trending" uses price change
+      default:
         return getChangeValue(b) - getChangeValue(a);
     }
   });
@@ -99,41 +96,39 @@ const SearchCrypto = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
 
-        {/* Filter section with three distinct areas matching the inspiration image */}
         <div className="flex items-center gap-2 mb-4">
-          {/* Trending metric dropdown - darker background, rounded like in the inspo */}
           <DropdownMenu>
-            <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between">
+            <DropdownMenuTrigger className="bg-white text-gray-800 border border-gray-300 rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between hover:bg-gray-100">
               <span>{trendingMetric}</span>
-              <ChevronDown size={18} />
+              <ChevronDown size={18} className="text-gray-600" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+            <DropdownMenuContent align="start" className="bg-white border border-gray-200 rounded-xl p-1 shadow-md">
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setTrendingMetric("Trending")}
               >
                 Trending
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setTrendingMetric("Volume")}
               >
                 Volume
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setTrendingMetric("Price")}
               >
                 Price
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setTrendingMetric("Price Change")}
               >
                 Price Change
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setTrendingMetric("Market Cap")}
               >
                 Market Cap
@@ -141,45 +136,44 @@ const SearchCrypto = () => {
             </DropdownMenuContent>
           </DropdownMenu>
           
-          {/* Network dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between">
+            <DropdownMenuTrigger className="bg-white text-gray-800 border border-gray-300 rounded-full px-4 py-2 min-w-[120px] flex items-center justify-between hover:bg-gray-100">
               <span>{networkFilter}</span>
-              <ChevronDown size={18} />
+              <ChevronDown size={18} className="text-gray-600" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+            <DropdownMenuContent align="start" className="bg-white border border-gray-200 rounded-xl p-1 shadow-md">
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setNetworkFilter("All")}
               >
                 All
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setNetworkFilter("Solana")}
               >
                 Solana
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setNetworkFilter("Ethereum")}
               >
                 Ethereum
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setNetworkFilter("Bitcoin")}
               >
                 Bitcoin
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setNetworkFilter("Base")}
               >
                 Base
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setNetworkFilter("Polygon")}
               >
                 Polygon
@@ -187,27 +181,26 @@ const SearchCrypto = () => {
             </DropdownMenuContent>
           </DropdownMenu>
           
-          {/* Time period dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger className="bg-gray-900 text-white rounded-full px-4 py-2 min-w-[90px] flex items-center justify-between">
+            <DropdownMenuTrigger className="bg-white text-gray-800 border border-gray-300 rounded-full px-4 py-2 min-w-[90px] flex items-center justify-between hover:bg-gray-100">
               <span>{timeFilter}</span>
-              <ChevronDown size={18} />
+              <ChevronDown size={18} className="text-gray-600" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="bg-gray-900 text-white border-none rounded-xl p-1">
+            <DropdownMenuContent align="start" className="bg-white border border-gray-200 rounded-xl p-1 shadow-md">
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setTimeFilter("24h")}
               >
                 24h
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setTimeFilter("7d")}
               >
                 7d
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="rounded-md hover:bg-gray-700 focus:bg-gray-700 px-3 py-2"
+                className="rounded-md hover:bg-gray-100 focus:bg-gray-100 px-3 py-2 text-gray-800"
                 onClick={() => setTimeFilter("30d")}
               >
                 30d
@@ -218,7 +211,6 @@ const SearchCrypto = () => {
 
         <div className="space-y-2 mt-2">
           {loading ? (
-            // Show skeleton loaders while loading
             Array.from({ length: 5 }).map((_, i) => (
               <KashCard key={`skeleton-${i}`} className="p-3">
                 <div className="flex items-center justify-between">
@@ -249,7 +241,6 @@ const SearchCrypto = () => {
                         alt={token.name}
                         className="w-10 h-10 rounded-full bg-gray-100 object-contain"
                         onError={(e) => {
-                          // Fallback if image fails to load
                           (e.target as HTMLImageElement).src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2240%22%20height%3D%2240%22%20viewBox%3D%220%200%2040%2040%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f0f0f0%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dy%3D%226%22%3E${token.symbol.charAt(0)}%3C%2Ftext%3E%3C%2Fsvg%3E';
                         }}
                       />
@@ -260,7 +251,6 @@ const SearchCrypto = () => {
                             alt={token.platform.name}
                             className="w-full h-full object-contain"
                             onError={(e) => {
-                              // Fallback if platform logo fails
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
                           />
