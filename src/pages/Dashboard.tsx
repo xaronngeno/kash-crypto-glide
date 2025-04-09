@@ -10,10 +10,12 @@ import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const { prices, loading: pricesLoading } = useCryptoPrices();
   const { user, profile } = useAuth();
   const { assets, loading, isCreatingWallets } = useWallets({ prices });
@@ -47,6 +49,23 @@ const Dashboard = () => {
     }
   }, [user, profile, assets, loading, isCreatingWallets]);
 
+  // Loading progress effect
+  useEffect(() => {
+    if (loading || pricesLoading || isCreatingWallets) {
+      const interval = setInterval(() => {
+        setLoadingProgress(prev => {
+          // Cap at 90% until fully loaded
+          if (prev >= 90) return 90;
+          return prev + 5;
+        });
+      }, 500);
+      
+      return () => clearInterval(interval);
+    } else {
+      setLoadingProgress(100);
+    }
+  }, [loading, pricesLoading, isCreatingWallets]);
+
   const totalBalance = assets.reduce((acc, asset) => {
     const value = typeof asset.value === 'number' ? asset.value : 0;
     return acc + value;
@@ -76,65 +95,80 @@ const Dashboard = () => {
     </div>
   );
 
-  if (loading || pricesLoading) {
-    return (
-      <MainLayout title="Portfolio">
-        {isCreatingWallets && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-8 w-8 animate-spin text-kash-green mr-2" />
-            <p className="text-sm text-gray-500">Setting up your wallets...</p>
-          </div>
-        )}
-        {renderLoadingSkeleton()}
-      </MainLayout>
-    );
-  }
-
   return (
     <MainLayout title="Portfolio">
-      <div className="space-y-6">
-        <div className="flex flex-col items-center justify-center pt-4">
-          <div className="text-gray-500 text-sm mb-1">Total Balance</div>
-          <div className="flex items-center">
-            <h1 className="text-3xl font-bold">
-              {currency === 'USD' ? '$' : 'KES '}
-              {hideBalance ? '•••••' : totalBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-            </h1>
-            <button 
-              onClick={() => setHideBalance(!hideBalance)}
-              className="ml-2 text-gray-400 hover:text-gray-600"
-            >
-              {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
+      {(loading || pricesLoading || isCreatingWallets) && (
+        <div className="space-y-4 py-4">
+          <div className="flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-kash-green mr-2" />
+            <p className="text-sm text-gray-500">
+              {isCreatingWallets 
+                ? "Setting up your wallets..." 
+                : "Loading your portfolio..."}
+            </p>
           </div>
           
-          <div className="mt-4">
-            <ActionButtons />
+          <div className="px-4 w-full">
+            <Progress 
+              value={loadingProgress} 
+              className="h-2 bg-gray-100"
+            />
+            <p className="text-xs text-center mt-1 text-gray-400">
+              {loadingProgress < 100 
+                ? "This may take a few moments on first login" 
+                : "Almost there!"}
+            </p>
           </div>
+          
+          {renderLoadingSkeleton()}
         </div>
+      )}
 
-        <div className="mt-6">
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex-grow"></div>
-            <button 
-              onClick={() => setCurrency(currency === 'USD' ? 'KES' : 'USD')}
-              className="text-sm text-kash-green"
-            >
-              Show in {currency === 'USD' ? 'KES' : 'USD'}
-            </button>
+      {!loading && !pricesLoading && !isCreatingWallets && (
+        <div className="space-y-6">
+          <div className="flex flex-col items-center justify-center pt-4">
+            <div className="text-gray-500 text-sm mb-1">Total Balance</div>
+            <div className="flex items-center">
+              <h1 className="text-3xl font-bold">
+                {currency === 'USD' ? '$' : 'KES '}
+                {hideBalance ? '•••••' : totalBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+              </h1>
+              <button 
+                onClick={() => setHideBalance(!hideBalance)}
+                className="ml-2 text-gray-400 hover:text-gray-600"
+              >
+                {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            
+            <div className="mt-4">
+              <ActionButtons />
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex-grow"></div>
+              <button 
+                onClick={() => setCurrency(currency === 'USD' ? 'KES' : 'USD')}
+                className="text-sm text-kash-green"
+              >
+                Show in {currency === 'USD' ? 'KES' : 'USD'}
+              </button>
+            </div>
+            
+            {assets.length > 0 ? (
+              <AssetsList assets={assets} currency={currency} />
+            ) : (
+              <div className="py-8 text-center">
+                <p className="text-gray-500">No assets found. We're setting up your wallets...</p>
+              </div>
+            )}
           </div>
           
-          {assets.length > 0 ? (
-            <AssetsList assets={assets} currency={currency} />
-          ) : (
-            <div className="py-8 text-center">
-              <p className="text-gray-500">No assets found. We're setting up your wallets...</p>
-            </div>
-          )}
+          <PromoCard />
         </div>
-        
-        <PromoCard />
-      </div>
+      )}
     </MainLayout>
   );
 };

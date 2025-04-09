@@ -16,6 +16,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   const [creatingWallets, setCreatingWallets] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, session, profile } = useAuth();
+  const [creationTimeout, setCreationTimeout] = useState(false);
   
   const defaultAssetsMap = {
     'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0, value: 0, change: 0, icon: '₿' },
@@ -40,6 +41,21 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       setCreatingWallets(true);
       console.log("Attempting to create wallets for user:", user.id);
       
+      // Set a timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log("Wallet creation timed out");
+        setCreationTimeout(true);
+        setCreatingWallets(false);
+        setAssets(Object.values(defaultAssetsMap));
+        setLoading(false);
+        
+        toast({
+          title: 'Wallet Creation Timeout',
+          description: 'Using default wallets for now. Your wallets will be created in the background.',
+          variant: 'default'
+        });
+      }, 10000); // 10 second timeout
+      
       const { data, error } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
         headers: {
@@ -48,6 +64,8 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         },
         body: { userId: user.id }
       });
+      
+      clearTimeout(timeoutId);
       
       if (error) {
         throw new Error(`Function returned error: ${error.message}`);
@@ -67,9 +85,13 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       setError(err instanceof Error ? err.message : "Unknown error");
       toast({
         title: 'Error',
-        description: 'Failed to create user wallets. Please refresh or try again later.',
+        description: 'Failed to create user wallets. Using default wallets instead.',
         variant: 'destructive'
       });
+      
+      // Use default assets on error
+      setAssets(Object.values(defaultAssetsMap));
+      setLoading(false);
       return null;
     } finally {
       setCreatingWallets(false);
@@ -101,6 +123,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     const fetchUserAssets = async () => {
       if (!user || !session?.access_token) {
         console.log("No user or session available, skipping wallet fetch");
+        setLoading(false);
         return;
       }
       
@@ -108,10 +131,25 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         setLoading(true);
         console.log("Fetching wallets for user:", user.id);
         
+        // Set a timeout to prevent infinite loading
+        const timeoutId = setTimeout(() => {
+          console.log("Wallet fetch timed out");
+          setAssets(Object.values(defaultAssetsMap));
+          setLoading(false);
+          
+          toast({
+            title: 'Loading Timeout',
+            description: 'Using default wallet data for now. Please refresh later.',
+            variant: 'default'
+          });
+        }, 8000); // 8 second timeout
+        
         const { data: wallets, error: walletsError } = await supabase
           .from('wallets')
           .select('*')
           .eq('user_id', user.id);
+          
+        clearTimeout(timeoutId);
           
         if (walletsError) {
           throw walletsError;
@@ -126,6 +164,14 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
               processWallets(newWallets);
               return;
             }
+          }
+          
+          // If wallet creation is in progress but we hit timeout, use defaults
+          if (creatingWallets || creationTimeout) {
+            console.log("Using default assets while wallets are being created");
+            setAssets(Object.values(defaultAssetsMap));
+            setLoading(false);
+            return;
           }
         } else {
           console.log(`Found ${wallets.length} wallets for user:`, user.id);
@@ -191,6 +237,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     } else {
       console.log("No user authenticated, skipping wallet fetch");
       setLoading(false);
+      setAssets(Object.values(defaultAssetsMap));
     }
   }, [user, prices, session, walletsCreated, creatingWallets]);
 
