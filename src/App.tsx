@@ -10,7 +10,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
-import SignUp from "./pages/SignUp";
 import Dashboard from "./pages/Dashboard";
 import Receive from "./pages/Receive";
 import Send from "./pages/Send";
@@ -36,8 +35,6 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/signin" element={<Auth />} />
-              <Route path="/signup" element={<SignUp />} />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Dashboard />

@@ -9,7 +9,138 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          first_name: string | null
+          id: string
+          kyc_status: string | null
+          last_name: string | null
+          numeric_id: number | null
+          phone: string | null
+          phone_numbers: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          first_name?: string | null
+          id: string
+          kyc_status?: string | null
+          last_name?: string | null
+          numeric_id?: number | null
+          phone?: string | null
+          phone_numbers?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          kyc_status?: string | null
+          last_name?: string | null
+          numeric_id?: number | null
+          phone?: string | null
+          phone_numbers?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          blockchain: string | null
+          created_at: string | null
+          currency: string
+          fee: number | null
+          from_address: string | null
+          id: string
+          mpesa_phone: string | null
+          mpesa_reference: string | null
+          status: string
+          to_address: string | null
+          transaction_type: string
+          tx_hash: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          blockchain?: string | null
+          created_at?: string | null
+          currency: string
+          fee?: number | null
+          from_address?: string | null
+          id?: string
+          mpesa_phone?: string | null
+          mpesa_reference?: string | null
+          status: string
+          to_address?: string | null
+          transaction_type: string
+          tx_hash?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          blockchain?: string | null
+          created_at?: string | null
+          currency?: string
+          fee?: number | null
+          from_address?: string | null
+          id?: string
+          mpesa_phone?: string | null
+          mpesa_reference?: string | null
+          status?: string
+          to_address?: string | null
+          transaction_type?: string
+          tx_hash?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wallets: {
+        Row: {
+          address: string
+          balance: number | null
+          blockchain: string
+          created_at: string | null
+          currency: string
+          id: string
+          private_key: string | null
+          updated_at: string | null
+          user_id: string
+          wallet_type: string | null
+        }
+        Insert: {
+          address: string
+          balance?: number | null
+          blockchain: string
+          created_at?: string | null
+          currency: string
+          id?: string
+          private_key?: string | null
+          updated_at?: string | null
+          user_id: string
+          wallet_type?: string | null
+        }
+        Update: {
+          address?: string
+          balance?: number | null
+          blockchain?: string
+          created_at?: string | null
+          currency?: string
+          id?: string
+          private_key?: string | null
+          updated_at?: string | null
+          user_id?: string
+          wallet_type?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

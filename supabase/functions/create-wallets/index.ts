@@ -1,10 +1,13 @@
 
-// Create wallets edge function - this will help with wallet generation performance
-// Follow Supabase Edge Runtime API and Deno standards
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.36.0';
+import { Keypair } from 'https://esm.sh/@solana/web3.js@1.91.1';
+import { ethers } from 'https://esm.sh/ethers@6.13.5';
 
-// Define CORS headers for browser access
+// Supabase client setup with environment variables
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -12,191 +15,159 @@ const corsHeaders = {
 
 interface WalletData {
   blockchain: string;
+  platform: string;
   address: string;
-  wallet_type?: string;
+  privateKey?: string;
+  walletType?: string;
 }
 
-// Generate a simple mock wallet address for now - replace with real crypto libraries later
-function generateMockWalletAddress(blockchain: string): string {
-  const prefix = {
-    'Bitcoin': 'bc1q',
-    'Ethereum': '0x',
-    'Solana': '',
-    'Polygon': '0x',
-    'Base': '0x',
-    'Monad': '0x',
-    'Sui': '0x',
-  }[blockchain] || '';
-  
-  // Generate a random string to represent a wallet address
-  const randomChars = Array(40).fill(0).map(() => 
-    Math.floor(Math.random() * 16).toString(16)).join('');
-  
-  return `${prefix}${randomChars}`;
-}
-
-// Generate wallets for a user
-async function generateWallets(userId: string): Promise<WalletData[]> {
-  try {
-    // Define blockchains to create wallets for
-    const blockchains = [
-      'Bitcoin', 'Ethereum', 'Solana', 'Polygon', 'Base', 'Monad', 'Sui'
-    ];
-    
-    console.log(`Generating wallets for user ID: ${userId}`);
-    
-    // Generate wallets (simplified mock implementation)
-    return blockchains.map(blockchain => ({
-      blockchain,
-      address: generateMockWalletAddress(blockchain),
-      wallet_type: 'Default'
-    }));
-  } catch (error) {
-    console.error('Error generating wallets:', error);
-    throw error;
-  }
-}
-
-serve(async (req) => {
-  // Handle CORS preflight requests
+Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("Create wallets function called");
-    
-    // Get the authorization header from the request
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error("Missing authorization header");
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+    // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Parse the request body
-    const requestData = await req.json();
-    const userId = requestData.userId;
     
-    console.log(`Request received for user ID: ${userId}`);
+    // Get user ID from request
+    let userId;
+    const authHeader = req.headers.get('Authorization');
     
-    if (!userId) {
-      console.error("Missing userId in request body");
-      return new Response(JSON.stringify({ error: 'Missing userId in request body' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Check if user exists in profiles table
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .single();
+    if (authHeader) {
+      // If called with auth token, verify the user
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       
-    if (profileError || !profileData) {
-      console.error(`User profile not found: ${profileError?.message || 'Unknown error'}`);
-      return new Response(JSON.stringify({ 
-        error: 'User profile not found', 
-        details: profileError?.message,
-        userId 
-      }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Generate wallets
-    const wallets = await generateWallets(userId);
-    
-    console.log(`Generated ${wallets.length} wallets`);
-    
-    // Insert the wallets into the database
-    const walletInserts = wallets.map(wallet => ({
-      user_id: userId,
-      blockchain: wallet.blockchain,
-      currency: wallet.blockchain, // Use blockchain as currency for now
-      address: wallet.address,
-      balance: 0
-    }));
-
-    // Check if wallets already exist for this user
-    const { data: existingWallets, error: existingWalletsError } = await supabase
-      .from('wallets')
-      .select('id')
-      .eq('user_id', userId);
-      
-    if (existingWalletsError) {
-      console.error(`Error checking existing wallets: ${existingWalletsError.message}`);
-    }
-    
-    if (existingWallets && existingWallets.length > 0) {
-      console.log(`User already has ${existingWallets.length} wallets, skipping creation`);
-      
-      // Return the existing wallets
-      const { data: walletData, error: walletDataError } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('user_id', userId);
-        
-      if (walletDataError) {
-        console.error(`Error fetching existing wallets: ${walletDataError.message}`);
-        throw walletDataError;
+      if (authError || !user) {
+        throw new Error('Unauthorized');
       }
       
+      userId = user.id;
+    } else {
+      // For direct invocation (initial signup), extract from body
+      const { userId: bodyUserId } = await req.json();
+      
+      if (!bodyUserId) {
+        throw new Error('User ID is required');
+      }
+      
+      userId = bodyUserId;
+    }
+    
+    // First check if wallets already exist for this user
+    const { data: existingWallets, error: checkError } = await supabase
+      .from('wallets')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1);
+    
+    if (checkError) {
+      throw checkError;
+    }
+    
+    // If wallets already exist, return early
+    if (existingWallets && existingWallets.length > 0) {
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          message: 'Wallets already exist', 
-          wallets: walletData,
-          count: walletData?.length || 0
+          message: 'Wallets already exist for this user',
+          wallets: existingWallets 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Insert wallets into the database
+    
+    // Generate wallets
+    console.log(`Generating wallets for user: ${userId}`);
+    const wallets = await generateWalletsForUser(userId);
+    
+    // Store wallets in database
     const { data: insertedWallets, error: insertError } = await supabase
       .from('wallets')
-      .insert(walletInserts)
+      .insert(wallets.map(wallet => ({
+        user_id: userId,
+        blockchain: wallet.blockchain,
+        currency: wallet.platform === wallet.blockchain ? wallet.blockchain : wallet.platform,
+        address: wallet.address,
+        wallet_type: wallet.walletType,
+        // We don't store private keys in the database for security
+      })))
       .select();
     
     if (insertError) {
-      console.error(`Error inserting wallets: ${insertError.message}`);
       throw insertError;
     }
     
-    console.log(`Successfully inserted ${insertedWallets?.length || 0} wallets`);
-
-    // Return success response
+    console.log(`Successfully created ${insertedWallets.length} wallets for user: ${userId}`);
+    
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        message: 'Wallets created successfully', 
-        wallets: insertedWallets,
-        count: wallets.length 
+        message: 'Wallets created successfully',
+        wallets: insertedWallets 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error creating wallets:', error);
+    console.error(`Error creating wallets:`, error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'Unknown error occurred',
-        stack: error.stack
-      }),
+      JSON.stringify({ error: error.message || String(error) }),
       { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: error.message === 'Unauthorized' ? 401 : 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
 });
+
+// Function to generate all crypto wallets
+async function generateWalletsForUser(userId: string): Promise<WalletData[]> {
+  const wallets: WalletData[] = [];
+  
+  try {
+    // Generate Solana wallet
+    const solanaKeypair = Keypair.generate();
+    wallets.push({
+      blockchain: 'Solana',
+      platform: 'Solana',
+      address: solanaKeypair.publicKey.toString(),
+      // Only temporarily available, not stored in DB
+      privateKey: Array.from(solanaKeypair.secretKey).toString(),
+    });
+    
+    // Generate Ethereum wallet
+    const ethWallet = ethers.Wallet.createRandom();
+    wallets.push({
+      blockchain: 'Ethereum',
+      platform: 'Ethereum',
+      address: ethWallet.address,
+      // Only temporarily available, not stored in DB
+      privateKey: ethWallet.privateKey,
+    });
+    
+    // Generate other Ethereum-compatible wallets (same format, different blockchain category)
+    wallets.push({
+      blockchain: 'Polygon',
+      platform: 'Polygon',
+      address: ethWallet.address, // Same address as ETH
+      privateKey: ethWallet.privateKey, // Same key as ETH
+    });
+    
+    wallets.push({
+      blockchain: 'Base',
+      platform: 'Base',
+      address: ethWallet.address, // Same address as ETH
+      privateKey: ethWallet.privateKey, // Same key as ETH
+    });
+    
+    // Add more wallets as needed for other chains
+    
+    // Note: Bitcoin and TRX wallets would be added here with proper libraries
+    // For now, we're simplifying to focus on the flow
+    
+    return wallets;
+  } catch (error) {
+    console.error('Error generating wallets:', error);
+    throw new Error(`Failed to generate wallets: ${error.message || String(error)}`);
+  }
+}
