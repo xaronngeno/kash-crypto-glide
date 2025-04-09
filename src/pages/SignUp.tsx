@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Phone, User } from 'lucide-react';
+import { Mail, Lock, User } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
@@ -18,10 +19,6 @@ const signUpSchema = z.object({
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
-  phone: z.string()
-    .refine(val => /^\+[0-9]{6,15}$/.test(val), {
-      message: "Phone number must start with + and contain 6-15 digits",
-    }),
   password: z.string().min(6, {
     message: "Password must be at least 6 characters.",
   }),
@@ -47,7 +44,6 @@ const SignUp = () => {
     defaultValues: {
       name: '',
       email: '',
-      phone: '+254',
       password: '',
       confirmPassword: '',
       terms: false,
@@ -59,34 +55,6 @@ const SignUp = () => {
     setProcessingStatus('Validating information...');
     
     try {
-      // Check if phone number is valid format
-      if (!/^\+[0-9]{6,15}$/.test(values.phone)) {
-        form.setError('phone', { 
-          type: 'manual', 
-          message: 'Phone number must start with + and contain 6-15 digits' 
-        });
-        throw new Error('Invalid phone number format');
-      }
-      
-      // Check if phone number is unique via RPC
-      setProcessingStatus('Checking phone number...');
-      const { data: isPhoneUnique, error: phoneCheckError } = await supabase
-        .rpc('is_phone_number_unique', { phone: values.phone });
-      
-      if (phoneCheckError) {
-        console.error("Phone check error:", phoneCheckError);
-        throw new Error(`Phone number check failed: ${phoneCheckError.message}`);
-      }
-      
-      if (isPhoneUnique === false) {
-        console.log("Phone number already exists:", values.phone);
-        form.setError('phone', { 
-          type: 'manual', 
-          message: 'This phone number is already registered' 
-        });
-        throw new Error('Phone number is already registered');
-      }
-      
       // Split name into first and last name
       setProcessingStatus('Creating your account...');
       const nameParts = values.name.trim().split(' ');
@@ -100,8 +68,7 @@ const SignUp = () => {
         options: {
           data: {
             first_name: firstName,
-            last_name: lastName,
-            phone: values.phone
+            last_name: lastName
           }
         }
       });
@@ -147,14 +114,11 @@ const SignUp = () => {
     } catch (error: any) {
       console.error("Unexpected error:", error);
       
-      // Only show toast if it's not the phone uniqueness error we already handled
-      if (!error.message?.includes('phone number')) {
-        toast({
-          title: "Registration failed",
-          description: error.message || "An unexpected error occurred. Please try again.",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Registration failed",
+        description: error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
       setProcessingStatus('');
@@ -205,25 +169,6 @@ const SignUp = () => {
                           type="email"
                           placeholder="Enter your email"
                           icon={<Mail size={18} className="text-gray-400" />}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <KashInput
-                          {...field}
-                          type="tel" 
-                          placeholder="Enter your phone number"
-                          icon={<Phone size={18} className="text-gray-400" />}
                         />
                       </FormControl>
                       <FormMessage />
