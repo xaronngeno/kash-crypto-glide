@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -19,6 +20,7 @@ import TransactionConfirmation from "./pages/TransactionConfirmation";
 import SwapCrypto from "./pages/SwapCrypto";
 import SearchCrypto from "./pages/SearchCrypto";
 import SellUsdt from "./pages/SellUsdt";
+import CoinDetail from "./pages/CoinDetail";
 
 // Create a client
 const queryClient = new QueryClient();
@@ -70,6 +72,11 @@ const App: React.FC = () => {
               <Route path="/search" element={
                 <ProtectedRoute>
                   <SearchCrypto />
+                </ProtectedRoute>
+              } />
+              <Route path="/coin/:coinId" element={
+                <ProtectedRoute>
+                  <CoinDetail />
                 </ProtectedRoute>
               } />
               <Route path="/history" element={

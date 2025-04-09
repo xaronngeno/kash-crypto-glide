@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashInput } from '@/components/ui/KashInput';
@@ -71,7 +72,7 @@ const SearchCrypto = () => {
   });
 
   const handleTokenSelect = (tokenId: string) => {
-    navigate(`/swap?token=${tokenId}`);
+    navigate(`/coin/${tokenId}`);
   };
 
   const getChangeValue = (token: any): number => {

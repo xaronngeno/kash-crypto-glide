@@ -261,6 +261,10 @@ const SwapCrypto = () => {
     }
   };
 
+  const handleTokenDetails = (tokenId: string) => {
+    navigate(`/coin/${tokenId}`);
+  };
+
   if (pricesLoading) {
     return (
       <MainLayout title="Swap" showBack>
@@ -509,9 +513,7 @@ const SwapCrypto = () => {
                   key={token.id} 
                   className="grid grid-cols-12 items-center px-3 py-2 bg-white rounded-lg hover:bg-gray-50 cursor-pointer border border-gray-100"
                   onClick={() => {
-                    setFromToken(assets.find(a => a.symbol === 'SOL') || null);
-                    setToToken(token);
-                    navigate('/swap');
+                    handleTokenDetails(token.id);
                   }}
                 >
                   <div className="col-span-1 flex items-center justify-center">
