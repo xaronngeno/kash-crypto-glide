@@ -185,19 +185,10 @@ const CoinDetail = () => {
 
   return (
     <MainLayout title={coinData.name || coinSymbol} showBack>
-      <div className={`flex flex-col gap-4 ${darkMode ? 'bg-gray-900 text-white' : ''}`}>
-        <div className="flex justify-end mb-1">
-          <KashButton 
-            variant="outline"
-            size="sm"
-            onClick={() => setDarkMode(!darkMode)}
-            className={darkMode ? "text-white border-gray-700" : ""}
-          >
-            {darkMode ? "Light Mode" : "Dark Mode"}
-          </KashButton>
-        </div>
+      <div className="flex flex-col gap-4">
+        
 
-        <div className={`flex flex-col ${darkMode ? 'text-white' : ''}`}>
+        <div className="flex flex-col">
           <h1 className="text-3xl font-bold mb-1">{coinData.name}</h1>
           <div className="flex items-end gap-2 mb-1">
             <span className="text-4xl font-bold">${coinData.price.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
@@ -208,26 +199,26 @@ const CoinDetail = () => {
               </Badge>
             </div>
           </div>
-          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>{getFormattedDate()}</p>
+          <p className="text-gray-500 text-sm">{getFormattedDate()}</p>
         </div>
 
-        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-xl border p-2 overflow-hidden`}>
+        <div className="rounded-xl border p-2 overflow-hidden">
           <PriceChart 
             priceData={coinData}
             timeframe={selectedTimeframe} 
             color={coinData.change_24h >= 0 ? '#10B981' : '#EF4444'}
-            darkMode={darkMode}
+            
           />
           
-          <div className={`flex justify-between pt-2 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="flex justify-between pt-2">
             {['1H', '1D', '1W', '1M', 'YTD', 'ALL'].map((period) => (
               <button
                 key={period}
                 onClick={() => setSelectedTimeframe(period as TimeFilter)}
                 className={`px-3 py-1 rounded-full text-sm ${
                   selectedTimeframe === period 
-                    ? darkMode ? 'bg-gray-700 font-medium text-white' : 'bg-gray-100 font-medium text-gray-800'
-                    : darkMode ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-50'
+                    ? 'bg-gray-100 font-medium text-gray-800'
+                    : 'text-gray-500 hover:bg-gray-50'
                 }`}
               >
                 {period}
@@ -238,11 +229,11 @@ const CoinDetail = () => {
 
         <div className="grid grid-cols-4 gap-2 mb-4">
           <KashButton 
-            variant={darkMode ? "primary" : "outline"}
-            className={`flex flex-col items-center justify-center py-3 h-auto ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : ''}`}
+            variant="outline"
+            className="flex flex-col items-center justify-center py-3 h-auto"
             onClick={() => navigate('/receive')}
           >
-            <div className={`${darkMode ? 'text-indigo-400' : 'text-indigo-500'} mb-1`}>
+            <div className="text-indigo-500 mb-1">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="4" y="4" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" />
                 <rect x="4" y="13" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" />
@@ -250,52 +241,52 @@ const CoinDetail = () => {
                 <rect x="13" y="13" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" />
               </svg>
             </div>
-            <span className={`text-xs ${darkMode ? 'text-gray-300' : ''}`}>Receive</span>
+            <span className="text-xs">Receive</span>
           </KashButton>
           
           <KashButton 
-            variant={darkMode ? "primary" : "outline"}
-            className={`flex flex-col items-center justify-center py-3 h-auto ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : ''}`}
+            variant="outline"
+            className="flex flex-col items-center justify-center py-3 h-auto"
             onClick={() => navigate(`/swap?token=${coinId}`)}
           >
-            <div className={`${darkMode ? 'text-indigo-400' : 'text-indigo-500'} mb-1`}>
+            <div className="text-indigo-500 mb-1">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M17 4V20M17 20L13 16M17 20L21 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M7 20V4M7 4L3 8M7 4L11 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className={`text-xs ${darkMode ? 'text-gray-300' : ''}`}>Swap</span>
+            <span className="text-xs">Swap</span>
           </KashButton>
           
           <KashButton 
-            variant={darkMode ? "primary" : "outline"}
-            className={`flex flex-col items-center justify-center py-3 h-auto ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : ''}`}
+            variant="outline"
+            className="flex flex-col items-center justify-center py-3 h-auto"
             onClick={() => navigate('/buy')}
           >
-            <div className={`${darkMode ? 'text-indigo-400' : 'text-indigo-500'} mb-1`}>
+            <div className="text-indigo-500 mb-1">
               <DollarSign size={20} />
             </div>
-            <span className={`text-xs ${darkMode ? 'text-gray-300' : ''}`}>Cash Buy</span>
+            <span className="text-xs">Cash Buy</span>
           </KashButton>
           
           <KashButton 
-            variant={darkMode ? "primary" : "outline"}
-            className={`flex flex-col items-center justify-center py-3 h-auto ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : ''}`}
+            variant="outline"
+            className="flex flex-col items-center justify-center py-3 h-auto"
           >
-            <div className={`${darkMode ? 'text-indigo-400' : 'text-indigo-500'} mb-1`}>
+            <div className="text-indigo-500 mb-1">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="12" cy="12" r="2" fill="currentColor"/>
                 <circle cx="6" cy="12" r="2" fill="currentColor"/>
                 <circle cx="18" cy="12" r="2" fill="currentColor"/>
               </svg>
             </div>
-            <span className={`text-xs ${darkMode ? 'text-gray-300' : ''}`}>More</span>
+            <span className="text-xs">More</span>
           </KashButton>
         </div>
 
         <div className="mb-4">
-          <h2 className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>Your Balance</h2>
-          <KashCard className={`p-4 ${darkMode ? 'bg-gray-800 border-gray-700' : ''}`}>
+          <h2 className="text-gray-600 mb-2">Your Balance</h2>
+          <KashCard className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="relative">
@@ -321,13 +312,13 @@ const CoinDetail = () => {
                   )}
                 </div>
                 <div className="ml-3">
-                  <h3 className={`font-medium text-lg ${darkMode ? 'text-white' : ''}`}>{coinData.name}</h3>
-                  <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>{userBalance} {coinSymbol}</p>
+                  <h3 className="font-medium text-lg">{coinData.name}</h3>
+                  <p className="text-gray-500">{userBalance} {coinSymbol}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className={`font-bold text-lg ${darkMode ? 'text-white' : ''}`}>${userBalanceValue.toLocaleString(undefined, {maximumFractionDigits: 2})}</p>
-                <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>${(userBalance * coinData.price).toFixed(2)}</p>
+                <p className="font-bold text-lg">${userBalanceValue.toLocaleString(undefined, {maximumFractionDigits: 2})}</p>
+                <p className="text-gray-500">${(userBalance * coinData.price).toFixed(2)}</p>
               </div>
             </div>
           </KashCard>
@@ -335,8 +326,8 @@ const CoinDetail = () => {
 
         {coinSymbol === 'SOL' && (
           <div className="mb-4">
-            <h2 className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>Staking</h2>
-            <KashCard className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-800 text-white'} p-4 hover:bg-gray-700 cursor-pointer`}>
+            <h2 className="text-gray-600 mb-2">Staking</h2>
+            <KashCard className="bg-gray-800 text-white p-4 hover:bg-gray-700 cursor-pointer">
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center mr-3">
                   <TrendingUp size={20} className="text-green-500" />
@@ -352,35 +343,35 @@ const CoinDetail = () => {
         )}
 
         <div className="mb-4">
-          <h2 className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>About</h2>
-          <KashCard className={`p-4 ${darkMode ? 'bg-gray-800 border-gray-700' : ''}`}>
+          <h2 className="text-gray-600 mb-2">About</h2>
+          <KashCard className="p-4">
             {coinSymbol === 'SOL' ? (
               <>
-                <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                <p className="text-gray-700">
                   Solana is a highly functional open source project that banks on blockchain technology's permissionless nature to provide decentralized finance (DeFi) solutions.
                 </p>
-                <button className={darkMode ? 'text-indigo-400 mt-2' : 'text-indigo-500 mt-2'}>Show More</button>
+                <button className="text-indigo-500 mt-2">Show More</button>
                 <div className="flex gap-2 mt-4 flex-wrap">
                   <KashButton 
-                    variant={darkMode ? "primary" : "outline"} 
+                    variant="outline" 
                     size="sm" 
-                    className={`flex items-center gap-1 px-3 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 border-gray-600' : ''}`}
+                    className="flex items-center gap-1 px-3"
                     onClick={() => window.open('https://solana.com', '_blank')}
                   >
                     <Globe size={14} /> Website
                   </KashButton>
                   <KashButton 
-                    variant={darkMode ? "primary" : "outline"} 
+                    variant="outline" 
                     size="sm" 
-                    className={`flex items-center gap-1 px-3 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 border-gray-600' : ''}`}
+                    className="flex items-center gap-1 px-3"
                     onClick={() => window.open('https://t.me/solana', '_blank')}
                   >
                     <MessageSquare size={14} /> Telegram
                   </KashButton>
                   <KashButton 
-                    variant={darkMode ? "primary" : "outline"} 
+                    variant="outline" 
                     size="sm" 
-                    className={`flex items-center gap-1 px-3 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 border-gray-600' : ''}`}
+                    className="flex items-center gap-1 px-3"
                     onClick={() => window.open('https://twitter.com/solana', '_blank')}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -390,29 +381,29 @@ const CoinDetail = () => {
                 </div>
               </>
             ) : (
-              <p className={`text-center py-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No description available.</p>
+              <p className="text-center py-2 text-gray-500">No description available.</p>
             )}
           </KashCard>
         </div>
 
         <div className="mb-4">
-          <h2 className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>Info</h2>
-          <KashCard className={`overflow-hidden ${darkMode ? 'bg-gray-800 border-gray-700' : ''}`}>
-            <div className={`divide-y ${darkMode ? 'divide-gray-700' : ''}`}>
-              <div className={`flex justify-between p-4 ${darkMode ? 'text-gray-300' : ''}`}>
-                <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Symbol</span>
+          <h2 className="text-gray-600 mb-2">Info</h2>
+          <KashCard className="overflow-hidden">
+            <div className="divide-y">
+              <div className="flex justify-between p-4">
+                <span className="text-gray-500">Symbol</span>
                 <span className="font-medium">{coinSymbol}</span>
               </div>
               
-              <div className={`flex justify-between p-4 ${darkMode ? 'text-gray-300' : ''}`}>
-                <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Network</span>
+              <div className="flex justify-between p-4">
+                <span className="text-gray-500">Network</span>
                 <span className="font-medium">
                   {coinData.platform?.name || 'Unknown'}
                 </span>
               </div>
               
-              <div className={`flex justify-between p-4 ${darkMode ? 'text-gray-300' : ''}`}>
-                <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Market Cap</span>
+              <div className="flex justify-between p-4">
+                <span className="text-gray-500">Market Cap</span>
                 <span className="font-medium">
                   ${((marketData?.marketCap || 0) / 1000000000).toLocaleString(undefined, {maximumFractionDigits: 2})}B
                 </span>
@@ -420,14 +411,14 @@ const CoinDetail = () => {
               
               {marketData && (
                 <>
-                  <div className={`flex justify-between p-4 ${darkMode ? 'text-gray-300' : ''}`}>
-                    <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Total Supply</span>
+                  <div className="flex justify-between p-4">
+                    <span className="text-gray-500">Total Supply</span>
                     <span className="font-medium">
                       {marketData.totalSupply.toLocaleString(undefined, {maximumFractionDigits: 2})}M
                     </span>
                   </div>
-                  <div className={`flex justify-between p-4 ${darkMode ? 'text-gray-300' : ''}`}>
-                    <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Circulating Supply</span>
+                  <div className="flex justify-between p-4">
+                    <span className="text-gray-500">Circulating Supply</span>
                     <span className="font-medium">
                       {marketData.circulatingSupply.toLocaleString(undefined, {maximumFractionDigits: 2})}M
                     </span>
@@ -439,15 +430,15 @@ const CoinDetail = () => {
         </div>
 
         <div className="mb-4">
-          <h2 className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>24h Performance</h2>
-          <KashCard className={`overflow-hidden ${darkMode ? 'bg-gray-800 border-gray-700' : ''}`}>
-            <div className={`divide-y ${darkMode ? 'divide-gray-700' : ''}`}>
+          <h2 className="text-gray-600 mb-2">24h Performance</h2>
+          <KashCard className="overflow-hidden">
+            <div className="divide-y">
               {['Volume', 'Trades', 'Traders'].map((key) => {
                 const performanceData = getPerformanceValue(key);
                 
                 return (
-                  <div key={key} className={`flex justify-between p-4 ${darkMode ? 'text-gray-300' : ''}`}>
-                    <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>{key}</span>
+                  <div key={key} className="flex justify-between p-4">
+                    <span className="text-gray-500">{key}</span>
                     <div className="text-right">
                       <span className="font-medium block">{performanceData.value}</span>
                       <span className={performanceData.positive ? 'text-green-500 text-sm' : 'text-red-500 text-sm'}>

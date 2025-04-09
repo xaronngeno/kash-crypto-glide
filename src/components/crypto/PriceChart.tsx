@@ -6,10 +6,9 @@ interface PriceChartProps {
   priceData: any;
   timeframe: string;
   color: string;
-  darkMode?: boolean; // Explicitly defined darkMode prop
 }
 
-const PriceChart: React.FC<PriceChartProps> = ({ priceData, timeframe, color, darkMode = false }) => {
+const PriceChart: React.FC<PriceChartProps> = ({ priceData, timeframe, color }) => {
   // Generate mock data based on the current price and change percentage
   const generateChartData = () => {
     const price = priceData.price || 100;
@@ -63,22 +62,22 @@ const PriceChart: React.FC<PriceChartProps> = ({ priceData, timeframe, color, da
             axisLine={false} 
             tickLine={false} 
             tick={false}
-            stroke={darkMode ? "#6b7280" : "#e5e7eb"} 
+            stroke="#e5e7eb"
           />
           <YAxis 
             domain={['dataMin', 'dataMax']} 
             axisLine={false} 
             tickLine={false} 
             tick={false}
-            stroke={darkMode ? "#6b7280" : "#e5e7eb"}
+            stroke="#e5e7eb"
           />
           <Tooltip 
             formatter={formatPrice} 
             labelFormatter={() => ''} 
             contentStyle={{
-              backgroundColor: darkMode ? '#1f2937' : 'white',
-              borderColor: darkMode ? '#374151' : '#e5e7eb',
-              color: darkMode ? 'white' : 'black'
+              backgroundColor: 'white',
+              borderColor: '#e5e7eb',
+              color: 'black'
             }}
           />
           <Area 
