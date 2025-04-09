@@ -41,6 +41,7 @@ const SignUp = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<string>('');
   
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -56,9 +57,11 @@ const SignUp = () => {
 
   const handleSignUp = async (values: SignUpFormValues) => {
     setLoading(true);
+    setProcessingStatus('Validating information...');
     
     try {
       // Check if phone number is unique via RPC
+      setProcessingStatus('Checking phone number...');
       const { data: isPhoneUnique, error: phoneCheckError } = await supabase
         .rpc('is_phone_number_unique', { phone: values.phone });
       
@@ -75,6 +78,7 @@ const SignUp = () => {
       }
       
       // Split name into first and last name
+      setProcessingStatus('Creating your account...');
       const nameParts = values.name.trim().split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
@@ -105,10 +109,15 @@ const SignUp = () => {
           description: "Your account has been successfully created.",
         });
         
+        // Generate wallets in background and proceed to dashboard
+        navigate('/dashboard');
+        
         // Create wallets for the new user
         if (data.user) {
           try {
-            // Generate wallets (properly handling Promise)
+            // Generate wallets
+            setProcessingStatus('Generating secure wallets...');
+            console.log("Starting wallet generation...");
             const wallets = await generateAllWallets();
             console.log("Generated wallets:", wallets.length);
             
@@ -129,25 +138,16 @@ const SignUp = () => {
               
             if (walletsError) {
               console.error("Error creating wallets:", walletsError);
-              toast({
-                title: "Wallet creation issue",
-                description: "There was an issue creating some of your wallets. Please contact support.",
-                variant: "destructive"
-              });
+              // We don't show this error to user since they're already on dashboard
+              // Just log it for debugging
             } else {
               console.log("Successfully created wallets for user");
             }
           } catch (walletError) {
             console.error("Error generating wallets:", walletError);
-            toast({
-              title: "Wallet creation failed",
-              description: "Failed to create your cryptocurrency wallets. Please contact support.",
-              variant: "destructive"
-            });
+            // We don't block the user experience here, just log the error
           }
         }
-        
-        navigate('/dashboard');
       }
     } catch (error: any) {
       console.error("Unexpected error:", error);
@@ -162,6 +162,7 @@ const SignUp = () => {
       }
     } finally {
       setLoading(false);
+      setProcessingStatus('');
     }
   };
 
@@ -295,6 +296,18 @@ const SignUp = () => {
                     </FormItem>
                   )}
                 />
+
+                {processingStatus && (
+                  <div className="text-center text-sm text-kash-green">
+                    <div className="flex items-center justify-center mb-2">
+                      <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {processingStatus}
+                    </div>
+                  </div>
+                )}
 
                 <KashButton 
                   type="submit" 

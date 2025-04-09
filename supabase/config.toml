@@ -30,3 +30,6 @@ file_size_limit = "50MiB"
 
 [functions.assign-user-ids]
 verify_jwt = true
+
+[functions.create-wallets]
+verify_jwt = true

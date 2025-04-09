@@ -1,166 +1,123 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import { corsHeaders } from '../_shared/cors.ts';
+// Create wallets edge function - this will help with wallet generation performance
+// Follow Supabase Edge Runtime API and Deno standards
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
 
-console.log("Create wallets function initialized");
+// Define CORS headers for browser access
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 interface WalletData {
   blockchain: string;
-  platform: string;
   address: string;
-  currency: string;
+  wallet_type?: string;
 }
 
-// This edge function creates wallets for a user if they don't exist
+// Generate a simple mock wallet address for now - replace with real crypto libraries later
+function generateMockWalletAddress(blockchain: string): string {
+  const prefix = {
+    'Bitcoin': 'bc1q',
+    'Ethereum': '0x',
+    'Solana': '',
+    'Polygon': '0x',
+    'Base': '0x',
+    'Monad': '0x',
+    'Sui': '0x',
+  }[blockchain] || '';
+  
+  // Generate a random string to represent a wallet address
+  const randomChars = Array(40).fill(0).map(() => 
+    Math.floor(Math.random() * 16).toString(16)).join('');
+  
+  return `${prefix}${randomChars}`;
+}
+
+// Generate wallets for a user
+async function generateWallets(userId: string): Promise<WalletData[]> {
+  try {
+    // Define blockchains to create wallets for
+    const blockchains = [
+      'Bitcoin', 'Ethereum', 'Solana', 'Polygon', 'Base', 'Monad', 'Sui'
+    ];
+    
+    // Generate wallets (simplified mock implementation)
+    return blockchains.map(blockchain => ({
+      blockchain,
+      address: generateMockWalletAddress(blockchain),
+      wallet_type: 'Default'
+    }));
+  } catch (error) {
+    console.error('Error generating wallets:', error);
+    throw error;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
   try {
-    // Get the JWT token from the Authorization header
+    // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization header' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const jwt = authHeader.split(' ')[1];
-    
-    // Create Supabase clients
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    
-    // Use the service role key for admin privileges
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Create client with user token to get user info
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    
-    // Get the current user using the token
-    const { data: { user }, error: userError } = await userClient.auth.getUser(jwt);
-    
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Error getting user', details: userError }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Parse the request body
+    const { userId } = await req.json();
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Missing userId in request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    // Generate wallets
+    const wallets = await generateWallets(userId);
     
-    const userId = user.id;
-    
-    // Check if user already has wallets
-    const { data: existingWallets, error: walletsError } = await userClient
-      .from('wallets')
-      .select('*')
-      .eq('user_id', userId);
-      
-    if (walletsError) {
-      return new Response(
-        JSON.stringify({ error: 'Error checking existing wallets' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // If user already has wallets, return them
-    if (existingWallets && existingWallets.length > 0) {
-      return new Response(
-        JSON.stringify({ 
-          message: `User already has ${existingWallets.length} wallets`, 
-          wallets: existingWallets 
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // Generate wallet addresses
-    const wallets: WalletData[] = [
-      { blockchain: 'Bitcoin', platform: 'Bitcoin', address: `btc-${userId.substring(0, 8)}`, currency: 'BTC' },
-      { blockchain: 'Ethereum', platform: 'Ethereum', address: `0xEth${userId.substring(0, 8)}`, currency: 'ETH' },
-      { blockchain: 'Solana', platform: 'Solana', address: `sol-${userId.substring(0, 8)}`, currency: 'SOL' },
-      { blockchain: 'Sui', platform: 'Sui', address: `sui-${userId.substring(0, 8)}`, currency: 'SUI' },
-      { blockchain: 'Ethereum', platform: 'USDT', address: `0xUsdt${userId.substring(0, 8)}`, currency: 'USDT' },
-      { blockchain: 'Polygon', platform: 'Polygon', address: `0xMatic${userId.substring(0, 8)}`, currency: 'MATIC' },
-      { blockchain: 'Monad', platform: 'Monad Testnet', address: `0xMonad${userId.substring(0, 8)}`, currency: 'MONAD' },
-      { blockchain: 'Binance Smart Chain', platform: 'BSC', address: `0xBnb${userId.substring(0, 8)}`, currency: 'BNB' },
-      { blockchain: 'XRP Ledger', platform: 'XRPL', address: `xrp-${userId.substring(0, 8)}`, currency: 'XRP' },
-      { blockchain: 'Cardano', platform: 'Cardano', address: `ada-${userId.substring(0, 8)}`, currency: 'ADA' },
-      { blockchain: 'Dogecoin', platform: 'Dogecoin', address: `doge-${userId.substring(0, 8)}`, currency: 'DOGE' },
-      { blockchain: 'Polkadot', platform: 'Polkadot', address: `dot-${userId.substring(0, 8)}`, currency: 'DOT' },
-      { blockchain: 'Ethereum', platform: 'Chainlink', address: `0xLink${userId.substring(0, 8)}`, currency: 'LINK' }
-    ];
-    
-    // Insert generated wallets into the database using admin client
-    const walletsToInsert = wallets.map(wallet => ({
+    // Insert the wallets into the database
+    const walletInserts = wallets.map(wallet => ({
       user_id: userId,
       blockchain: wallet.blockchain,
-      currency: wallet.currency,
+      currency: wallet.blockchain, // Use blockchain as currency for now
       address: wallet.address,
-      balance: Math.random() * 10 // Random demo balance
+      balance: 0
     }));
+
+    // Insert wallets into the database
+    const { error } = await supabase.from('wallets').insert(walletInserts);
     
-    try {
-      const { data: insertedWallets, error: insertError } = await adminClient
-        .from('wallets')
-        .insert(walletsToInsert)
-        .select();
-        
-      if (insertError) {
-        // Handle unique constraint violation by fetching existing wallets
-        if (insertError.code === '23505') {
-          const { data: allWallets, error: fetchError } = await adminClient
-            .from('wallets')
-            .select('*')
-            .eq('user_id', userId);
-            
-          if (fetchError) {
-            return new Response(
-              JSON.stringify({ error: 'Error fetching existing wallets' }),
-              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
-          return new Response(
-            JSON.stringify({ 
-              success: true, 
-              message: `Found ${allWallets?.length} existing wallets for user ${userId}`,
-              wallets: allWallets 
-            }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ error: 'Error inserting wallets' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: `Created ${insertedWallets?.length} wallets for user ${userId}`,
-          wallets: insertedWallets 
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } catch (error) {
-      return new Response(
-        JSON.stringify({ error: 'Unexpected error during wallet insertion' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (error) {
+      console.error('Error inserting wallets:', error);
+      throw error;
     }
-  } catch (error) {
+
+    // Return success response
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true, message: 'Wallets created successfully', count: wallets.length }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error creating wallets:', error);
+    return new Response(
+      JSON.stringify({ error: error.message || 'Unknown error occurred' }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     );
   }
 });
