@@ -16,9 +16,10 @@ const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [forceShowDashboard, setForceShowDashboard] = useState(false);
   const { prices, loading: pricesLoading } = useCryptoPrices();
   const { user, profile } = useAuth();
-  const { assets, loading, isCreatingWallets } = useWallets({ prices });
+  const { assets, loading, isCreatingWallets, error } = useWallets({ prices });
 
   // Debug logging for user and wallet relationship
   useEffect(() => {
@@ -47,23 +48,52 @@ const Dashboard = () => {
         duration: 5000,
       });
     }
-  }, [user, profile, assets, loading, isCreatingWallets]);
+
+    // Show error toast if there's an error
+    if (error) {
+      console.error('Error in wallet loading:', error);
+      toast({
+        title: 'Loading issue',
+        description: 'There was a problem loading your wallets. We\'ll show default data for now.',
+        variant: 'destructive',
+        duration: 7000,
+      });
+    }
+  }, [user, profile, assets, loading, isCreatingWallets, error]);
 
   // Loading progress effect
   useEffect(() => {
     if (loading || pricesLoading || isCreatingWallets) {
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
-          // Cap at 90% until fully loaded
-          if (prev >= 90) return 90;
-          return prev + 5;
+          // Cap at 95% until fully loaded
+          if (prev >= 95) return 95;
+          return prev + 3;
         });
-      }, 500);
+      }, 300);
       
       return () => clearInterval(interval);
     } else {
       setLoadingProgress(100);
     }
+  }, [loading, pricesLoading, isCreatingWallets]);
+
+  // Force show dashboard after timeout (15 seconds)
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading || pricesLoading || isCreatingWallets) {
+        console.log('Loading timeout reached, forcing dashboard display');
+        setForceShowDashboard(true);
+        
+        toast({
+          title: 'Taking longer than expected',
+          description: 'We\'re showing your dashboard now with available data.',
+          duration: 5000,
+        });
+      }
+    }, 15000);
+    
+    return () => clearTimeout(timeout);
   }, [loading, pricesLoading, isCreatingWallets]);
 
   const totalBalance = assets.reduce((acc, asset) => {
@@ -95,9 +125,12 @@ const Dashboard = () => {
     </div>
   );
 
+  // Show dashboard content if: not loading OR force show after timeout
+  const shouldShowContent = (!loading && !pricesLoading && !isCreatingWallets) || forceShowDashboard;
+
   return (
     <MainLayout title="Portfolio">
-      {(loading || pricesLoading || isCreatingWallets) && (
+      {(!shouldShowContent) && (
         <div className="space-y-4 py-4">
           <div className="flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-kash-green mr-2" />
@@ -115,7 +148,7 @@ const Dashboard = () => {
             />
             <p className="text-xs text-center mt-1 text-gray-400">
               {loadingProgress < 100 
-                ? "This may take a few moments on first login" 
+                ? `Loading: ${Math.round(loadingProgress)}%` 
                 : "Almost there!"}
             </p>
           </div>
@@ -124,7 +157,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {!loading && !pricesLoading && !isCreatingWallets && (
+      {shouldShowContent && (
         <div className="space-y-6">
           <div className="flex flex-col items-center justify-center pt-4">
             <div className="text-gray-500 text-sm mb-1">Total Balance</div>
