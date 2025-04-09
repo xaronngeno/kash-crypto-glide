@@ -42,7 +42,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       
       // Set a timeout for wallet creation
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Wallet creation timed out")), 8000);
+        setTimeout(() => reject(new Error("Wallet creation timed out after 8 seconds")), 8000);
       });
       
       // Create wallets request
@@ -62,7 +62,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       const { data, error } = result;
       
       if (error) {
-        throw new Error(`Function returned error: ${error.message}`);
+        throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
       }
       
       console.log("Wallets created successfully:", data);
@@ -75,8 +75,9 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       
       return data.wallets;
     } catch (err) {
-      console.error("Error creating wallets:", err);
-      setError(err instanceof Error ? err.message : "Unknown error");
+      const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
+      console.error("Error creating wallets:", errorMessage);
+      setError(errorMessage);
       toast({
         title: 'Error',
         description: 'Failed to create user wallets. Using default wallets instead.',
@@ -116,7 +117,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   useEffect(() => {
     const fetchUserAssets = async () => {
       if (!user || !session?.access_token) {
-        console.log("No user or session available, skipping wallet fetch");
+        console.log("No user or session available, using default assets");
         setAssets(Object.values(defaultAssetsMap));
         setLoading(false);
         return;
@@ -129,7 +130,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         // Set a timeout for wallet fetch
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
-            reject(new Error("Wallet fetch timed out"));
+            reject(new Error("Wallet fetch timed out after 5 seconds"));
           }, 5000);
         });
         
@@ -171,48 +172,57 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           return;
         }
       } catch (err) {
-        console.error('Error fetching wallets:', err);
-        setError(err instanceof Error ? err.message : "Unknown error");
+        const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
+        console.error('Error fetching wallets:', errorMessage);
+        setError(errorMessage);
         setAssets(Object.values(defaultAssetsMap));
         setLoading(false);
       }
     };
 
     const processWallets = (wallets: any[]) => {
-      console.log("Processing wallets:", wallets);
-      const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-      const currencyBalances: Record<string, number> = {};
+      try {
+        console.log("Processing wallets:", wallets);
+        const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+        const currencyBalances: Record<string, number> = {};
 
-      wallets.forEach(wallet => {
-        const currency = wallet.currency;
-        const walletBalance = typeof wallet.balance === 'number' 
-          ? wallet.balance 
-          : parseFloat(String(wallet.balance)) || 0;
-        
-        if (!isNaN(walletBalance)) {
-          if (!currencyBalances[currency]) {
-            currencyBalances[currency] = 0;
+        wallets.forEach(wallet => {
+          const currency = wallet.currency;
+          const walletBalance = typeof wallet.balance === 'number' 
+            ? wallet.balance 
+            : parseFloat(String(wallet.balance)) || 0;
+          
+          if (!isNaN(walletBalance)) {
+            if (!currencyBalances[currency]) {
+              currencyBalances[currency] = 0;
+            }
+            currencyBalances[currency] += walletBalance;
           }
-          currencyBalances[currency] += walletBalance;
-        }
-      });
-      
-      const updatedAssets = initialAssets.map(asset => {
-        const balance = currencyBalances[asset.symbol] || 0;
-        const assetPrice = prices?.[asset.symbol]?.price || asset.price;
+        });
         
-        return {
-          ...asset,
-          amount: balance,
-          price: assetPrice,
-          value: balance * assetPrice,
-          change: prices?.[asset.symbol]?.change_24h || 0
-        };
-      });
-      
-      console.log("Processed assets:", updatedAssets);
-      setAssets(updatedAssets);
-      setLoading(false);
+        const updatedAssets = initialAssets.map(asset => {
+          const balance = currencyBalances[asset.symbol] || 0;
+          const assetPrice = prices?.[asset.symbol]?.price || asset.price;
+          
+          return {
+            ...asset,
+            amount: balance,
+            price: assetPrice,
+            value: balance * assetPrice,
+            change: prices?.[asset.symbol]?.change_24h || 0
+          };
+        });
+        
+        console.log("Processed assets:", updatedAssets);
+        setAssets(updatedAssets);
+      } catch (processError) {
+        console.error("Error processing wallet data:", processError);
+        setError("Failed to process wallet data: " + (processError instanceof Error ? processError.message : "Unknown error"));
+        // Use default assets as fallback
+        setAssets(Object.values(defaultAssetsMap));
+      } finally {
+        setLoading(false);
+      }
     };
 
     // Start fetching
@@ -229,6 +239,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     const safetyTimer = setTimeout(() => {
       if (loading) {
         console.warn("Safety timeout reached - forcing loading state to complete");
+        setError("Loading timeout - showing default data");
         setAssets(prevAssets => {
           if (prevAssets.length === 0) {
             return Object.values(defaultAssetsMap);
