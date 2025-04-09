@@ -27,6 +27,8 @@ const SellUsdtSection = ({ asset, balance, onSellComplete }: SellUsdtSectionProp
   
   // Fixed rate for KES/USDT conversion
   const usdtToKesRate = 145; // Example rate: 1 USDT = 145 KES
+  // Maximum limit for USDT transactions
+  const maxUsdtLimit = 1000;
   
   const handleSell = async () => {
     if (!asset || !amount || !phoneNumber || Number(amount) <= 0) {
@@ -38,10 +40,21 @@ const SellUsdtSection = ({ asset, balance, onSellComplete }: SellUsdtSectionProp
       return;
     }
     
-    if (Number(amount) > balance) {
+    const numAmount = Number(amount);
+    
+    if (numAmount > balance) {
       toast({
         title: "Insufficient Balance",
         description: `You don't have enough ${asset.symbol} to complete this sell.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (numAmount > maxUsdtLimit) {
+      toast({
+        title: "Transaction Limit Exceeded",
+        description: `Maximum transaction limit is ${maxUsdtLimit} USDT.`,
         variant: "destructive"
       });
       return;
@@ -103,7 +116,13 @@ const SellUsdtSection = ({ asset, balance, onSellComplete }: SellUsdtSectionProp
               <Input
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty string or valid numbers
+                  if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
+                    setAmount(value);
+                  }
+                }}
                 className="flex-1 bg-transparent border-none text-4xl font-medium text-gray-900 focus-visible:ring-0 focus-visible:outline-none p-0 h-auto"
                 placeholder="0"
               />
@@ -136,13 +155,19 @@ const SellUsdtSection = ({ asset, balance, onSellComplete }: SellUsdtSectionProp
                 <button 
                   className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full text-gray-800"
                   onClick={() => {
-                    setAmount(balance.toString());
+                    const maxAllowedAmount = Math.min(balance, maxUsdtLimit);
+                    setAmount(maxAllowedAmount.toString());
                   }}
                 >
                   Max
                 </button>
               </div>
             </div>
+            {Number(amount) > maxUsdtLimit && (
+              <div className="text-red-500 text-xs mt-1">
+                Maximum transaction limit is {maxUsdtLimit} USDT
+              </div>
+            )}
           </div>
           
           {/* You Receive */}
@@ -171,7 +196,14 @@ const SellUsdtSection = ({ asset, balance, onSellComplete }: SellUsdtSectionProp
           {/* Sell Button */}
           <KashButton
             fullWidth
-            disabled={processing || !amount || Number(amount) <= 0 || Number(amount) > balance || !phoneNumber}
+            disabled={
+              processing || 
+              !amount || 
+              Number(amount) <= 0 || 
+              Number(amount) > balance || 
+              Number(amount) > maxUsdtLimit || 
+              !phoneNumber
+            }
             onClick={handleSell}
             className="mt-6 bg-kash-green text-white"
           >
@@ -184,6 +216,7 @@ const SellUsdtSection = ({ asset, balance, onSellComplete }: SellUsdtSectionProp
         <h4 className="font-medium text-amber-700 mb-1">Important</h4>
         <p className="text-sm text-amber-700">
           Funds will be sent to the M-PESA number provided. Please ensure the number is correct before proceeding.
+          Maximum transaction limit: {maxUsdtLimit} USDT.
         </p>
       </div>
     </div>

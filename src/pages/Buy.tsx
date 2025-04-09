@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, DollarSign, AlertTriangle } from 'lucide-react';
@@ -22,14 +21,15 @@ const Buy = () => {
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   
-  // Fixed exchange rate for simplicity
   const exchangeRate = 0.0083; // 1 KES = 0.0083 USDT
   const minAmount = 500; // Minimum KES amount
   const maxAmount = 100000; // Maximum KES amount
+  const maxUsdtLimit = 1000; // Maximum USDT per transaction
   
   const usdtAmount = amount ? (Number(amount) * exchangeRate).toFixed(2) : '0.00';
-  
-  // Fetch the user's phone number from their profile
+  const usdtAmountNum = parseFloat(usdtAmount);
+  const exceedsUsdtLimit = usdtAmountNum > maxUsdtLimit;
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user) return;
@@ -54,7 +54,6 @@ const Buy = () => {
           setPhone(data.phone);
         } else {
           console.log("No phone found in profile, setting default");
-          // Set a default number if none is found
           setPhone('+254712345678');
         }
       } catch (error) {
@@ -68,7 +67,6 @@ const Buy = () => {
   }, [user, toast]);
   
   const initiateSTKPush = async () => {
-    // Clear any previous errors
     setError(null);
     setErrorDetails(null);
     
@@ -76,6 +74,15 @@ const Buy = () => {
       toast({
         title: "Invalid amount",
         description: `Amount must be at least ${minAmount} KES`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (exceedsUsdtLimit) {
+      toast({
+        title: "Transaction Limit Exceeded",
+        description: `Maximum transaction limit is ${maxUsdtLimit} USDT (${Math.floor(maxUsdtLimit / exchangeRate).toLocaleString()} KES)`,
         variant: "destructive"
       });
       return;
@@ -93,7 +100,6 @@ const Buy = () => {
     setLoading(true);
     
     try {
-      // Format phone number (ensure it has the +254 format)
       let formattedPhone = phone.replace(/\s+/g, '');
       if (!formattedPhone.startsWith('+')) {
         formattedPhone = `+${formattedPhone}`;
@@ -104,7 +110,6 @@ const Buy = () => {
         amount: Number(amount),
       });
       
-      // Call the Supabase Edge Function to initiate the STK push
       const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
         body: {
           phone: formattedPhone,
@@ -119,24 +124,19 @@ const Buy = () => {
       if (error) {
         console.error("Supabase function error:", error);
         
-        // Handle different types of errors
         if (error.message.includes("Edge Function returned a non-2xx status code")) {
-          // This is when the edge function returns a 4xx status
           setError("M-PESA payment could not be initiated. Please check your credentials and try again.");
           
-          // If we have more error details in the response
           if (data && typeof data === 'object') {
             if (data.error) {
               setError(`M-PESA Error: ${data.error}`);
               
-              // Add the detailed error for debugging
               if (data.details) {
                 setErrorDetails(data.details);
               }
             }
           }
         } else {
-          // Network or other errors
           setError(`Connection error: ${error.message}`);
         }
         
@@ -152,7 +152,6 @@ const Buy = () => {
         console.error("M-PESA API error:", data);
         setError(data.error || "An error occurred with the M-PESA transaction.");
         
-        // Add the detailed error for debugging
         if (data.details) {
           setErrorDetails(data.details);
         }
@@ -165,13 +164,11 @@ const Buy = () => {
         return;
       }
       
-      // Show success message
       toast({
         title: "Payment initiated",
         description: "Please check your phone and enter M-PESA PIN to complete the purchase.",
       });
       
-      // Navigate to transaction confirmation page
       navigate('/transaction-confirmation', { 
         state: { 
           type: 'buy',
@@ -186,7 +183,6 @@ const Buy = () => {
       console.error('STK push error:', error);
       setError("Could not initiate M-PESA payment. Please try again.");
       
-      // If we have a detailed error message
       if (error.message) {
         setErrorDetails(error.message);
       }
@@ -231,7 +227,6 @@ const Buy = () => {
         
         <KashCard>
           <div className="space-y-5">
-            {/* Phone Number (from user profile) */}
             <KashInput
               label="M-PESA Phone Number"
               type="tel"
@@ -242,14 +237,13 @@ const Buy = () => {
               disabled={fetchingProfile}
             />
             
-            {/* Amount in KES */}
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-sm font-medium text-gray-700">
                   Amount (KES)
                 </label>
                 <span className="text-xs text-gray-500">
-                  Min: {minAmount} KES | Max: {maxAmount} KES
+                  Min: {minAmount} KES | Max: {Math.floor(maxUsdtLimit / exchangeRate).toLocaleString()} KES
                 </span>
               </div>
               <KashInput
@@ -259,9 +253,13 @@ const Buy = () => {
                 onChange={(e) => setAmount(e.target.value)}
                 icon={<DollarSign size={18} className="text-gray-400" />}
               />
+              {exceedsUsdtLimit && (
+                <div className="text-red-500 text-xs mt-1">
+                  Maximum limit: {maxUsdtLimit} USDT ({Math.floor(maxUsdtLimit / exchangeRate).toLocaleString()} KES)
+                </div>
+              )}
             </div>
             
-            {/* Conversion Preview */}
             <div className="bg-kash-lightGray p-4 rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">You will receive</span>
@@ -274,7 +272,13 @@ const Buy = () => {
             
             <KashButton
               fullWidth
-              disabled={!amount || Number(amount) < minAmount || loading || fetchingProfile}
+              disabled={
+                !amount || 
+                Number(amount) < minAmount || 
+                exceedsUsdtLimit || 
+                loading || 
+                fetchingProfile
+              }
               onClick={initiateSTKPush}
             >
               {loading ? 'Processing...' : 'Continue to M-PESA'}
@@ -316,6 +320,7 @@ const Buy = () => {
           <h4 className="font-medium text-amber-700 mb-1">Note</h4>
           <p className="text-sm text-amber-700">
             After purchasing USDT, you can swap it for any other supported cryptocurrency in the app.
+            Maximum transaction limit: {maxUsdtLimit} USDT.
           </p>
         </div>
       </div>
