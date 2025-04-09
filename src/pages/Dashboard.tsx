@@ -18,7 +18,7 @@ const Dashboard = () => {
   const [currency, setCurrency] = useState('USD');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-  const { prices, loading: pricesLoading, error: pricesError } = useCryptoPrices();
+  const { prices, loading: pricesLoading, error: pricesError, refetch: refetchPrices } = useCryptoPrices();
   const { user, profile } = useAuth();
   const { 
     assets, 
@@ -66,7 +66,7 @@ const Dashboard = () => {
       console.error('Error in wallet loading:', walletError);
       toast({
         title: 'Loading issue',
-        description: 'There was a problem loading your wallets. We\'ll show default data for now.',
+        description: walletError,
         variant: 'destructive',
         duration: 7000,
       });
@@ -100,7 +100,7 @@ const Dashboard = () => {
         console.error('Dashboard loading timeout - forcing display');
         toast({
           title: 'Loading is taking longer than expected',
-          description: 'We\'ll show what data we have. You may need to refresh.',
+          description: 'We\'ll show what data we have. You might need to refresh the page.',
           variant: 'destructive',
           duration: 10000,
         });
@@ -122,6 +122,22 @@ const Dashboard = () => {
 
   const hasError = walletError || pricesError || loadingTimeout;
   const isLoading = (walletLoading || pricesLoading || isCreatingWallets) && !loadingTimeout;
+
+  const handleRetryLoading = () => {
+    // Try to refetch data
+    refetchPrices();
+    toast({
+      title: 'Refreshing data',
+      description: 'Attempting to reload your wallet data...',
+      duration: 3000,
+    });
+    // Force page reload if things are really stuck
+    if (loadingTimeout) {
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
+  };
 
   const renderLoadingSkeleton = () => (
     <div className="space-y-6">
@@ -153,10 +169,10 @@ const Dashboard = () => {
     
     if (walletError) {
       errorMessage = 'Issue with wallet data';
-      errorDetails = `Error: ${walletError}. Using default wallet data.`;
+      errorDetails = `${walletError}`;
     } else if (pricesError) {
       errorMessage = 'Issue with price data';
-      errorDetails = `Error: ${pricesError}. Using default price data.`;
+      errorDetails = `${pricesError}`;
     } else if (loadingTimeout) {
       errorMessage = 'Loading timeout';
       errorDetails = 'Loading took too long. Showing available data.';
@@ -166,8 +182,14 @@ const Dashboard = () => {
       <Alert variant="destructive" className="mb-6">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>{errorMessage}</AlertTitle>
-        <AlertDescription>
-          {errorDetails}
+        <AlertDescription className="flex flex-col">
+          <span>{errorDetails}</span>
+          <button 
+            onClick={handleRetryLoading}
+            className="text-sm mt-2 underline text-left"
+          >
+            Retry loading
+          </button>
         </AlertDescription>
       </Alert>
     );
