@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { ActionButtons } from '@/components/dashboard/ActionButtons';
@@ -8,12 +8,44 @@ import { PromoCard } from '@/components/dashboard/PromoCard';
 import { useWallets } from '@/hooks/useWallets';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/components/AuthProvider';
+import { toast } from '@/hooks/use-toast';
 
 const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
   const { prices, loading: pricesLoading } = useCryptoPrices();
-  const { assets, loading } = useWallets({ prices });
+  const { user, profile } = useAuth();
+  const { assets, loading, isCreatingWallets } = useWallets({ prices });
+
+  // Debug logging for user and wallet relationship
+  useEffect(() => {
+    // Log auth and profile info
+    console.log('Auth state:', { 
+      userId: user?.id,
+      userEmail: user?.email,
+      profileId: profile?.numeric_id,
+      phoneNumbers: profile?.phone_numbers,
+      phone: profile?.phone,
+      kycStatus: profile?.kyc_status
+    });
+
+    // If assets loaded but empty
+    if (!loading && assets.length === 0) {
+      console.warn('Wallet assets loaded but empty. No wallets created or issue with data?');
+    } else if (!loading) {
+      console.log(`Loaded ${assets.length} assets for user`);
+    }
+
+    // Alert user if wallets are being created
+    if (isCreatingWallets) {
+      toast({
+        title: 'Setting up your wallet',
+        description: 'We\'re creating your wallets. This may take a moment...',
+        duration: 5000,
+      });
+    }
+  }, [user, profile, assets, loading, isCreatingWallets]);
 
   const totalBalance = assets.reduce((acc, asset) => {
     const value = typeof asset.value === 'number' ? asset.value : 0;
@@ -47,6 +79,12 @@ const Dashboard = () => {
   if (loading || pricesLoading) {
     return (
       <MainLayout title="Portfolio">
+        {isCreatingWallets && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-8 w-8 animate-spin text-kash-green mr-2" />
+            <p className="text-sm text-gray-500">Setting up your wallets...</p>
+          </div>
+        )}
         {renderLoadingSkeleton()}
       </MainLayout>
     );
@@ -86,7 +124,13 @@ const Dashboard = () => {
             </button>
           </div>
           
-          <AssetsList assets={assets} currency={currency} />
+          {assets.length > 0 ? (
+            <AssetsList assets={assets} currency={currency} />
+          ) : (
+            <div className="py-8 text-center">
+              <p className="text-gray-500">No assets found. We're setting up your wallets...</p>
+            </div>
+          )}
         </div>
         
         <PromoCard />

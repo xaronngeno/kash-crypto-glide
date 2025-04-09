@@ -14,7 +14,8 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   const [loading, setLoading] = useState(true);
   const [walletsCreated, setWalletsCreated] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
-  const { user, session } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const { user, session, profile } = useAuth();
   
   const defaultAssetsMap = {
     'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0, value: 0, change: 0, icon: '₿' },
@@ -37,6 +38,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     
     try {
       setCreatingWallets(true);
+      console.log("Attempting to create wallets for user:", user.id);
       
       const { data, error } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
@@ -44,13 +46,14 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
-        body: {}
+        body: { userId: user.id }
       });
       
       if (error) {
         throw new Error(`Function returned error: ${error.message}`);
       }
       
+      console.log("Wallets created successfully:", data);
       setWalletsCreated(true);
       toast({
         title: 'Success',
@@ -61,6 +64,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       return data.wallets;
     } catch (err) {
       console.error("Error creating wallets:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
       toast({
         title: 'Error',
         description: 'Failed to create user wallets. Please refresh or try again later.',
@@ -95,10 +99,14 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   // Fetch user wallets on component mount
   useEffect(() => {
     const fetchUserAssets = async () => {
-      if (!user || !session?.access_token) return;
+      if (!user || !session?.access_token) {
+        console.log("No user or session available, skipping wallet fetch");
+        return;
+      }
       
       try {
         setLoading(true);
+        console.log("Fetching wallets for user:", user.id);
         
         const { data: wallets, error: walletsError } = await supabase
           .from('wallets')
@@ -110,6 +118,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         }
         
         if (!wallets || wallets.length === 0) {
+          console.log("No wallets found for user, attempting to create...");
           if (!walletsCreated && !creatingWallets) {
             const newWallets = await createWalletsForUser();
             
@@ -119,14 +128,17 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
             }
           }
         } else {
+          console.log(`Found ${wallets.length} wallets for user:`, user.id);
           processWallets(wallets);
           return;
         }
         
+        console.log("Using default assets as fallback");
         setAssets(Object.values(defaultAssetsMap));
         
       } catch (err) {
         console.error('Error fetching wallets:', err);
+        setError(err instanceof Error ? err.message : "Unknown error");
         toast({
           title: 'Error',
           description: 'Failed to load wallet data',
@@ -139,6 +151,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     };
 
     const processWallets = (wallets: any[]) => {
+      console.log("Processing wallets:", wallets);
       const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
       const currencyBalances: Record<string, number> = {};
 
@@ -164,15 +177,27 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           ...asset,
           amount: balance,
           price: assetPrice,
-          value: balance * assetPrice
+          value: balance * assetPrice,
+          change: prices?.[asset.symbol]?.change_24h || 0
         };
       });
       
+      console.log("Processed assets:", updatedAssets);
       setAssets(updatedAssets);
     };
 
-    fetchUserAssets();
+    if (user && session) {
+      fetchUserAssets();
+    } else {
+      console.log("No user authenticated, skipping wallet fetch");
+      setLoading(false);
+    }
   }, [user, prices, session, walletsCreated, creatingWallets]);
 
-  return { assets, loading, isCreatingWallets: creatingWallets };
+  return { 
+    assets, 
+    loading, 
+    isCreatingWallets: creatingWallets,
+    error
+  };
 };

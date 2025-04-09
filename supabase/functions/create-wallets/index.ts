@@ -43,6 +43,8 @@ async function generateWallets(userId: string): Promise<WalletData[]> {
       'Bitcoin', 'Ethereum', 'Solana', 'Polygon', 'Base', 'Monad', 'Sui'
     ];
     
+    console.log(`Generating wallets for user ID: ${userId}`);
+    
     // Generate wallets (simplified mock implementation)
     return blockchains.map(blockchain => ({
       blockchain,
@@ -62,9 +64,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Create wallets function called");
+    
     // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error("Missing authorization header");
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -77,16 +82,42 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse the request body
-    const { userId } = await req.json();
+    const requestData = await req.json();
+    const userId = requestData.userId;
+    
+    console.log(`Request received for user ID: ${userId}`);
+    
     if (!userId) {
+      console.error("Missing userId in request body");
       return new Response(JSON.stringify({ error: 'Missing userId in request body' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    // Check if user exists in profiles table
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+      
+    if (profileError || !profileData) {
+      console.error(`User profile not found: ${profileError?.message || 'Unknown error'}`);
+      return new Response(JSON.stringify({ 
+        error: 'User profile not found', 
+        details: profileError?.message,
+        userId 
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Generate wallets
     const wallets = await generateWallets(userId);
+    
+    console.log(`Generated ${wallets.length} wallets`);
     
     // Insert the wallets into the database
     const walletInserts = wallets.map(wallet => ({
@@ -97,23 +128,71 @@ serve(async (req) => {
       balance: 0
     }));
 
-    // Insert wallets into the database
-    const { error } = await supabase.from('wallets').insert(walletInserts);
-    
-    if (error) {
-      console.error('Error inserting wallets:', error);
-      throw error;
+    // Check if wallets already exist for this user
+    const { data: existingWallets, error: existingWalletsError } = await supabase
+      .from('wallets')
+      .select('id')
+      .eq('user_id', userId);
+      
+    if (existingWalletsError) {
+      console.error(`Error checking existing wallets: ${existingWalletsError.message}`);
     }
+    
+    if (existingWallets && existingWallets.length > 0) {
+      console.log(`User already has ${existingWallets.length} wallets, skipping creation`);
+      
+      // Return the existing wallets
+      const { data: walletData, error: walletDataError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', userId);
+        
+      if (walletDataError) {
+        console.error(`Error fetching existing wallets: ${walletDataError.message}`);
+        throw walletDataError;
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Wallets already exist', 
+          wallets: walletData,
+          count: walletData?.length || 0
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Insert wallets into the database
+    const { data: insertedWallets, error: insertError } = await supabase
+      .from('wallets')
+      .insert(walletInserts)
+      .select();
+    
+    if (insertError) {
+      console.error(`Error inserting wallets: ${insertError.message}`);
+      throw insertError;
+    }
+    
+    console.log(`Successfully inserted ${insertedWallets?.length || 0} wallets`);
 
     // Return success response
     return new Response(
-      JSON.stringify({ success: true, message: 'Wallets created successfully', count: wallets.length }),
+      JSON.stringify({ 
+        success: true, 
+        message: 'Wallets created successfully', 
+        wallets: insertedWallets,
+        count: wallets.length 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error creating wallets:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Unknown error occurred' }),
+      JSON.stringify({ 
+        error: error.message || 'Unknown error occurred',
+        stack: error.stack
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
