@@ -1,13 +1,11 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRightCircle } from 'lucide-react';
+import { Mail, Lock, X, User, Phone } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
-import { KashInput } from '@/components/ui/KashInput';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { KashCard } from '@/components/ui/KashCard';
-import { Link } from 'react-router-dom';
 
 // Define different authentication stages
 enum AuthStage {
@@ -22,9 +20,22 @@ const Auth = () => {
   const { toast } = useToast();
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [fullName, setFullName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [authStage, setAuthStage] = useState<AuthStage>(AuthStage.EMAIL_INPUT);
+  
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        navigate('/dashboard');
+      }
+    };
+    
+    checkUser();
+  }, [navigate]);
 
   // Handler for checking email and proceeding to next stage
   const handleEmailCheck = async (e: React.FormEvent) => {
@@ -118,10 +129,10 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password !== confirmPassword) {
+    if (!fullName || !email || !password) {
       toast({
-        title: "Passwords don't match",
-        description: "Please ensure both passwords match.",
+        title: "Missing information",
+        description: "Please fill in all required fields.",
         variant: "destructive"
       });
       return;
@@ -138,10 +149,22 @@ const Auth = () => {
     
     setLoading(true);
     
+    // Split name into first and last name
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone
+          }
+        }
       });
       
       if (error) {
@@ -166,27 +189,43 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  // Clears email and returns to email input stage
+  const handleReset = () => {
+    setEmail('');
+    setPassword('');
+    setFullName('');
+    setPhone('');
+    setAuthStage(AuthStage.EMAIL_INPUT);
+  };
   
-  // Render appropriate form based on current authentication stage
+  // Renders the stage-specific form
   const renderAuthForm = () => {
     switch (authStage) {
       case AuthStage.EMAIL_INPUT:
         return (
-          <form className="space-y-6" onSubmit={handleEmailCheck}>
-            <KashInput
-              label="Email address"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              icon={<Mail size={18} className="text-gray-400" />}
-              required
-            />
+          <form className="space-y-6 w-full" onSubmit={handleEmailCheck}>
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                className="w-full bg-gray-50"
+                autoFocus
+                required
+              />
+            </div>
 
             <KashButton 
               type="submit" 
               fullWidth 
               disabled={loading}
+              className="bg-black hover:bg-gray-800 text-white mt-4"
             >
               {loading ? 'Processing...' : 'Continue'}
             </KashButton>
@@ -195,88 +234,149 @@ const Auth = () => {
         
       case AuthStage.PASSWORD_INPUT:
         return (
-          <form className="space-y-6" onSubmit={handlePasswordLogin}>
-            <div className="mb-2">
-              <p className="text-sm text-gray-600">Logging in as: <strong>{email}</strong></p>
+          <div className="space-y-6 w-full">
+            <div className="bg-green-50 rounded-md p-4 flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex items-center justify-center bg-green-200 rounded-full w-8 h-8 mr-3">
+                  <span className="font-medium text-green-800">
+                    {email.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <span className="text-green-800">{email}</span>
+              </div>
               <button 
                 type="button" 
-                onClick={() => setAuthStage(AuthStage.EMAIL_INPUT)}
-                className="text-xs text-kash-green hover:underline"
+                onClick={handleReset}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Change email"
               >
-                Change email
+                <X size={18} />
               </button>
             </div>
             
-            <KashInput
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              icon={<Lock size={18} className="text-gray-400" />}
-              required
-              autoFocus
-            />
+            <form onSubmit={handlePasswordLogin}>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full bg-gray-50"
+                    autoFocus
+                    required
+                  />
+                </div>
 
-            <KashButton 
-              type="submit" 
-              fullWidth 
-              disabled={loading}
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </KashButton>
-          </form>
+                <KashButton 
+                  type="submit" 
+                  fullWidth 
+                  disabled={loading}
+                  className="bg-black hover:bg-gray-800 text-white"
+                >
+                  {loading ? 'Signing in...' : 'Log in'}
+                </KashButton>
+              </div>
+            </form>
+          </div>
         );
         
       case AuthStage.SIGNUP:
         return (
-          <form className="space-y-6" onSubmit={handleSignUp}>
-            <div className="mb-2">
-              <p className="text-sm text-gray-600">Create account for: <strong>{email}</strong></p>
+          <div className="space-y-6 w-full">
+            <div className="bg-blue-50 rounded-md p-4 flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="text-blue-800">{email}</span>
+              </div>
               <button 
                 type="button" 
-                onClick={() => setAuthStage(AuthStage.EMAIL_INPUT)}
-                className="text-xs text-kash-green hover:underline"
+                onClick={handleReset}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Change email"
               >
-                Change email
+                <X size={18} />
               </button>
             </div>
             
-            <KashInput
-              label="Create Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
-              icon={<Lock size={18} className="text-gray-400" />}
-              required
-              autoFocus
-            />
-            
-            <KashInput
-              label="Confirm Password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
-              icon={<Lock size={18} className="text-gray-400" />}
-              required
-            />
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+                  Full name
+                </label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Enter your full name"
+                  className="w-full bg-gray-50"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                  Mobile phone number
+                </label>
+                <div className="flex">
+                  <div className="flex items-center justify-center bg-gray-50 border border-gray-300 border-r-0 rounded-l-md px-3">
+                    <span className="text-gray-500">+254</span>
+                  </div>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="7XX XXX XXX"
+                    className="w-full rounded-l-none bg-gray-50"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="signupPassword" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <Input
+                  id="signupPassword"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a password"
+                  className="w-full bg-gray-50"
+                  required
+                />
+                <p className="text-xs text-gray-500">
+                  Password must be at least 6 characters
+                </p>
+              </div>
+              
+              <div className="pt-2">
+                <p className="text-xs text-gray-500">
+                  By continuing you agree to the <a href="#" className="text-blue-600 hover:underline">Terms</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
+                </p>
+              </div>
 
-            <KashButton 
-              type="submit" 
-              fullWidth 
-              disabled={loading}
-            >
-              {loading ? 'Creating account...' : 'Create Account'}
-            </KashButton>
-          </form>
+              <KashButton 
+                type="submit" 
+                fullWidth 
+                disabled={loading}
+                className="bg-black hover:bg-gray-800 text-white mt-2"
+              >
+                {loading ? 'Creating account...' : 'Sign up'}
+              </KashButton>
+            </form>
+          </div>
         );
         
       case AuthStage.EMAIL_VERIFICATION:
         return (
           <div className="space-y-6">
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+            <div className="bg-blue-50 rounded-md p-4">
               <h3 className="font-medium text-blue-700 mb-2">Check your email</h3>
               <p className="text-sm text-blue-600">
                 We've sent a verification link to <strong>{email}</strong>. 
@@ -292,8 +392,9 @@ const Auth = () => {
               <KashButton 
                 type="button" 
                 variant="outline"
-                onClick={() => setAuthStage(AuthStage.EMAIL_INPUT)}
+                onClick={handleReset}
                 disabled={loading}
+                className="border-black text-black hover:bg-gray-50"
               >
                 Use a different email
               </KashButton>
@@ -305,32 +406,39 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="flex-1 flex flex-col justify-center py-12 px-6 sm:px-8 lg:px-12">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">Welcome to Kash</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            {authStage === AuthStage.EMAIL_VERIFICATION 
-              ? 'Verify your email to continue' 
-              : authStage === AuthStage.PASSWORD_INPUT 
-                ? 'Enter your password to sign in'
-                : authStage === AuthStage.SIGNUP
-                  ? 'Create your account'
-                  : 'Sign in to your account or create a new one'}
-          </p>
+      <header className="pt-6 px-6">
+        <div className="flex justify-center">
+          <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+            <span className="text-white font-bold">K</span>
+          </div>
         </div>
-
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <KashCard className="bg-white py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
+      </header>
+      
+      <div className="flex-1 flex flex-col justify-center px-6 py-12">
+        <div className="mx-auto w-full max-w-md">
+          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">Welcome to Kash</h2>
+          <p className="mt-2 text-center text-sm text-gray-600 mb-8">
+            Log in or sign up to get started.
+          </p>
+          
+          <div className="w-full max-w-md mx-auto">
             {renderAuthForm()}
-          </KashCard>
-
-          <div className="mt-6 flex justify-center space-x-4 text-xs text-gray-500">
-            <a href="#" className="hover:text-gray-900">Help</a>
-            <a href="#" className="hover:text-gray-900">Terms</a>
-            <a href="#" className="hover:text-gray-900">Privacy</a>
           </div>
         </div>
       </div>
+      
+      <footer className="py-6 px-6 flex flex-col items-center">
+        <div className="mb-4">
+          <button className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-full bg-gray-50">
+            Help
+          </button>
+        </div>
+        <div className="flex justify-center space-x-4 text-sm text-gray-500">
+          <a href="#" className="hover:text-gray-700">Terms</a>
+          <a href="#" className="hover:text-gray-700">Privacy</a>
+          <a href="#" className="hover:text-gray-700">Cookies</a>
+        </div>
+      </footer>
     </div>
   );
 };
