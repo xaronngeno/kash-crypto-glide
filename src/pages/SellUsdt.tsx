@@ -1,7 +1,7 @@
 
 import React from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import SellUsdtSection from '@/components/swap/SellUsdtSection';
+import MPesaUsdtSection from '@/components/swap/MPesaUsdtSection';
 import { useToast } from '@/hooks/use-toast';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { useState } from 'react';
@@ -18,21 +18,29 @@ const SellUsdt = () => {
     price: prices?.USDT?.price || 1.00,
   };
   
-  const handleSellComplete = (amount: number) => {
-    setBalance(prevBalance => prevBalance - amount);
-    toast({
-      title: "USDT Sold",
-      description: `You have successfully sold ${amount} USDT for M-PESA.`,
-    });
+  const handleTransactionComplete = (amount: number, type: 'buy' | 'sell') => {
+    if (type === 'sell') {
+      setBalance(prevBalance => prevBalance - amount);
+      toast({
+        title: "USDT Sold",
+        description: `You have successfully sold ${amount} USDT for M-PESA.`,
+      });
+    } else {
+      setBalance(prevBalance => prevBalance + amount);
+      toast({
+        title: "USDT Purchased",
+        description: `You have successfully bought ${amount} USDT with M-PESA.`,
+      });
+    }
   };
   
   return (
-    <MainLayout title="Sell USDT" showBack>
+    <MainLayout title="M-PESA ↔ USDT" showBack>
       <div className="max-w-md mx-auto">
-        <SellUsdtSection 
+        <MPesaUsdtSection 
           asset={usdtAsset}
           balance={balance}
-          onSellComplete={handleSellComplete}
+          onTransactionComplete={handleTransactionComplete}
         />
       </div>
     </MainLayout>

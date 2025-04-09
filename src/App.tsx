@@ -64,6 +64,11 @@ const App: React.FC = () => {
                   <SwapCrypto />
                 </ProtectedRoute>
               } />
+              <Route path="/mpesa" element={
+                <ProtectedRoute>
+                  <SellUsdt />
+                </ProtectedRoute>
+              } />
               <Route path="/sell-usdt" element={
                 <ProtectedRoute>
                   <SellUsdt />
