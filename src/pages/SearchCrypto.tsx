@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashInput } from '@/components/ui/KashInput';
@@ -43,6 +42,17 @@ const SearchCrypto = () => {
     marketCap: data.marketCap || (data.price * 1000000),
   }));
 
+  const getChangeValue = (token: any): number => {
+    switch (timeFilter) {
+      case '7d':
+        return token.change_7d || token.change_24h || 0;
+      case '30d':
+        return token.change_30d || token.change_24h || 0;
+      default:
+        return token.change_24h || 0;
+    }
+  };
+
   const filteredTokens = tokensArray.filter(token => {
     const matchesSearch = 
       token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -57,33 +67,34 @@ const SearchCrypto = () => {
     return matchesSearch && matchesNetwork;
   })
   .sort((a, b) => {
+    let valueA, valueB;
+    
     switch (trendingMetric) {
       case 'Volume':
-        return (b.volume || 0) - (a.volume || 0);
+        valueA = a.volume || 0;
+        valueB = b.volume || 0;
+        return valueB - valueA;
       case 'Price':
-        return b.price - a.price;
+        valueA = a.price;
+        valueB = b.price;
+        return valueB - valueA;
       case 'Price Change':
-        return getChangeValue(b) - getChangeValue(a);
+        valueA = getChangeValue(a);
+        valueB = getChangeValue(b);
+        return valueB - valueA;
       case 'Market Cap':
-        return (b.marketCap || 0) - (a.marketCap || 0);
-      default:
-        return getChangeValue(b) - getChangeValue(a);
+        valueA = a.marketCap || 0;
+        valueB = b.marketCap || 0;
+        return valueB - valueA;
+      default: // 'Trending'
+        valueA = getChangeValue(a);
+        valueB = getChangeValue(b);
+        return valueB - valueA;
     }
   });
 
   const handleTokenSelect = (tokenId: string) => {
     navigate(`/coin/${tokenId}`);
-  };
-
-  const getChangeValue = (token: any): number => {
-    switch (timeFilter) {
-      case '7d':
-        return token.change_7d || token.change_24h || 0;
-      case '30d':
-        return token.change_30d || token.change_24h || 0;
-      default:
-        return token.change_24h || 0;
-    }
   };
 
   return (
