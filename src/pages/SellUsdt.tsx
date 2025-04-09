@@ -1,10 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import MPesaUsdtSection from '@/components/swap/MPesaUsdtSection';
 import { useToast } from '@/hooks/use-toast';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
-import { useState } from 'react';
 
 const SellUsdt = () => {
   const { toast } = useToast();

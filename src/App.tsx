@@ -24,15 +24,14 @@ import SellUsdt from "./pages/SellUsdt";
 import CoinDetail from "./pages/CoinDetail";
 import AdminAssignIds from "./pages/AdminAssignIds";
 
+// Initialize the query client outside of the component
 const queryClient = new QueryClient();
 
 const App: React.FC = () => {
   return (
-    <React.StrictMode>
+    <>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <Toaster />
-          <Sonner />
           <AuthProvider>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -106,10 +105,13 @@ const App: React.FC = () => {
               } />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            {/* Place Toasters after the Routes to ensure they are available throughout the app */}
+            <Toaster />
+            <Sonner />
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
-    </React.StrictMode>
+    </>
   );
 };
 
