@@ -11,7 +11,10 @@ export const ActionButtons = () => {
       padding="md" 
       className="grid grid-cols-4 gap-2 w-full"
     >
-      <Link to="/receive" className="w-full">
+      <Link 
+        to="/receive" 
+        className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
+      >
         <KashButton 
           variant="ghost"
           fullWidth
@@ -21,7 +24,10 @@ export const ActionButtons = () => {
           <span>Receive</span>
         </KashButton>
       </Link>
-      <Link to="/send" className="w-full">
+      <Link 
+        to="/send" 
+        className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
+      >
         <KashButton
           variant="ghost"
           fullWidth
@@ -31,7 +37,10 @@ export const ActionButtons = () => {
           <span>Send</span>
         </KashButton>
       </Link>
-      <Link to="/swap" className="w-full">
+      <Link 
+        to="/swap" 
+        className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
+      >
         <KashButton
           variant="ghost"
           fullWidth
@@ -41,7 +50,10 @@ export const ActionButtons = () => {
           <span>Swap</span>
         </KashButton>
       </Link>
-      <Link to="/buy" className="w-full">
+      <Link 
+        to="/buy" 
+        className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
+      >
         <KashButton
           variant="ghost"
           fullWidth
