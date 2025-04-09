@@ -14,24 +14,33 @@ export type Database = {
           created_at: string
           first_name: string | null
           id: string
+          kyc_status: string | null
           last_name: string | null
+          numeric_id: number | null
           phone: string | null
+          phone_numbers: string[] | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           first_name?: string | null
           id: string
+          kyc_status?: string | null
           last_name?: string | null
+          numeric_id?: number | null
           phone?: string | null
+          phone_numbers?: string[] | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           first_name?: string | null
           id?: string
+          kyc_status?: string | null
           last_name?: string | null
+          numeric_id?: number | null
           phone?: string | null
+          phone_numbers?: string[] | null
           updated_at?: string
         }
         Relationships: []
@@ -135,7 +144,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_unique_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      is_phone_number_unique: {
+        Args: { phone: string }
+        Returns: boolean
+      }
+      validate_phone_number: {
+        Args: { phone: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

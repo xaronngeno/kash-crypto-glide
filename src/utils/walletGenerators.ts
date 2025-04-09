@@ -184,6 +184,9 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
       // Continue without Bitcoin wallets
     }
     
+    // Add TRX wallet here if tronweb is installed
+    // This would be similar to generateEthWallet but using tronweb library
+    
     return wallets;
   } catch (error) {
     console.error('Error generating wallets:', error);

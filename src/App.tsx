@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -10,6 +9,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
+import SignUp from "./pages/SignUp";
 import Dashboard from "./pages/Dashboard";
 import Receive from "./pages/Receive";
 import Send from "./pages/Send";
@@ -22,10 +22,8 @@ import SearchCrypto from "./pages/SearchCrypto";
 import SellUsdt from "./pages/SellUsdt";
 import CoinDetail from "./pages/CoinDetail";
 
-// Create a client
 const queryClient = new QueryClient();
 
-// Define the App component as a function component
 const App: React.FC = () => {
   return (
     <React.StrictMode>
@@ -38,7 +36,7 @@ const App: React.FC = () => {
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/signin" element={<Auth />} />
-              <Route path="/signup" element={<Auth />} />
+              <Route path="/signup" element={<SignUp />} />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Dashboard />

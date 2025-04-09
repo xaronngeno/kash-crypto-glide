@@ -23,39 +23,20 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Handle sign up
-      if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          }
-        });
+      // Handle sign in only - sign up is now on separate page
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (error) throw error;
-        
-        toast({
-          title: "Account created",
-          description: "Please check your email to verify your account.",
-        });
-      } 
-      // Handle sign in
-      else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-        
-        toast({
-          title: "Login successful",
-          description: "You've been successfully signed in.",
-        });
-        
-        navigate('/dashboard');
-      }
+      if (error) throw error;
+      
+      toast({
+        title: "Login successful",
+        description: "You've been successfully signed in.",
+      });
+      
+      navigate('/dashboard');
     } catch (error: any) {
       console.error("Authentication error:", error);
       toast({
@@ -68,13 +49,17 @@ const Auth = () => {
     }
   };
 
+  const handleRedirectToSignUp = () => {
+    navigate('/signup');
+  };
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <div className="flex-1 flex flex-col justify-center py-12 px-6 sm:px-8 lg:px-12">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">Welcome to Kash</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+            Sign in to your account
           </p>
         </div>
 
@@ -106,7 +91,7 @@ const Auth = () => {
                 fullWidth 
                 disabled={loading}
               >
-                {loading ? 'Processing...' : isSignUp ? 'Sign up' : 'Sign in'}
+                {loading ? 'Processing...' : 'Sign in'}
               </KashButton>
             </form>
 
@@ -117,7 +102,7 @@ const Auth = () => {
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-white text-gray-500">
-                    {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}
+                    Don't have an account?
                   </span>
                 </div>
               </div>
@@ -127,9 +112,9 @@ const Auth = () => {
                   type="button" 
                   variant="outline" 
                   fullWidth
-                  onClick={() => setIsSignUp(!isSignUp)}
+                  onClick={handleRedirectToSignUp}
                 >
-                  {isSignUp ? 'Sign in instead' : 'Create an account'}
+                  Create an account
                 </KashButton>
               </div>
             </div>

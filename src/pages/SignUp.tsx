@@ -7,54 +7,87 @@ import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { generateAllWallets } from '@/utils/walletGenerators';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+
+const signUpSchema = z.object({
+  name: z.string().min(2, {
+    message: "Name must be at least 2 characters.",
+  }),
+  email: z.string().email({
+    message: "Please enter a valid email address.",
+  }),
+  phone: z.string()
+    .refine(val => /^\+[0-9]{6,15}$/.test(val), {
+      message: "Phone number must start with + and contain 6-15 digits",
+    }),
+  password: z.string().min(6, {
+    message: "Password must be at least 6 characters.",
+  }),
+  confirmPassword: z.string(),
+  terms: z.boolean().refine(val => val === true, {
+    message: "You must agree to the terms and conditions.",
+  }),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 const SignUp = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '+254',
-    password: '',
-    confirmPassword: ''
-  });
   const [loading, setLoading] = useState(false);
+  
+  const form = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      phone: '+254',
+      password: '',
+      confirmPassword: '',
+      terms: false,
+    },
+  });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Basic validation
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
+  const handleSignUp = async (values: SignUpFormValues) => {
     setLoading(true);
     
     try {
+      // Check if phone number is unique via RPC
+      const { data: isPhoneUnique, error: phoneCheckError } = await supabase
+        .rpc('is_phone_number_unique', { phone: values.phone });
+      
+      if (phoneCheckError) {
+        throw new Error(`Phone number check failed: ${phoneCheckError.message}`);
+      }
+      
+      if (!isPhoneUnique) {
+        form.setError('phone', { 
+          type: 'manual', 
+          message: 'This phone number is already registered' 
+        });
+        throw new Error('Phone number is already registered');
+      }
+      
       // Split name into first and last name
-      const nameParts = formData.name.trim().split(' ');
+      const nameParts = values.name.trim().split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
       // Register user with Supabase
       const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+        email: values.email,
+        password: values.password,
         options: {
           data: {
             first_name: firstName,
             last_name: lastName,
-            phone: formData.phone
+            phone: values.phone
           }
         }
       });
@@ -75,7 +108,7 @@ const SignUp = () => {
         // Create wallets for the new user
         if (data.user) {
           try {
-            // Generate wallets (now properly handling Promise)
+            // Generate wallets (properly handling Promise)
             const wallets = await generateAllWallets();
             console.log("Generated wallets:", wallets.length);
             
@@ -116,13 +149,17 @@ const SignUp = () => {
         
         navigate('/dashboard');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Unexpected error:", error);
-      toast({
-        title: "Registration failed",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
+      
+      // Only show toast if it's not the phone uniqueness error we already handled
+      if (!error.message?.includes('phone number')) {
+        toast({
+          title: "Registration failed",
+          description: error.message || "An unexpected error occurred. Please try again.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -140,83 +177,134 @@ const SignUp = () => {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
-            <form className="space-y-5" onSubmit={handleSignUp}>
-              <KashInput
-                label="Full Name"
-                name="name"
-                type="text"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Enter your name"
-                icon={<User size={18} className="text-gray-400" />}
-                required
-              />
-
-              <KashInput
-                label="Email address"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Enter your email"
-                icon={<Mail size={18} className="text-gray-400" />}
-                required
-              />
-
-              <KashInput
-                label="Phone Number"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Enter your phone number"
-                icon={<Phone size={18} className="text-gray-400" />}
-                required
-              />
-
-              <KashInput
-                label="Password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Create a password"
-                icon={<Lock size={18} className="text-gray-400" />}
-                required
-              />
-
-              <KashInput
-                label="Confirm Password"
-                name="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Confirm your password"
-                icon={<Lock size={18} className="text-gray-400" />}
-                required
-              />
-
-              <div className="flex items-center">
-                <input
-                  id="terms"
-                  name="terms"
-                  type="checkbox"
-                  className="h-4 w-4 text-kash-green border-gray-300 rounded focus:ring-kash-green"
-                  required
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSignUp)} className="space-y-5">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <KashInput
+                          {...field}
+                          placeholder="Enter your name"
+                          icon={<User size={18} className="text-gray-400" />}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                <label htmlFor="terms" className="ml-2 block text-sm text-gray-900">
-                  I agree to the <a href="#" className="text-kash-green">Terms of Service</a> and <a href="#" className="text-kash-green">Privacy Policy</a>
-                </label>
-              </div>
+                
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email address</FormLabel>
+                      <FormControl>
+                        <KashInput
+                          {...field}
+                          type="email"
+                          placeholder="Enter your email"
+                          icon={<Mail size={18} className="text-gray-400" />}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <KashInput
+                          {...field}
+                          type="tel" 
+                          placeholder="Enter your phone number"
+                          icon={<Phone size={18} className="text-gray-400" />}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <KashInput
+                          {...field}
+                          type="password"
+                          placeholder="Create a password"
+                          icon={<Lock size={18} className="text-gray-400" />}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <KashInput
+                          {...field}
+                          type="password"
+                          placeholder="Confirm your password"
+                          icon={<Lock size={18} className="text-gray-400" />}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="terms"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={field.onChange}
+                          className="h-4 w-4 text-kash-green border-gray-300 rounded focus:ring-kash-green"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="text-sm text-gray-900">
+                          I agree to the <a href="#" className="text-kash-green">Terms of Service</a> and <a href="#" className="text-kash-green">Privacy Policy</a>
+                        </FormLabel>
+                        <FormMessage />
+                      </div>
+                    </FormItem>
+                  )}
+                />
 
-              <KashButton 
-                type="submit" 
-                fullWidth 
-                disabled={loading}
-              >
-                {loading ? 'Creating account...' : 'Create Account'}
-              </KashButton>
-            </form>
+                <KashButton 
+                  type="submit" 
+                  fullWidth 
+                  disabled={loading}
+                >
+                  {loading ? 'Creating account...' : 'Create Account'}
+                </KashButton>
+              </form>
+            </Form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
