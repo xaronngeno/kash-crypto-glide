@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Phone, User } from 'lucide-react';
@@ -60,16 +59,27 @@ const SignUp = () => {
     setProcessingStatus('Validating information...');
     
     try {
+      // Check if phone number is valid format
+      if (!/^\+[0-9]{6,15}$/.test(values.phone)) {
+        form.setError('phone', { 
+          type: 'manual', 
+          message: 'Phone number must start with + and contain 6-15 digits' 
+        });
+        throw new Error('Invalid phone number format');
+      }
+      
       // Check if phone number is unique via RPC
       setProcessingStatus('Checking phone number...');
       const { data: isPhoneUnique, error: phoneCheckError } = await supabase
         .rpc('is_phone_number_unique', { phone: values.phone });
       
       if (phoneCheckError) {
+        console.error("Phone check error:", phoneCheckError);
         throw new Error(`Phone number check failed: ${phoneCheckError.message}`);
       }
       
-      if (!isPhoneUnique) {
+      if (isPhoneUnique === false) {
+        console.log("Phone number already exists:", values.phone);
         form.setError('phone', { 
           type: 'manual', 
           message: 'This phone number is already registered' 
@@ -109,42 +119,27 @@ const SignUp = () => {
           description: "Your account has been successfully created.",
         });
         
-        // Generate wallets in background and proceed to dashboard
+        // Navigate to dashboard first for better UX
         navigate('/dashboard');
         
-        // Create wallets for the new user
+        // Create wallets in background using edge function
         if (data.user) {
           try {
-            // Generate wallets
             setProcessingStatus('Generating secure wallets...');
-            console.log("Starting wallet generation...");
-            const wallets = await generateAllWallets();
-            console.log("Generated wallets:", wallets.length);
+            console.log("Calling wallet creation edge function");
             
-            // Prepare wallet data for database storage
-            const walletInserts = wallets.map(wallet => ({
-              user_id: data.user!.id,
-              blockchain: wallet.blockchain,
-              currency: wallet.blockchain, // Use blockchain as currency for now
-              address: wallet.address,
-              balance: 0,
-              wallet_type: wallet.walletType || 'Default'
-            }));
+            // Call the edge function to create wallets
+            const { data: walletData, error: walletError } = await supabase.functions.invoke('create-wallets', {
+              body: { userId: data.user.id }
+            });
             
-            // Insert wallets into database
-            const { error: walletsError } = await supabase
-              .from('wallets')
-              .insert(walletInserts);
-              
-            if (walletsError) {
-              console.error("Error creating wallets:", walletsError);
-              // We don't show this error to user since they're already on dashboard
-              // Just log it for debugging
+            if (walletError) {
+              console.error("Error calling wallet creation function:", walletError);
             } else {
-              console.log("Successfully created wallets for user");
+              console.log("Wallets created successfully:", walletData);
             }
           } catch (walletError) {
-            console.error("Error generating wallets:", walletError);
+            console.error("Error in wallet creation process:", walletError);
             // We don't block the user experience here, just log the error
           }
         }
