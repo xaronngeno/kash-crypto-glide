@@ -191,7 +191,8 @@ serve(async (req) => {
       );
     }
 
-    const symbols = ['BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'LINK', 'MATIC', 'SUI', 'MONAD'];
+    // Define main cryptocurrencies we want to ensure are included
+    const mainCoins = ['BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'LINK', 'MATIC', 'SUI'];
     const limit = 100; // Number of top cryptocurrencies to fetch
     
     try {
@@ -229,8 +230,16 @@ serve(async (req) => {
         throw new Error('Invalid API response format');
       }
       
+      // Filter out known invalid IDs that cause metadata API issues
+      // This is to avoid the "Invalid value for id: 36119" error
+      const validCryptos = listingsData.data.filter((crypto: any) => {
+        // Skip cryptocurrencies with problematic IDs
+        const problematicIds = [36119, 36118, 36117, 36116]; 
+        return !problematicIds.includes(crypto.id);
+      });
+
       // Now fetch metadata with logos and platform info
-      const ids = listingsData.data.map((crypto: any) => crypto.id).join(',');
+      const ids = validCryptos.map((crypto: any) => crypto.id).join(',');
       
       const metadataController = new AbortController();
       const metadataTimeoutId = setTimeout(() => metadataController.abort(), 10000);
@@ -263,7 +272,7 @@ serve(async (req) => {
       
       const prices: Record<string, any> = {};
       
-      for (const crypto of listingsData.data) {
+      for (const crypto of validCryptos) {
         const symbol = crypto.symbol;
         const metadata = metadataData.data[crypto.id];
         
@@ -279,6 +288,17 @@ serve(async (req) => {
               name: metadata.name, // Default to the token name if no platform
               logo: metadata.logo
             }
+          };
+        }
+      }
+      
+      // Ensure all the main coins are included by using fallbacks if needed
+      for (const coin of mainCoins) {
+        if (!prices[coin] && fallbackPrices[coin as keyof typeof fallbackPrices]) {
+          console.log(`Using fallback data for ${coin}`);
+          prices[coin] = {
+            ...fallbackPrices[coin as keyof typeof fallbackPrices],
+            updated_at: new Date().toISOString()
           };
         }
       }

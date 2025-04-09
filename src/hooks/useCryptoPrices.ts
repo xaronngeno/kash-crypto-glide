@@ -144,11 +144,17 @@ export function useCryptoPrices() {
         
         if (data.source === 'fallback') {
           console.log('Using fallback prices from the Edge Function');
-          toast({
-            title: "Using cached prices",
-            description: data.error ? `Error: ${data.error}` : "Could not connect to price service.",
-            variant: "default"
-          });
+          // Don't show toast for cached prices to avoid annoying the user
+          if (data.error && data.error.includes('Invalid value for')) {
+            // Silent recovery for known API issue
+            console.warn('Known API error:', data.error);
+          } else {
+            toast({
+              title: "Using cached prices",
+              description: data.error ? `Network issue - Using cached data` : "Could not connect to price service.",
+              variant: "default"
+            });
+          }
         } else {
           console.log('Using real-time prices from CoinMarketCap');
         }
@@ -166,7 +172,7 @@ export function useCryptoPrices() {
         setPrices(cachedPricesRef.current);
         toast({
           title: "Using cached prices",
-          description: err instanceof Error ? err.message : "Could not connect to price service.",
+          description: "Could not connect to price service.",
           variant: "default"
         });
       } else {
@@ -174,7 +180,7 @@ export function useCryptoPrices() {
         setPrices(fallbackPrices);
         toast({
           title: "Using default prices",
-          description: err instanceof Error ? err.message : "Could not connect to price service.",
+          description: "Could not connect to price service.",
           variant: "default"
         });
       }

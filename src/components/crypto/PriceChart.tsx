@@ -6,7 +6,7 @@ interface PriceChartProps {
   priceData: any;
   timeframe: string;
   color: string;
-  darkMode?: boolean; // Added darkMode prop
+  darkMode?: boolean; // Explicitly defined darkMode prop
 }
 
 const PriceChart: React.FC<PriceChartProps> = ({ priceData, timeframe, color, darkMode = false }) => {
