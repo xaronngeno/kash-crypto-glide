@@ -1,16 +1,11 @@
 
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, Repeat, CreditCard } from 'lucide-react';
-import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 
 export const ActionButtons = () => {
   return (
-    <KashCard 
-      variant="outline" 
-      padding="md" 
-      className="grid grid-cols-4 gap-2 w-full"
-    >
+    <div className="grid grid-cols-4 gap-2 w-full">
       <Link 
         to="/receive" 
         className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
@@ -63,6 +58,6 @@ export const ActionButtons = () => {
           <span>Buy</span>
         </KashButton>
       </Link>
-    </KashCard>
+    </div>
   );
 };
