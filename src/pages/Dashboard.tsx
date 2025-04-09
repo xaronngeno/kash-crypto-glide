@@ -17,7 +17,6 @@ const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const { prices, loading: pricesLoading, error: pricesError, refetch: refetchPrices } = useCryptoPrices();
   const { user, profile } = useAuth();
   const { 
@@ -46,7 +45,7 @@ const Dashboard = () => {
         title: 'No wallet assets found',
         description: 'We couldn\'t find any assets in your wallet. Default data is being shown.',
         variant: 'destructive',
-        duration: 7000,
+        duration: 5000,
       });
     } else if (!walletLoading) {
       console.log(`Loaded ${assets.length} assets for user`);
@@ -65,10 +64,10 @@ const Dashboard = () => {
     if (walletError) {
       console.error('Error in wallet loading:', walletError);
       toast({
-        title: 'Loading issue',
-        description: walletError,
+        title: 'No wallets detected',
+        description: 'Using default wallet data.',
         variant: 'destructive',
-        duration: 7000,
+        duration: 5000,
       });
     }
     
@@ -79,49 +78,34 @@ const Dashboard = () => {
         title: 'Price data issue',
         description: 'There was a problem loading current prices. Using estimated values.',
         variant: 'destructive',
-        duration: 7000,
+        duration: 5000,
       });
     }
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast]);
 
-  // Simple loading progress effect with timeout detection
+  // Simple loading progress effect
   useEffect(() => {
     if (walletLoading || pricesLoading || isCreatingWallets) {
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
           if (prev >= 90) return 90;
-          return prev + 5;
+          return prev + 10; // Faster progress
         });
-      }, 500);
+      }, 300); // Shorter interval
       
-      // Set a timeout to detect if loading takes too long
-      const timeout = setTimeout(() => {
-        setLoadingTimeout(true);
-        console.error('Dashboard loading timeout - forcing display');
-        toast({
-          title: 'Loading is taking longer than expected',
-          description: 'We\'ll show what data we have. You might need to refresh the page.',
-          variant: 'destructive',
-          duration: 10000,
-        });
-      }, 15000); // 15 seconds timeout
-      
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timeout);
-      };
+      return () => clearInterval(interval);
     } else {
       setLoadingProgress(100);
     }
-  }, [walletLoading, pricesLoading, isCreatingWallets, toast]);
+  }, [walletLoading, pricesLoading, isCreatingWallets]);
 
   const totalBalance = assets.reduce((acc, asset) => {
     const value = typeof asset.value === 'number' ? asset.value : 0;
     return acc + value;
   }, 0);
 
-  const hasError = walletError || pricesError || loadingTimeout;
-  const isLoading = (walletLoading || pricesLoading || isCreatingWallets) && !loadingTimeout;
+  const hasError = walletError || pricesError;
+  const isLoading = (walletLoading || pricesLoading || isCreatingWallets);
 
   const handleRetryLoading = () => {
     // Try to refetch data
@@ -132,11 +116,9 @@ const Dashboard = () => {
       duration: 3000,
     });
     // Force page reload if things are really stuck
-    if (loadingTimeout) {
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
-    }
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   };
 
   const renderLoadingSkeleton = () => (
@@ -155,7 +137,7 @@ const Dashboard = () => {
         </div>
         
         <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
+          {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
@@ -164,26 +146,12 @@ const Dashboard = () => {
   );
 
   const renderErrorState = () => {
-    let errorMessage = 'We encountered an issue loading your data.';
-    let errorDetails = 'Using cached data. You can try refreshing the page.';
-    
-    if (walletError) {
-      errorMessage = 'Issue with wallet data';
-      errorDetails = `${walletError}`;
-    } else if (pricesError) {
-      errorMessage = 'Issue with price data';
-      errorDetails = `${pricesError}`;
-    } else if (loadingTimeout) {
-      errorMessage = 'Loading timeout';
-      errorDetails = 'Loading took too long. Showing available data.';
-    }
-    
     return (
       <Alert variant="destructive" className="mb-6">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>{errorMessage}</AlertTitle>
+        <AlertTitle>No wallets detected</AlertTitle>
         <AlertDescription className="flex flex-col">
-          <span>{errorDetails}</span>
+          <span>Using default wallet data. You may need to set up your wallets.</span>
           <button 
             onClick={handleRetryLoading}
             className="text-sm mt-2 underline text-left"
@@ -213,18 +181,13 @@ const Dashboard = () => {
               value={loadingProgress} 
               className="h-2 bg-gray-100"
             />
-            <p className="text-xs text-center mt-1 text-gray-400">
-              {loadingProgress}% - {loadingProgress < 100 
-                ? "This may take a few moments on first login" 
-                : "Almost there!"}
-            </p>
           </div>
           
           {renderLoadingSkeleton()}
         </div>
       )}
 
-      {(!isLoading || loadingTimeout) && (
+      {!isLoading && (
         <div className="space-y-6">
           {hasError && renderErrorState()}
           
@@ -263,7 +226,7 @@ const Dashboard = () => {
               <AssetsList assets={assets} currency={currency} />
             ) : (
               <div className="py-8 text-center">
-                <p className="text-gray-500">No assets found. We're setting up your wallets...</p>
+                <p className="text-gray-500">No wallets detected. We're setting up your default wallets...</p>
               </div>
             )}
           </div>

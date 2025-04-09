@@ -40,13 +40,8 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       setCreatingWallets(true);
       console.log("Attempting to create wallets for user:", user.id);
       
-      // Set a timeout for wallet creation
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Wallet creation timed out after 8 seconds")), 8000);
-      });
-      
       // Create wallets request
-      const walletPromise = supabase.functions.invoke('create-wallets', {
+      const { data, error } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -54,12 +49,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         },
         body: { userId: user.id }
       });
-      
-      // Race between wallet creation and timeout
-      const result = await Promise.race([walletPromise, timeoutPromise]);
-      
-      // @ts-ignore - TypeScript doesn't know the shape of result
-      const { data, error } = result;
       
       if (error) {
         throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
@@ -127,59 +116,29 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         setLoading(true);
         console.log("Fetching wallets for user:", user.id);
         
-        // Increased timeout to 15 seconds (from 5 seconds)
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            reject(new Error("Wallet fetch timed out after 15 seconds"));
-          }, 15000);
-        });
-        
-        // Fetch wallets request with retries
-        const fetchWithRetry = async (retries = 2) => {
-          try {
-            const { data, error } = await supabase
-              .from('wallets')
-              .select('*')
-              .eq('user_id', user.id);
-              
-            if (error) throw error;
-            return { data, error: null };
-          } catch (err) {
-            if (retries <= 0) throw err;
+        // Fetch wallets request 
+        const { data: wallets, error: walletsError } = await supabase
+          .from('wallets')
+          .select('*')
+          .eq('user_id', user.id);
             
-            console.log(`Retrying wallet fetch... (${retries} attempts left)`);
-            await new Promise(r => setTimeout(r, 1000)); // Wait 1 second before retry
-            return fetchWithRetry(retries - 1);
-          }
-        };
-        
-        const walletPromise = fetchWithRetry();
-          
-        // Race between wallet fetch and timeout  
-        const result = await Promise.race([walletPromise, timeoutPromise]);
-        
-        // Handle the result
-        const { data: wallets, error: walletsError } = result as any;
-        
         if (walletsError) {
           throw walletsError;
         }
         
         if (!wallets || wallets.length === 0) {
-          console.log("No wallets found for user, attempting to create...");
-          if (!walletsCreated && !creatingWallets) {
-            const newWallets = await createWalletsForUser();
-            
-            if (newWallets && newWallets.length > 0) {
-              processWallets(newWallets);
-              return;
-            }
-          }
+          console.log("No wallets found for user");
+          setError("No wallets detected");
           
           // Use default assets if no wallets found
           console.log("Using default assets as no wallets found");
           setAssets(Object.values(defaultAssetsMap));
           setLoading(false);
+          
+          // Try to create wallets in the background
+          if (!walletsCreated && !creatingWallets) {
+            createWalletsForUser();
+          }
           return;
         } else {
           console.log(`Found ${wallets.length} wallets for user:`, user.id);
@@ -189,12 +148,12 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
         console.error('Error fetching wallets:', errorMessage);
-        setError(`${errorMessage}. Using default wallet data.`);
+        setError("No wallets detected");
         toast({
-          title: 'Wallet loading issue',
-          description: `${errorMessage}. Using default wallet data.`,
+          title: 'No wallets detected',
+          description: 'Using default wallet data.',
           variant: 'destructive',
-          duration: 8000,
+          duration: 5000,
         });
         setAssets(Object.values(defaultAssetsMap));
         setLoading(false);
@@ -255,12 +214,12 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     };
   }, [user, prices, session, walletsCreated, creatingWallets, toast]);
 
-  // Safety timeout to ensure we never get stuck in loading state - reduced from 10s to 7s
+  // Safety timeout to ensure we never get stuck in loading state
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
       if (loading) {
         console.warn("Safety timeout reached - forcing loading state to complete");
-        setError("Loading timeout - showing default data");
+        setError("No wallets detected");
         setAssets(prevAssets => {
           if (prevAssets.length === 0) {
             return Object.values(defaultAssetsMap);
@@ -269,7 +228,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         });
         setLoading(false);
       }
-    }, 7000); // 7 second absolute maximum timeout
+    }, 3000); // 3 second maximum timeout
     
     return () => clearTimeout(safetyTimer);
   }, [loading]);
