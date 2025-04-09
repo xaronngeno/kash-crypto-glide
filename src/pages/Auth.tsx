@@ -171,13 +171,29 @@ const Auth = () => {
         throw error;
       }
       
-      // Move to email verification stage
-      setAuthStage(AuthStage.EMAIL_VERIFICATION);
-      
-      toast({
-        title: "Verification email sent",
-        description: "Please check your email to verify your account.",
-      });
+      // Check if email confirmation is required
+      if (data?.user?.identities?.length === 0) {
+        // Email already exists but not confirmed
+        setAuthStage(AuthStage.EMAIL_VERIFICATION);
+        toast({
+          title: "Email already registered",
+          description: "This email is already registered but not confirmed. Please check your email for verification.",
+        });
+      } else if (data?.user && !data.session) {
+        // User created but needs email verification
+        setAuthStage(AuthStage.EMAIL_VERIFICATION);
+        toast({
+          title: "Verification email sent",
+          description: "Please check your email to verify your account.",
+        });
+      } else if (data?.session) {
+        // User is signed in, redirect to dashboard
+        navigate('/dashboard');
+        toast({
+          title: "Account created",
+          description: "Your account has been created and you are now logged in.",
+        });
+      }
     } catch (error: any) {
       console.error("Signup error:", error);
       toast({
