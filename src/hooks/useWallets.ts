@@ -16,7 +16,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   const [creatingWallets, setCreatingWallets] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, session, profile } = useAuth();
-  const [creationTimeout, setCreationTimeout] = useState(false);
   
   const defaultAssetsMap = {
     'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0, value: 0, change: 0, icon: '₿' },
@@ -41,22 +40,13 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       setCreatingWallets(true);
       console.log("Attempting to create wallets for user:", user.id);
       
-      // Set a timeout to prevent infinite loading
-      const timeoutId = setTimeout(() => {
-        console.log("Wallet creation timed out");
-        setCreationTimeout(true);
-        setCreatingWallets(false);
-        setAssets(Object.values(defaultAssetsMap));
-        setLoading(false);
-        
-        toast({
-          title: 'Wallet Creation Timeout',
-          description: 'Using default wallets for now. Your wallets will be created in the background.',
-          variant: 'default'
-        });
-      }, 10000); // 10 second timeout
+      // Set a timeout for wallet creation
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Wallet creation timed out")), 8000);
+      });
       
-      const { data, error } = await supabase.functions.invoke('create-wallets', {
+      // Create wallets request
+      const walletPromise = supabase.functions.invoke('create-wallets', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -65,7 +55,11 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         body: { userId: user.id }
       });
       
-      clearTimeout(timeoutId);
+      // Race between wallet creation and timeout
+      const result = await Promise.race([walletPromise, timeoutPromise]);
+      
+      // @ts-ignore - TypeScript doesn't know the shape of result
+      const { data, error } = result;
       
       if (error) {
         throw new Error(`Function returned error: ${error.message}`);
@@ -91,10 +85,10 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       
       // Use default assets on error
       setAssets(Object.values(defaultAssetsMap));
-      setLoading(false);
       return null;
     } finally {
       setCreatingWallets(false);
+      setLoading(false);
     }
   };
 
@@ -123,6 +117,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     const fetchUserAssets = async () => {
       if (!user || !session?.access_token) {
         console.log("No user or session available, skipping wallet fetch");
+        setAssets(Object.values(defaultAssetsMap));
         setLoading(false);
         return;
       }
@@ -131,26 +126,25 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         setLoading(true);
         console.log("Fetching wallets for user:", user.id);
         
-        // Set a timeout to prevent infinite loading
-        const timeoutId = setTimeout(() => {
-          console.log("Wallet fetch timed out");
-          setAssets(Object.values(defaultAssetsMap));
-          setLoading(false);
-          
-          toast({
-            title: 'Loading Timeout',
-            description: 'Using default wallet data for now. Please refresh later.',
-            variant: 'default'
-          });
-        }, 8000); // 8 second timeout
+        // Set a timeout for wallet fetch
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error("Wallet fetch timed out"));
+          }, 5000);
+        });
         
-        const { data: wallets, error: walletsError } = await supabase
+        // Fetch wallets request
+        const walletPromise = supabase
           .from('wallets')
           .select('*')
           .eq('user_id', user.id);
           
-        clearTimeout(timeoutId);
-          
+        // Race between wallet fetch and timeout  
+        const result = await Promise.race([walletPromise, timeoutPromise]);
+        
+        // @ts-ignore - TypeScript doesn't know the shape of result
+        const { data: wallets, error: walletsError } = result;
+        
         if (walletsError) {
           throw walletsError;
         }
@@ -166,32 +160,20 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
             }
           }
           
-          // If wallet creation is in progress but we hit timeout, use defaults
-          if (creatingWallets || creationTimeout) {
-            console.log("Using default assets while wallets are being created");
-            setAssets(Object.values(defaultAssetsMap));
-            setLoading(false);
-            return;
-          }
+          // Use default assets if no wallets found
+          console.log("Using default assets as no wallets found");
+          setAssets(Object.values(defaultAssetsMap));
+          setLoading(false);
+          return;
         } else {
           console.log(`Found ${wallets.length} wallets for user:`, user.id);
           processWallets(wallets);
           return;
         }
-        
-        console.log("Using default assets as fallback");
-        setAssets(Object.values(defaultAssetsMap));
-        
       } catch (err) {
         console.error('Error fetching wallets:', err);
         setError(err instanceof Error ? err.message : "Unknown error");
-        toast({
-          title: 'Error',
-          description: 'Failed to load wallet data',
-          variant: 'destructive'
-        });
         setAssets(Object.values(defaultAssetsMap));
-      } finally {
         setLoading(false);
       }
     };
@@ -230,16 +212,35 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       
       console.log("Processed assets:", updatedAssets);
       setAssets(updatedAssets);
+      setLoading(false);
     };
 
-    if (user && session) {
-      fetchUserAssets();
-    } else {
-      console.log("No user authenticated, skipping wallet fetch");
+    // Start fetching
+    fetchUserAssets();
+    
+    // Ensure we never leave loading state on unmount
+    return () => {
       setLoading(false);
-      setAssets(Object.values(defaultAssetsMap));
-    }
+    };
   }, [user, prices, session, walletsCreated, creatingWallets]);
+
+  // Safety timeout to ensure we never get stuck in loading state
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      if (loading) {
+        console.warn("Safety timeout reached - forcing loading state to complete");
+        setAssets(prevAssets => {
+          if (prevAssets.length === 0) {
+            return Object.values(defaultAssetsMap);
+          }
+          return prevAssets;
+        });
+        setLoading(false);
+      }
+    }, 10000); // 10 second absolute maximum timeout
+    
+    return () => clearTimeout(safetyTimer);
+  }, [loading]);
 
   return { 
     assets, 
