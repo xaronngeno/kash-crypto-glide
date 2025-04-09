@@ -36,14 +36,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<AuthContextType['profile']>(null);
 
-  // Fetch user profile data
+  // Optimized profile fetching with error handling
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('numeric_id, first_name, last_name, phone, phone_numbers, kyc_status')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
         
       if (error) {
         console.error('Error fetching profile:', error);
@@ -58,40 +58,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event);
+        
+        if (!isMounted) return;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Fetch profile when user is available, use setTimeout to prevent auth deadlocks
+        if (session?.user) {
+          setTimeout(async () => {
+            if (isMounted) {
+              const profileData = await fetchProfile(session.user.id);
+              setProfile(profileData);
+              setLoading(false);
+            }
+          }, 0);
+        } else {
+          setProfile(null);
+          setLoading(false);
+        }
+      }
+    );
+
+    // THEN check for existing session - optimize by setting a short timeout
+    const checkExistingSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         // Fetch profile when user is available
         if (session?.user) {
           const profileData = await fetchProfile(session.user.id);
-          setProfile(profileData);
-        } else {
-          setProfile(null);
+          if (isMounted) {
+            setProfile(profileData);
+          }
         }
         
+        if (isMounted) {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Session check error:", error);
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    // Add a timeout to ensure we don't wait forever
+    const sessionTimeout = setTimeout(() => {
+      if (isMounted && loading) {
+        console.log("Auth session check timed out");
         setLoading(false);
       }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      // Fetch profile when user is available
-      if (session?.user) {
-        const profileData = await fetchProfile(session.user.id);
-        setProfile(profileData);
-      }
-      
-      setLoading(false);
-    });
+    }, 2000); // 2 second maximum wait time
+    
+    checkExistingSession();
 
     return () => {
+      isMounted = false;
+      clearTimeout(sessionTimeout);
       subscription.unsubscribe();
     };
   }, []);

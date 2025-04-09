@@ -32,11 +32,16 @@ const SignIn = () => {
         });
         console.error("Sign in error:", error);
       } else {
-        toast({
-          title: "Welcome back",
-          description: "You've successfully signed in to your account.",
-        });
+        // Navigate immediately to dashboard without additional toast delay
         navigate('/dashboard');
+        
+        // Show toast after navigation has started
+        setTimeout(() => {
+          toast({
+            title: "Welcome back",
+            description: "You've successfully signed in to your account.",
+          });
+        }, 100);
       }
     } catch (error) {
       console.error("Unexpected error:", error);

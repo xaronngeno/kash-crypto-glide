@@ -31,12 +31,16 @@ const Auth = () => {
         throw error;
       }
       
-      toast({
-        title: "Login successful",
-        description: "You've been successfully signed in.",
-      });
-      
+      // Navigate immediately to dashboard
       navigate('/dashboard');
+      
+      // Show toast after navigation has started
+      setTimeout(() => {
+        toast({
+          title: "Login successful",
+          description: "You've been successfully signed in.",
+        });
+      }, 100);
     } catch (error: any) {
       console.error("Authentication error:", error);
       toast({
