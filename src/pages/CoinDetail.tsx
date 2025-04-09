@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
@@ -106,7 +105,6 @@ const CoinDetail = () => {
     };
   };
 
-  // Market data for cryptocurrencies
   const getMarketData = () => {
     if (!coinData || !coinSymbol) return null;
     
@@ -116,7 +114,6 @@ const CoinDetail = () => {
       circulatingSupply: 0
     };
     
-    // Provide specific data for major cryptocurrencies
     switch(coinSymbol.toUpperCase()) {
       case 'SOL':
         data.totalSupply = 598.13;
@@ -131,9 +128,8 @@ const CoinDetail = () => {
         data.circulatingSupply = 120.22;
         break;
       default:
-        // For other coins, estimate based on market cap and price
         data.circulatingSupply = data.marketCap / (coinData.price || 1);
-        data.totalSupply = data.circulatingSupply * 1.2; // Estimate 20% more total than circulating
+        data.totalSupply = data.circulatingSupply * 1.2;
     }
     
     return data;

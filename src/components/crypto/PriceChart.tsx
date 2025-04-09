@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   LineChart,
@@ -21,7 +20,7 @@ interface PriceChartProps {
   priceData: any;
   timeframe: TimeFilter;
   color?: string;
-  darkMode?: boolean; // Add darkMode prop
+  darkMode?: boolean;
 }
 
 const PriceChart = ({ priceData, timeframe, color = '#10B981', darkMode = false }: PriceChartProps) => {
