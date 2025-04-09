@@ -1,40 +1,32 @@
 
-# This file is used for the Supabase CLI to know about your project
-
-# A string used to distinguish different Supabase projects on the same host. Defaults to the
-# working directory name when running `supabase init`.
-project_id = "kash"
+project_id = "hfdaowgithffhelybfve"
 
 [api]
-enabled = true
 port = 54321
 schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
 
 [db]
 port = 54322
+major_version = 15
 
 [studio]
-enabled = true
 port = 54323
-api_url = "http://localhost"
 
-# Email testing server. Emails sent with the local dev setup are not actually sent, rather they
-# are monitored and accessible through the web interface.
 [inbucket]
-enabled = true
 port = 54324
-
-[storage]
-enabled = true
+smtp_port = 54325
+pop3_port = 54326
 
 [auth]
-enabled = true
 site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+autoconfirm = true
+disable_signup = false
 
-[functions]
-[functions.create-wallets]
+[storage]
+file_size_limit = "50MiB"
+
+[functions.assign-user-ids]
 verify_jwt = true
-
-[functions.crypto-prices]
-verify_jwt = false
-

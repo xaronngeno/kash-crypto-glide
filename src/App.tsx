@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -21,6 +22,7 @@ import SwapCrypto from "./pages/SwapCrypto";
 import SearchCrypto from "./pages/SearchCrypto";
 import SellUsdt from "./pages/SellUsdt";
 import CoinDetail from "./pages/CoinDetail";
+import AdminAssignIds from "./pages/AdminAssignIds";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +92,11 @@ const App: React.FC = () => {
               <Route path="/transaction-confirmation" element={
                 <ProtectedRoute>
                   <TransactionConfirmation />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/assign-ids" element={
+                <ProtectedRoute>
+                  <AdminAssignIds />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />
