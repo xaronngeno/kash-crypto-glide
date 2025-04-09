@@ -1,12 +1,17 @@
 
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, Repeat, CreditCard } from 'lucide-react';
+import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 
 export const ActionButtons = () => {
   return (
-    <div className="grid grid-cols-4 gap-2 w-full">
-      <Link to="/receive">
+    <KashCard 
+      variant="outline" 
+      padding="md" 
+      className="grid grid-cols-4 gap-2 w-full"
+    >
+      <Link to="/receive" className="w-full">
         <KashButton 
           variant="ghost"
           fullWidth
@@ -16,7 +21,7 @@ export const ActionButtons = () => {
           <span>Receive</span>
         </KashButton>
       </Link>
-      <Link to="/send">
+      <Link to="/send" className="w-full">
         <KashButton
           variant="ghost"
           fullWidth
@@ -26,7 +31,7 @@ export const ActionButtons = () => {
           <span>Send</span>
         </KashButton>
       </Link>
-      <Link to="/swap">
+      <Link to="/swap" className="w-full">
         <KashButton
           variant="ghost"
           fullWidth
@@ -36,7 +41,7 @@ export const ActionButtons = () => {
           <span>Swap</span>
         </KashButton>
       </Link>
-      <Link to="/buy">
+      <Link to="/buy" className="w-full">
         <KashButton
           variant="ghost"
           fullWidth
@@ -46,6 +51,6 @@ export const ActionButtons = () => {
           <span>Buy</span>
         </KashButton>
       </Link>
-    </div>
+    </KashCard>
   );
 };
