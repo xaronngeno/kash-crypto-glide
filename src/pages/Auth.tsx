@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, X, User, Phone } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ enum AuthStage {
 
 const Auth = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -30,12 +31,14 @@ const Auth = () => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate('/dashboard');
+        // Get the redirect path from location state or default to dashboard
+        const from = location.state?.from?.pathname || '/dashboard';
+        navigate(from, { replace: true });
       }
     };
     
     checkUser();
-  }, [navigate]);
+  }, [navigate, location]);
 
   // Handler for checking email and proceeding to next stage
   const handleEmailCheck = async (e: React.FormEvent) => {
@@ -103,8 +106,9 @@ const Auth = () => {
         throw error;
       }
       
-      // Navigate immediately to dashboard
-      navigate('/dashboard');
+      // Get the redirect path from location state or default to dashboard
+      const from = location.state?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
       
       // Show toast after navigation has started
       setTimeout(() => {
