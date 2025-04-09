@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
@@ -8,7 +7,18 @@ import { KashButton } from '@/components/ui/KashButton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExternalLink, ChevronDown, Trending, DollarSign, Clock, Globe, MessageSquare, CheckCircle, X as XIcon, ArrowUpRight } from 'lucide-react';
+import { 
+  ExternalLink, 
+  ChevronDown, 
+  TrendingUp,
+  DollarSign, 
+  Clock, 
+  Globe, 
+  MessageSquare, 
+  CheckCircle, 
+  X as XIcon, 
+  ArrowUpRight 
+} from 'lucide-react';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +38,6 @@ const CoinDetail = () => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeFilter>('1D');
   const { assets } = useWallets({ prices: prices || {} });
 
-  // Find the coin data based on the coinId parameter
   const coin = !loading && prices ? 
     Object.entries(prices).find(([symbol, data]) => 
       symbol.toLowerCase() === coinId || data.name?.toLowerCase() === coinId
@@ -37,7 +46,6 @@ const CoinDetail = () => {
   const coinSymbol = coin ? coin[0] : '';
   const coinData = coin ? coin[1] : null;
   
-  // Find the user's balance for this coin
   const userAsset: Asset | undefined = assets.find(
     (asset) => asset.symbol.toLowerCase() === coinSymbol.toLowerCase()
   );
@@ -145,7 +153,6 @@ const CoinDetail = () => {
   return (
     <MainLayout title={coinData.name || coinSymbol} showBack>
       <div className="flex flex-col gap-4">
-        {/* Coin Header */}
         <div className="flex flex-col">
           <h1 className="text-3xl font-bold mb-1">{coinData.name}</h1>
           <div className="flex items-end gap-2 mb-1">
@@ -160,7 +167,6 @@ const CoinDetail = () => {
           <p className="text-gray-500 text-sm">{getFormattedDate()}</p>
         </div>
 
-        {/* Chart Section */}
         <div className="bg-white rounded-xl border border-gray-100 p-2 overflow-hidden">
           <PriceChart 
             priceData={coinData}
@@ -185,7 +191,6 @@ const CoinDetail = () => {
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="grid grid-cols-4 gap-2 mb-4">
           <KashButton 
             variant="outline" 
@@ -243,7 +248,6 @@ const CoinDetail = () => {
           </KashButton>
         </div>
 
-        {/* Your Balance Card */}
         <div className="mb-4">
           <h2 className="text-lg text-gray-600 mb-2">Your Balance</h2>
           <KashCard className="p-4">
@@ -284,14 +288,13 @@ const CoinDetail = () => {
           </KashCard>
         </div>
 
-        {/* Staking Information */}
         {coinSymbol === 'SOL' && (
           <div className="mb-4">
             <h2 className="text-lg text-gray-600 mb-2">Staking</h2>
             <KashCard className="bg-gray-800 text-white p-4 hover:bg-gray-700 cursor-pointer">
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center mr-3">
-                  <Trending size={20} className="text-green-500" />
+                  <TrendingUp size={20} className="text-green-500" />
                 </div>
                 <div>
                   <h3 className="font-medium">Start earning {coinSymbol}</h3>
@@ -303,7 +306,6 @@ const CoinDetail = () => {
           </div>
         )}
 
-        {/* About Section */}
         <div className="mb-4">
           <h2 className="text-lg text-gray-600 mb-2">About</h2>
           <KashCard className="p-4">
@@ -348,7 +350,6 @@ const CoinDetail = () => {
           </KashCard>
         </div>
 
-        {/* Coin Information */}
         <div className="mb-4">
           <h2 className="text-lg text-gray-600 mb-2">Info</h2>
           <KashCard className="overflow-hidden">
@@ -388,7 +389,6 @@ const CoinDetail = () => {
           </KashCard>
         </div>
 
-        {/* 24h Performance */}
         <div className="mb-4">
           <h2 className="text-lg text-gray-600 mb-2">24h Performance</h2>
           <KashCard className="overflow-hidden">
