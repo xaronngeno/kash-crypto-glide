@@ -7,6 +7,7 @@ import { AssetsList } from '@/components/dashboard/AssetsList';
 import { PromoCard } from '@/components/dashboard/PromoCard';
 import { useWallets } from '@/hooks/useWallets';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
@@ -19,12 +20,34 @@ const Dashboard = () => {
     return acc + value;
   }, 0);
 
+  const renderLoadingSkeleton = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col items-center justify-center pt-4">
+        <div className="text-gray-500 text-sm mb-1">Total Balance</div>
+        <Skeleton className="h-8 w-48" />
+        <div className="mt-4 w-full">
+          <Skeleton className="h-20 w-full" />
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl font-semibold">Your Assets</h2>
+        </div>
+        
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   if (loading || pricesLoading) {
     return (
       <MainLayout title="Portfolio">
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-kash-green" />
-        </div>
+        {renderLoadingSkeleton()}
       </MainLayout>
     );
   }

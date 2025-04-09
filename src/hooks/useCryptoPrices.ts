@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,10 +91,11 @@ const fallbackPrices: CryptoPrices = {
   }
 };
 
-const CACHE_DURATION = 60 * 1000; 
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const LOCALSTORAGE_CACHE_KEY = 'kash_crypto_prices_cache';
 
 export function useCryptoPrices() {
-  const [prices, setPrices] = useState<CryptoPrices>(fallbackPrices);
+  const [prices, setPrices] = useState<CryptoPrices>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -105,6 +105,27 @@ export function useCryptoPrices() {
   const cachedPricesRef = useRef<CryptoPrices | null>(null);
   const retryCountRef = useRef<number>(0);
   const maxRetries = 3;
+
+  useEffect(() => {
+    try {
+      const cachedData = localStorage.getItem(LOCALSTORAGE_CACHE_KEY);
+      if (cachedData) {
+        const { prices: cachedPrices, timestamp } = JSON.parse(cachedData);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setPrices(cachedPrices);
+          cachedPricesRef.current = cachedPrices;
+          lastFetchTimeRef.current = timestamp;
+          setLoading(false);
+          console.log('Using cached prices from localStorage');
+          return;
+        }
+      }
+      
+      setPrices(fallbackPrices);
+    } catch (err) {
+      console.error('Error reading from localStorage:', err);
+    }
+  }, []);
   
   const fetchPrices = useCallback(async (forceFetch = false) => {
     if (isFetchingRef.current) {
@@ -142,19 +163,17 @@ export function useCryptoPrices() {
         lastFetchTimeRef.current = now;
         retryCountRef.current = 0;
         
+        try {
+          localStorage.setItem(LOCALSTORAGE_CACHE_KEY, JSON.stringify({
+            prices: data.prices,
+            timestamp: now
+          }));
+        } catch (cacheError) {
+          console.warn('Failed to cache prices in localStorage:', cacheError);
+        }
+        
         if (data.source === 'fallback') {
           console.log('Using fallback prices from the Edge Function');
-          // Don't show toast for cached prices to avoid annoying the user
-          if (data.error && data.error.includes('Invalid value for')) {
-            // Silent recovery for known API issue
-            console.warn('Known API error:', data.error);
-          } else {
-            toast({
-              title: "Using cached prices",
-              description: data.error ? `Network issue - Using cached data` : "Could not connect to price service.",
-              variant: "default"
-            });
-          }
         } else {
           console.log('Using real-time prices from CoinMarketCap');
         }
@@ -170,19 +189,9 @@ export function useCryptoPrices() {
       if (cachedPricesRef.current) {
         console.log('Using cached prices due to fetch error');
         setPrices(cachedPricesRef.current);
-        toast({
-          title: "Using cached prices",
-          description: "Could not connect to price service.",
-          variant: "default"
-        });
       } else {
         console.log('Using default fallback prices');
         setPrices(fallbackPrices);
-        toast({
-          title: "Using default prices",
-          description: "Could not connect to price service.",
-          variant: "default"
-        });
       }
       
       if (retryCountRef.current <= maxRetries) {
@@ -206,14 +215,10 @@ export function useCryptoPrices() {
   useEffect(() => {
     stableFetchPrices();
     
-    const intervalId = setInterval(stableFetchPrices, 1 * 60 * 1000);
+    const intervalId = setInterval(stableFetchPrices, 5 * 60 * 1000); // Every 5 minutes
     
     return () => clearInterval(intervalId);
   }, [stableFetchPrices]);
-
-  useEffect(() => {
-    console.log('Current crypto prices in state:', Object.keys(prices).length, 'coins');
-  }, [prices]);
 
   return { 
     prices, 

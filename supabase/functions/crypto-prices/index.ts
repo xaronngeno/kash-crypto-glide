@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Improved CORS headers
@@ -136,8 +135,8 @@ let priceCache = {
   source: 'fallback'
 };
 
-// Cache duration in milliseconds (5 minutes)
-const CACHE_DURATION = 5 * 60 * 1000;
+// Increased cache duration to 10 minutes to reduce API calls
+const CACHE_DURATION = 10 * 60 * 1000;
 
 serve(async (req) => {
   console.log("Crypto prices function called", new Date().toISOString());
@@ -153,192 +152,131 @@ serve(async (req) => {
   }
 
   try {
-    // Check if we have a valid cache that's not expired
+    // Return fallback prices immediately on first request to improve speed
+    // This gives instant response while real data is fetched in the background
     const now = Date.now();
+    const immediateResponse = {
+      prices: fallbackPrices,
+      source: 'fallback-immediate',
+      cached: false
+    };
+
+    // Check if we have a valid cache that's not expired
     if (priceCache.data && (now - priceCache.timestamp) < CACHE_DURATION) {
       console.log("Returning cached prices from edge function memory");
-      
       return new Response(
         JSON.stringify(priceCache.data),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Use the API key the user provided if the environment variable isn't set
-    const apiKey = Deno.env.get('COINMARKETCAP_API_KEY') || '891bdf88-f6a6-4045-89bc-d762256487f3';
-    console.log("Attempting to use API key:", apiKey ? "API key available" : "No API key");
-    
-    if (!apiKey) {
-      console.error('Missing CoinMarketCap API key');
-      return new Response(
-        JSON.stringify({ 
-          prices: fallbackPrices,
-          source: 'fallback',
-          error: 'Missing API key'
-        }),
-        { 
-          status: 200, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
-      );
-    }
-
-    // Define main cryptocurrencies we want to ensure are included
-    const mainCoins = ['BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'LINK', 'MATIC', 'SUI'];
-    const limit = 100; // Number of top cryptocurrencies to fetch
-    
-    try {
-      console.log('Requesting data from CoinMarketCap API...');
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
-      // Use the listings/latest endpoint to get more detailed data
-      const response = await fetch(
-        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=${limit}&convert=USD`, 
-        {
-          headers: {
-            'X-CMC_PRO_API_KEY': apiKey,
-            'Accept': 'application/json',
-          },
-          signal: controller.signal
-        }
-      );
-      
-      clearTimeout(timeoutId);
-      
-      console.log("CoinMarketCap API response status:", response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('CoinMarketCap API error:', errorText);
-        throw new Error(`API responded with status ${response.status}: ${errorText}`);
-      }
-
-      const listingsData = await response.json();
-      
-      if (!listingsData.data) {
-        console.error('Invalid API response format:', JSON.stringify(listingsData));
-        throw new Error('Invalid API response format');
-      }
-      
-      // Filter out known invalid IDs that cause metadata API issues
-      // This is to avoid the "Invalid value for id: 36119" error
-      const validCryptos = listingsData.data.filter((crypto: any) => {
-        // Skip cryptocurrencies with problematic IDs
-        const problematicIds = [36119, 36118, 36117, 36116]; 
-        return !problematicIds.includes(crypto.id);
-      });
-
-      // Now fetch metadata with logos and platform info
-      const ids = validCryptos.map((crypto: any) => crypto.id).join(',');
-      
-      const metadataController = new AbortController();
-      const metadataTimeoutId = setTimeout(() => metadataController.abort(), 10000);
-      
-      const metadataResponse = await fetch(
-        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/info?id=${ids}`, 
-        {
-          headers: {
-            'X-CMC_PRO_API_KEY': apiKey,
-            'Accept': 'application/json',
-          },
-          signal: metadataController.signal
-        }
-      );
-      
-      clearTimeout(metadataTimeoutId);
-      
-      if (!metadataResponse.ok) {
-        const errorText = await metadataResponse.text();
-        console.error('CoinMarketCap Metadata API error:', errorText);
-        throw new Error(`Metadata API responded with status ${metadataResponse.status}: ${errorText}`);
-      }
-      
-      const metadataData = await metadataResponse.json();
-      
-      if (!metadataData.data) {
-        console.error('Invalid metadata API response format:', JSON.stringify(metadataData));
-        throw new Error('Invalid metadata API response format');
-      }
-      
-      const prices: Record<string, any> = {};
-      
-      for (const crypto of validCryptos) {
-        const symbol = crypto.symbol;
-        const metadata = metadataData.data[crypto.id];
+    // Start fetching real prices in the background
+    const fetchPromise = (async () => {
+      try {
+        const apiKey = Deno.env.get('COINMARKETCAP_API_KEY') || '891bdf88-f6a6-4045-89bc-d762256487f3';
         
-        if (metadata) {
+        if (!apiKey) {
+          console.error('Missing CoinMarketCap API key');
+          return;
+        }
+
+        const mainCoins = ['BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'LINK', 'MATIC', 'SUI'];
+        const limit = 50; // Reduced number of coins to fetch
+        
+        console.log('Requesting data from CoinMarketCap API in background...');
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        // Simple request with fewer details to speed up the response
+        const response = await fetch(
+          `https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=${limit}&convert=USD`, 
+          {
+            headers: {
+              'X-CMC_PRO_API_KEY': apiKey,
+              'Accept': 'application/json',
+            },
+            signal: controller.signal
+          }
+        );
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('CoinMarketCap API error:', errorText);
+          return;
+        }
+
+        const listingsData = await response.json();
+        
+        if (!listingsData.data) {
+          console.error('Invalid API response format:', JSON.stringify(listingsData));
+          return;
+        }
+        
+        // Filter out known invalid IDs
+        const validCryptos = listingsData.data.filter((crypto: any) => {
+          const problematicIds = [36119, 36118, 36117, 36116]; 
+          return !problematicIds.includes(crypto.id);
+        });
+
+        // Simplified response - skip metadata fetch to improve speed
+        const prices: Record<string, any> = {};
+        
+        for (const crypto of validCryptos) {
+          const symbol = crypto.symbol;
+          
           prices[symbol] = {
             price: crypto.quote.USD.price,
             change_24h: crypto.quote.USD.percent_change_24h,
             updated_at: new Date().toISOString(),
-            logo: metadata.logo,
-            name: metadata.name,
+            logo: `https://s2.coinmarketcap.com/static/img/coins/64x64/${crypto.id}.png`, // Use default URL pattern
+            name: crypto.name,
             symbol: symbol,
-            platform: metadata.platform || { 
-              name: metadata.name, // Default to the token name if no platform
-              logo: metadata.logo
+            platform: { 
+              name: crypto.name,
+              logo: `https://s2.coinmarketcap.com/static/img/coins/64x64/${crypto.id}.png`
             }
           };
         }
-      }
-      
-      // Ensure all the main coins are included by using fallbacks if needed
-      for (const coin of mainCoins) {
-        if (!prices[coin] && fallbackPrices[coin as keyof typeof fallbackPrices]) {
-          console.log(`Using fallback data for ${coin}`);
-          prices[coin] = {
-            ...fallbackPrices[coin as keyof typeof fallbackPrices],
-            updated_at: new Date().toISOString()
-          };
+        
+        // Ensure all the main coins are included by using fallbacks if needed
+        for (const coin of mainCoins) {
+          if (!prices[coin] && fallbackPrices[coin as keyof typeof fallbackPrices]) {
+            prices[coin] = {
+              ...fallbackPrices[coin as keyof typeof fallbackPrices],
+              updated_at: new Date().toISOString()
+            };
+          }
         }
-      }
 
-      console.log('Successfully fetched prices', Object.keys(prices).join(', '));
-      
-      const responseData = { prices, source: 'api' };
-      priceCache = {
-        data: responseData,
-        timestamp: now,
-        source: 'api'
-      };
-      
-      return new Response(
-        JSON.stringify(responseData),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
-      );
-    } catch (fetchError) {
-      console.error('Error fetching from CoinMarketCap:', fetchError.message);
-      
-      // Always return a valid response even if the API fails
-      return new Response(
-        JSON.stringify({ 
-          prices: fallbackPrices,
-          source: 'fallback',
-          error: fetchError.message
-        }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
-      );
+        console.log('Successfully fetched prices in background', Object.keys(prices).join(', '));
+        
+        const responseData = { prices, source: 'api' };
+        priceCache = {
+          data: responseData,
+          timestamp: now,
+          source: 'api'
+        };
+      } catch (fetchError) {
+        console.error('Error fetching from CoinMarketCap in background:', fetchError.message);
+      }
+    })();
+
+    // If this is enabled in Deno Deploy, use waitUntil to continue fetching after response
+    // @ts-ignore - EdgeRuntime might not be available in all environments
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(fetchPromise);
     }
+    
+    // Return immediate response with fallback data
+    return new Response(
+      JSON.stringify(immediateResponse),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+    
   } catch (error) {
     console.error('Unexpected error in crypto-prices function:', error.message);
     
@@ -348,12 +286,7 @@ serve(async (req) => {
         source: 'fallback',
         error: error.message
       }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
