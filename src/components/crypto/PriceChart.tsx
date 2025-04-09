@@ -21,9 +21,10 @@ interface PriceChartProps {
   priceData: any;
   timeframe: TimeFilter;
   color?: string;
+  darkMode?: boolean; // Add darkMode prop
 }
 
-const PriceChart = ({ priceData, timeframe, color = '#10B981' }: PriceChartProps) => {
+const PriceChart = ({ priceData, timeframe, color = '#10B981', darkMode = false }: PriceChartProps) => {
   // Generate mock data based on the timeframe
   const generateMockData = () => {
     const mockData = [];
@@ -166,9 +167,9 @@ const PriceChart = ({ priceData, timeframe, color = '#10B981' }: PriceChartProps
       }
       
       return (
-        <div className="bg-white p-3 shadow-lg rounded-lg border border-gray-200">
-          <p className="text-xs text-gray-500">{dateDisplay}</p>
-          <p className="text-sm font-semibold text-gray-800">${payload[0].value.toFixed(2)}</p>
+        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} p-3 shadow-lg rounded-lg border`}>
+          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{dateDisplay}</p>
+          <p className={`text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>${payload[0].value.toFixed(2)}</p>
         </div>
       );
     }
@@ -187,11 +188,11 @@ const PriceChart = ({ priceData, timeframe, color = '#10B981' }: PriceChartProps
             bottom: 5,
           }}
         >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? "#333333" : "#f0f0f0"} />
           <XAxis 
             dataKey="timestamp" 
             tickFormatter={formatXAxis}
-            tick={{ fontSize: 10, fill: '#888' }}
+            tick={{ fontSize: 10, fill: darkMode ? '#aaa' : '#888' }}
             tickCount={5}
             axisLine={false}
             tickLine={false}
@@ -199,7 +200,7 @@ const PriceChart = ({ priceData, timeframe, color = '#10B981' }: PriceChartProps
           <YAxis 
             tickFormatter={formatYAxis}
             domain={['auto', 'auto']}
-            tick={{ fontSize: 10, fill: '#888' }}
+            tick={{ fontSize: 10, fill: darkMode ? '#aaa' : '#888' }}
             orientation="right"
             axisLine={false}
             tickLine={false}
@@ -211,7 +212,7 @@ const PriceChart = ({ priceData, timeframe, color = '#10B981' }: PriceChartProps
             stroke={color}
             strokeWidth={2}
             dot={false}
-            activeDot={{ r: 6, fill: color, stroke: 'white', strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: color, stroke: darkMode ? '#333' : 'white', strokeWidth: 2 }}
           />
         </LineChart>
       </ResponsiveContainer>

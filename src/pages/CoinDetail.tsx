@@ -242,7 +242,7 @@ const CoinDetail = () => {
 
         <div className="grid grid-cols-4 gap-2 mb-4">
           <KashButton 
-            variant={darkMode ? "default" : "outline"}
+            variant={darkMode ? "primary" : "outline"}
             className={`flex flex-col items-center justify-center py-3 h-auto ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : ''}`}
             onClick={() => navigate('/receive')}
           >
@@ -258,7 +258,7 @@ const CoinDetail = () => {
           </KashButton>
           
           <KashButton 
-            variant={darkMode ? "default" : "outline"}
+            variant={darkMode ? "primary" : "outline"}
             className={`flex flex-col items-center justify-center py-3 h-auto ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : ''}`}
             onClick={() => navigate(`/swap?token=${coinId}`)}
           >
@@ -272,7 +272,7 @@ const CoinDetail = () => {
           </KashButton>
           
           <KashButton 
-            variant={darkMode ? "default" : "outline"}
+            variant={darkMode ? "primary" : "outline"}
             className={`flex flex-col items-center justify-center py-3 h-auto ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : ''}`}
             onClick={() => navigate('/buy')}
           >
@@ -283,7 +283,7 @@ const CoinDetail = () => {
           </KashButton>
           
           <KashButton 
-            variant={darkMode ? "default" : "outline"}
+            variant={darkMode ? "primary" : "outline"}
             className={`flex flex-col items-center justify-center py-3 h-auto ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : ''}`}
           >
             <div className={`${darkMode ? 'text-indigo-400' : 'text-indigo-500'} mb-1`}>
@@ -366,7 +366,7 @@ const CoinDetail = () => {
                 <button className={darkMode ? 'text-indigo-400 mt-2' : 'text-indigo-500 mt-2'}>Show More</button>
                 <div className="flex gap-2 mt-4 flex-wrap">
                   <KashButton 
-                    variant={darkMode ? "default" : "outline"} 
+                    variant={darkMode ? "primary" : "outline"} 
                     size="sm" 
                     className={`flex items-center gap-1 px-3 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 border-gray-600' : ''}`}
                     onClick={() => window.open('https://solana.com', '_blank')}
@@ -374,7 +374,7 @@ const CoinDetail = () => {
                     <Globe size={14} /> Website
                   </KashButton>
                   <KashButton 
-                    variant={darkMode ? "default" : "outline"} 
+                    variant={darkMode ? "primary" : "outline"} 
                     size="sm" 
                     className={`flex items-center gap-1 px-3 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 border-gray-600' : ''}`}
                     onClick={() => window.open('https://t.me/solana', '_blank')}
@@ -382,7 +382,7 @@ const CoinDetail = () => {
                     <MessageSquare size={14} /> Telegram
                   </KashButton>
                   <KashButton 
-                    variant={darkMode ? "default" : "outline"} 
+                    variant={darkMode ? "primary" : "outline"} 
                     size="sm" 
                     className={`flex items-center gap-1 px-3 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 border-gray-600' : ''}`}
                     onClick={() => window.open('https://twitter.com/solana', '_blank')}
