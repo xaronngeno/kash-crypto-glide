@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 enum AuthStage {
   EMAIL_INPUT = 'email_input',
   PASSWORD_INPUT = 'password_input',
+  SIGNUP = 'signup',
   EMAIL_VERIFICATION = 'email_verification',
 }
 
@@ -21,6 +22,7 @@ const Auth = () => {
   const { toast } = useToast();
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [authStage, setAuthStage] = useState<AuthStage>(AuthStage.EMAIL_INPUT);
 
@@ -41,39 +43,25 @@ const Auth = () => {
     
     try {
       // Check if user exists with this email
-      const { data, error } = await supabase.auth.signInWithOtp({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        options: {
-          shouldCreateUser: false,
-        }
+        password: "checking-only", // Dummy password to check if email exists
       });
       
-      // If we get an error indicating no user exists
-      if (error && error.message.includes("Email not found")) {
-        // Send magic link for account creation
-        const { data: signUpData, error: signUpError } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            shouldCreateUser: true,
-          }
-        });
-        
-        if (signUpError) {
-          throw signUpError;
-        }
-        
-        // Switch to email verification stage
-        setAuthStage(AuthStage.EMAIL_VERIFICATION);
-        
-        toast({
-          title: "Email sent",
-          description: "Check your email for a sign-up link",
-        });
+      if (error && error.message.includes("Invalid login credentials")) {
+        // Email doesn't exist, move to signup stage
+        setAuthStage(AuthStage.SIGNUP);
       } else if (error) {
-        // Some other error occurred
-        throw error;
+        // Some other error occurred with the login check
+        if (error.message.includes("Email not confirmed")) {
+          setAuthStage(AuthStage.EMAIL_VERIFICATION);
+        } else {
+          // If error but not "invalid credentials", move to password stage anyway
+          // Could be wrong password but email exists
+          setAuthStage(AuthStage.PASSWORD_INPUT);
+        }
       } else {
-        // User exists, move to password stage
+        // User exists and credentials are valid (shouldn't happen with dummy password)
         setAuthStage(AuthStage.PASSWORD_INPUT);
       }
     } catch (error: any) {
@@ -126,31 +114,52 @@ const Auth = () => {
     }
   };
   
-  // Handler for resending the verification email
-  const handleResendEmail = async () => {
+  // Handler for user signup
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please ensure both passwords match.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signInWithOtp({
+      const { data, error } = await supabase.auth.signUp({
         email,
-        options: {
-          shouldCreateUser: true,
-        }
+        password,
       });
       
       if (error) {
         throw error;
       }
       
+      // Move to email verification stage
+      setAuthStage(AuthStage.EMAIL_VERIFICATION);
+      
       toast({
-        title: "Email resent",
-        description: "Check your email for the verification link",
+        title: "Verification email sent",
+        description: "Please check your email to verify your account.",
       });
     } catch (error: any) {
-      console.error("Email resend error:", error);
+      console.error("Signup error:", error);
       toast({
-        title: "Failed to resend email",
-        description: error.message || "Please try again later.",
+        title: "Signup failed",
+        description: error.message || "Failed to create account. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -219,6 +228,51 @@ const Auth = () => {
           </form>
         );
         
+      case AuthStage.SIGNUP:
+        return (
+          <form className="space-y-6" onSubmit={handleSignUp}>
+            <div className="mb-2">
+              <p className="text-sm text-gray-600">Create account for: <strong>{email}</strong></p>
+              <button 
+                type="button" 
+                onClick={() => setAuthStage(AuthStage.EMAIL_INPUT)}
+                className="text-xs text-kash-green hover:underline"
+              >
+                Change email
+              </button>
+            </div>
+            
+            <KashInput
+              label="Create Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Create a password"
+              icon={<Lock size={18} className="text-gray-400" />}
+              required
+              autoFocus
+            />
+            
+            <KashInput
+              label="Confirm Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm your password"
+              icon={<Lock size={18} className="text-gray-400" />}
+              required
+            />
+
+            <KashButton 
+              type="submit" 
+              fullWidth 
+              disabled={loading}
+            >
+              {loading ? 'Creating account...' : 'Create Account'}
+            </KashButton>
+          </form>
+        );
+        
       case AuthStage.EMAIL_VERIFICATION:
         return (
           <div className="space-y-6">
@@ -226,7 +280,7 @@ const Auth = () => {
               <h3 className="font-medium text-blue-700 mb-2">Check your email</h3>
               <p className="text-sm text-blue-600">
                 We've sent a verification link to <strong>{email}</strong>. 
-                Click the link in the email to continue.
+                Click the link in the email to verify your account.
               </p>
               <p className="text-sm text-blue-600 mt-2">
                 After verification, your account will be created with a unique ID
@@ -238,19 +292,11 @@ const Auth = () => {
               <KashButton 
                 type="button" 
                 variant="outline"
-                onClick={handleResendEmail}
+                onClick={() => setAuthStage(AuthStage.EMAIL_INPUT)}
                 disabled={loading}
               >
-                {loading ? 'Sending...' : 'Resend verification email'}
-              </KashButton>
-              
-              <button 
-                type="button" 
-                onClick={() => setAuthStage(AuthStage.EMAIL_INPUT)}
-                className="text-sm text-kash-green hover:underline self-center"
-              >
                 Use a different email
-              </button>
+              </KashButton>
             </div>
           </div>
         );
@@ -267,7 +313,9 @@ const Auth = () => {
               ? 'Verify your email to continue' 
               : authStage === AuthStage.PASSWORD_INPUT 
                 ? 'Enter your password to sign in'
-                : 'Sign in to your account or create a new one'}
+                : authStage === AuthStage.SIGNUP
+                  ? 'Create your account'
+                  : 'Sign in to your account or create a new one'}
           </p>
         </div>
 
