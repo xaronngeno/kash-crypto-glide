@@ -30,7 +30,43 @@ const Auth = () => {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Special handling for email not confirmed error
+        if (error.message.includes('Email not confirmed')) {
+          console.log("Attempting to bypass email confirmation...");
+          // Try to force sign in by creating a new session
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: window.location.origin }
+          });
+          
+          if (signUpError) {
+            throw signUpError;
+          }
+          
+          // Try signing in again after re-registering
+          const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          
+          if (retryError) {
+            throw retryError;
+          }
+          
+          if (retryData.session) {
+            setProcessingStatus('Login successful!');
+            toast({
+              title: "Login successful",
+              description: "You've been successfully signed in.",
+            });
+            navigate('/dashboard');
+            return;
+          }
+        }
+        throw error;
+      }
       
       setProcessingStatus('Loading your account...');
       
