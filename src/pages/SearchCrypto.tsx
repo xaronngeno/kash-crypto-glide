@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashInput } from '@/components/ui/KashInput';
@@ -53,6 +54,10 @@ const SearchCrypto = () => {
     }
   };
 
+  const handleTokenSelect = (tokenId: string) => {
+    navigate(`/coin/${tokenId}`);
+  };
+
   const filteredTokens = tokensArray.filter(token => {
     const matchesSearch = 
       token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -67,35 +72,34 @@ const SearchCrypto = () => {
     return matchesSearch && matchesNetwork;
   })
   .sort((a, b) => {
-    let valueA, valueB;
+    let valueA = 0;
+    let valueB = 0;
     
     switch (trendingMetric) {
       case 'Volume':
         valueA = a.volume || 0;
         valueB = b.volume || 0;
-        return valueB - valueA;
+        break;
       case 'Price':
         valueA = a.price;
         valueB = b.price;
-        return valueB - valueA;
+        break;
       case 'Price Change':
         valueA = getChangeValue(a);
         valueB = getChangeValue(b);
-        return valueB - valueA;
+        break;
       case 'Market Cap':
         valueA = a.marketCap || 0;
         valueB = b.marketCap || 0;
-        return valueB - valueA;
+        break;
       default: // 'Trending'
         valueA = getChangeValue(a);
         valueB = getChangeValue(b);
-        return valueB - valueA;
+        break;
     }
+    
+    return valueB - valueA;
   });
-
-  const handleTokenSelect = (tokenId: string) => {
-    navigate(`/coin/${tokenId}`);
-  };
 
   return (
     <MainLayout title="Search Crypto">

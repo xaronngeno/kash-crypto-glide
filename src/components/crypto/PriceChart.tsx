@@ -1,219 +1,95 @@
+
 import React from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
-
-type TimeFilter = '1H' | '1D' | '1W' | '1M' | 'YTD' | 'ALL';
-
-interface PriceDataPoint {
-  timestamp: string;
-  price: number;
-}
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface PriceChartProps {
   priceData: any;
-  timeframe: TimeFilter;
-  color?: string;
-  darkMode?: boolean;
+  timeframe: string;
+  color: string;
+  darkMode?: boolean; // Added darkMode prop
 }
 
-const PriceChart = ({ priceData, timeframe, color = '#10B981', darkMode = false }: PriceChartProps) => {
-  // Generate mock data based on the timeframe
-  const generateMockData = () => {
-    const mockData = [];
-    const endPrice = priceData.price || 100;
+const PriceChart: React.FC<PriceChartProps> = ({ priceData, timeframe, color, darkMode = false }) => {
+  // Generate mock data based on the current price and change percentage
+  const generateChartData = () => {
+    const price = priceData.price || 100;
     const change = priceData.change_24h || 0;
+    const dataPoints = 24; // Number of data points
     
-    // Calculate starting price based on the percent change
-    const startPrice = endPrice / (1 + change / 100);
+    const data = [];
+    const volatility = Math.abs(change) * 0.1;
+    const trend = change / dataPoints;
     
-    // Generate different data points based on the timeframe
-    let points = 24;
-    let interval = "hour";
+    // Start with the current price minus the total expected change
+    let startPrice = price / (1 + (change / 100));
     
-    switch (timeframe) {
-      case '1H':
-        points = 60;
-        interval = "minute";
-        break;
-      case '1D':
-        points = 24;
-        interval = "hour";
-        break;
-      case '1W':
-        points = 7;
-        interval = "day";
-        break;
-      case '1M':
-        points = 30;
-        interval = "day";
-        break;
-      case 'YTD':
-        points = 12;
-        interval = "month";
-        break;
-      case 'ALL':
-        points = 24;
-        interval = "month";
-        break;
-      default:
-        points = 24;
-        interval = "hour";
-    }
-    
-    // Create a price volatility simulation
-    const volatility = Math.abs(change) / 100;
-    const now = new Date();
-    
-    for (let i = 0; i < points; i++) {
-      let timestamp;
-      if (interval === "minute") {
-        timestamp = new Date(now.getTime() - (points - i) * 60 * 1000);
-      } else if (interval === "hour") {
-        timestamp = new Date(now.getTime() - (points - i) * 60 * 60 * 1000);
-      } else if (interval === "day") {
-        timestamp = new Date(now.getTime() - (points - i) * 24 * 60 * 60 * 1000);
-      } else {
-        timestamp = new Date(now.getFullYear(), now.getMonth() - (points - i), now.getDate());
-      }
+    for (let i = 0; i < dataPoints; i++) {
+      // Add some random noise to make it look more realistic
+      const noise = (Math.random() - 0.5) * volatility;
+      // Calculate the price for this point with some randomness
+      const pointPrice = startPrice + (startPrice * trend * i) + noise;
       
-      // Create progressive price changes
-      const progressRatio = i / (points - 1);
-      const randomFactor = (Math.random() - 0.5) * volatility * 2;
-      const smoothedPrice = startPrice + (endPrice - startPrice) * progressRatio;
-      const price = smoothedPrice * (1 + randomFactor);
-      
-      mockData.push({
-        timestamp: timestamp.toISOString(),
-        price: Math.max(0, price),
+      data.push({
+        time: i,
+        price: pointPrice
       });
     }
     
-    return mockData;
+    return data;
   };
   
-  const chartData = generateMockData();
+  const chartData = generateChartData();
   
-  const formatXAxis = (tickItem: string) => {
-    const date = new Date(tickItem);
-    switch (timeframe) {
-      case '1H':
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      case '1D':
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      case '1W':
-        return date.toLocaleDateString([], { weekday: 'short' });
-      case '1M':
-        return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
-      case 'YTD':
-      case 'ALL':
-        return date.toLocaleDateString([], { month: 'short' });
-      default:
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
+  // Format the price display
+  const formatPrice = (value: number) => {
+    return `$${value.toFixed(2)}`;
   };
   
-  const formatYAxis = (value: number) => {
-    if (value >= 1000000000) {
-      return `$${(value / 1000000000).toFixed(1)}B`;
-    } else if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
-    } else if (value >= 1000) {
-      return `$${(value / 1000).toFixed(1)}K`;
-    } else {
-      return `$${value.toFixed(1)}`;
-    }
-  };
-  
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const date = new Date(payload[0].payload.timestamp);
-      let dateDisplay;
-      
-      switch (timeframe) {
-        case '1H':
-        case '1D':
-          dateDisplay = date.toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
-          break;
-        case '1W':
-        case '1M':
-          dateDisplay = date.toLocaleDateString([], { 
-            month: 'short', 
-            day: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
-          break;
-        case 'YTD':
-        case 'ALL':
-          dateDisplay = date.toLocaleDateString([], { 
-            year: 'numeric',
-            month: 'short', 
-            day: 'numeric' 
-          });
-          break;
-        default:
-          dateDisplay = date.toLocaleString();
-      }
-      
-      return (
-        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} p-3 shadow-lg rounded-lg border`}>
-          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{dateDisplay}</p>
-          <p className={`text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>${payload[0].value.toFixed(2)}</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
-    <div className="h-64">
+    <div className="h-60 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
+        <AreaChart
           data={chartData}
-          margin={{
-            top: 5,
-            right: 0,
-            left: 0,
-            bottom: 5,
-          }}
+          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? "#333333" : "#f0f0f0"} />
+          <defs>
+            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <XAxis 
-            dataKey="timestamp" 
-            tickFormatter={formatXAxis}
-            tick={{ fontSize: 10, fill: darkMode ? '#aaa' : '#888' }}
-            tickCount={5}
-            axisLine={false}
-            tickLine={false}
+            dataKey="time" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={false}
+            stroke={darkMode ? "#6b7280" : "#e5e7eb"} 
           />
           <YAxis 
-            tickFormatter={formatYAxis}
-            domain={['auto', 'auto']}
-            tick={{ fontSize: 10, fill: darkMode ? '#aaa' : '#888' }}
-            orientation="right"
-            axisLine={false}
-            tickLine={false}
+            domain={['dataMin', 'dataMax']} 
+            axisLine={false} 
+            tickLine={false} 
+            tick={false}
+            stroke={darkMode ? "#6b7280" : "#e5e7eb"}
           />
-          <Tooltip content={<CustomTooltip />} />
-          <Line
-            type="monotone"
-            dataKey="price"
-            stroke={color}
+          <Tooltip 
+            formatter={formatPrice} 
+            labelFormatter={() => ''} 
+            contentStyle={{
+              backgroundColor: darkMode ? '#1f2937' : 'white',
+              borderColor: darkMode ? '#374151' : '#e5e7eb',
+              color: darkMode ? 'white' : 'black'
+            }}
+          />
+          <Area 
+            type="monotone" 
+            dataKey="price" 
+            stroke={color} 
+            fillOpacity={1} 
+            fill="url(#colorPrice)" 
             strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 6, fill: color, stroke: darkMode ? '#333' : 'white', strokeWidth: 2 }}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
