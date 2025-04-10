@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Copy, QrCode } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
