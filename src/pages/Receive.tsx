@@ -7,6 +7,7 @@ import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
+import QRCode from 'qrcode.react';
 
 interface WalletAddress {
   blockchain: string;
@@ -142,7 +143,14 @@ const Receive = () => {
               {showQR ? (
                 <div className="mb-4 flex justify-center">
                   <div className="w-48 h-48 bg-gray-100 flex items-center justify-center">
-                    <QrCode size={120} className="text-gray-800" />
+                    <QRCode 
+                      value={selectedChain.address}
+                      size={200}
+                      renderAs="svg"
+                      level="H"
+                      includeMargin={true}
+                      className="w-40 h-40"
+                    />
                   </div>
                 </div>
               ) : (
