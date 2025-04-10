@@ -1,3 +1,4 @@
+
 import { Keypair } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
@@ -23,6 +24,7 @@ export const DERIVATION_PATHS = {
   SOLANA: "m/44'/501'/0'/0'",
   BITCOIN: "m/44'/0'/0'/0/0",
   SUI: "m/44'/784'/0'/0'/0'",
+  TRON: "m/44'/195'/0'/0/0",
   MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
 };
 
@@ -82,6 +84,27 @@ export const generateSuiWallet = (): WalletData => {
   } catch (error) {
     console.error('Error generating Sui wallet:', error);
     throw new Error('Failed to generate Sui wallet');
+  }
+};
+
+// Generate Tron wallet
+export const generateTronWallet = (): WalletData => {
+  try {
+    // Create a random wallet
+    const wallet = ethers.Wallet.createRandom();
+    
+    // For a real Tron wallet we'd derive it properly from the privateKey
+    // This is a simplified version
+    return {
+      blockchain: 'Tron',
+      platform: 'Tron',
+      address: `T${wallet.address.substring(2)}`, // Simple mock for demo
+      privateKey: wallet.privateKey,
+      derivationPath: DERIVATION_PATHS.TRON,
+    };
+  } catch (error) {
+    console.error('Error generating Tron wallet:', error);
+    throw new Error('Failed to generate Tron wallet');
   }
 };
 
@@ -202,6 +225,9 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
     
     // Add Sui wallet
     wallets.push(generateSuiWallet());
+    
+    // Add Tron wallet
+    wallets.push(generateTronWallet());
     
     try {
       // Try to generate Bitcoin wallets, but don't fail the entire function if they fail

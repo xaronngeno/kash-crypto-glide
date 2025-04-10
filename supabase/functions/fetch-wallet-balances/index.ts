@@ -49,6 +49,20 @@ async function fetchWalletBalances(supabase: any, userId: string) {
         console.error("Error checking for mnemonic:", mnemonicError);
       } else if (mnemonicData?.main_mnemonic) {
         console.log("User has mnemonic but no wallets. This is inconsistent.");
+        
+        // Try to create wallets since we have a mnemonic
+        console.log("Attempting to create wallets for user with existing mnemonic");
+        try {
+          // We'll let the client handle wallet creation since it has all the logic
+          return {
+            success: true,
+            message: "No wallets found for user, but mnemonic exists",
+            wallets: [],
+            shouldCreateWallets: true
+          };
+        } catch (createError) {
+          console.error("Error creating wallets:", createError);
+        }
       }
       
       return {

@@ -11,7 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 
-const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX'];
+const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX', 'SUI', 'MONAD'];
 
 interface WalletAddress {
   blockchain: string;
@@ -31,10 +31,14 @@ const getNetworkLogo = (blockchain: string) => {
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png';
     case 'tron':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png';
+    case 'sui':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/20947.png';
     case 'binance smart chain':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png';
     case 'polygon':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png';
+    case 'monad':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/24103.png';
     default:
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
   }
@@ -50,12 +54,26 @@ const getCurrencyLogo = (symbol: string) => {
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png';
     case 'TRX':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png';
+    case 'SUI':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/20947.png';
     case 'USDT':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/825.png';
     case 'BNB':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png';
     case 'MATIC':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png';
+    case 'MONAD':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/24103.png';
+    case 'XRP':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/52.png';
+    case 'ADA':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/2010.png';
+    case 'DOT':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/6636.png';
+    case 'DOGE':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/74.png';
+    case 'LINK':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1975.png';
     default:
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
   }
@@ -77,11 +95,17 @@ const NetworkBadge = ({ network }: { network: string }) => {
     case 'tron':
       color = "bg-red-100 text-red-600";
       break;
+    case 'sui':
+      color = "bg-blue-100 text-blue-700";
+      break;
     case 'binance smart chain':
       color = "bg-yellow-100 text-yellow-700";
       break;
     case 'polygon':
       color = "bg-blue-100 text-blue-600";
+      break;
+    case 'monad':
+      color = "bg-green-100 text-green-600";
       break;
   }
   
@@ -146,6 +170,8 @@ const Receive = () => {
 
       try {
         setLoading(true);
+        console.log("Fetching wallet addresses for user:", user.id);
+        
         const { data, error } = await supabase
           .from('wallets')
           .select('blockchain, currency, address, wallet_type')
@@ -158,6 +184,7 @@ const Receive = () => {
         if (data && data.length > 0) {
           console.log("Fetched wallet addresses:", data);
           
+          // Include all supported currencies
           const filteredData = data.filter(wallet => 
             MAIN_CURRENCIES.includes(wallet.currency) || wallet.wallet_type === 'imported'
           );
