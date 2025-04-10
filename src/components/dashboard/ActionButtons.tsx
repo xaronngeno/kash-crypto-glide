@@ -6,7 +6,7 @@ import { toast } from '@/hooks/use-toast';
 import { useState } from 'react';
 
 interface ActionButtonsProps {
-  onForceCreateWallets?: () => void;
+  onForceCreateWallets?: () => Promise<any>;
 }
 
 export const ActionButtons = ({ onForceCreateWallets }: ActionButtonsProps) => {
@@ -31,7 +31,7 @@ export const ActionButtons = ({ onForceCreateWallets }: ActionButtonsProps) => {
         console.error("Error recreating wallets:", error);
         toast({
           title: 'Error recreating wallets',
-          description: 'There was a problem recreating your wallets. Please try again later.',
+          description: 'There was a problem recreating your wallets. Please refresh the page and try again.',
           variant: 'destructive',
         });
       } finally {

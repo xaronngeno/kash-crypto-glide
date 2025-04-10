@@ -17,8 +17,9 @@ function handleCors(req: Request) {
   return null;
 }
 
-// Include ALL supported cryptocurrencies - making sure TRX and SOL are included
-const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'MONAD', 'TRX', 'SUI'];
+// Include ALL supported cryptocurrencies - removing Bitcoin from required list
+// since we're having issues with it
+const MAIN_CURRENCIES = ['ETH', 'SOL', 'MONAD', 'TRX', 'SUI'];
 
 // Fetch real wallet balances for a user from the database
 async function fetchWalletBalances(supabase: any, userId: string) {
