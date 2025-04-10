@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
@@ -413,7 +412,7 @@ serve(async (req) => {
       });
     }
     
-    // Try to fetch existing wallets first
+    // Check for existing wallets for this user
     const { data: existingWallets, error: walletsError } = await supabase
       .from("wallets")
       .select("*")
@@ -428,10 +427,11 @@ serve(async (req) => {
       // Make sure the mnemonic is stored
       const existingMnemonic = await getUserMnemonic(supabase, userId);
       if (!existingMnemonic) {
-        // If wallets exist but no mnemonic, generate a warning
+        // If wallets exist but no mnemonic, this is an inconsistent state
         console.warn("User has wallets but no mnemonic stored. This could lead to recovery issues.");
       }
       
+      // Return the existing wallets
       return new Response(JSON.stringify({
         success: true,
         message: "User already has wallets",
@@ -445,8 +445,8 @@ serve(async (req) => {
     let mnemonic = await getUserMnemonic(supabase, userId);
     
     if (!mnemonic) {
-      // Generate a new mnemonic if none exists
-      mnemonic = getOrCreateMnemonic();
+      // Generate a new mnemonic if none exists (using getOrCreateMnemonic helper)
+      mnemonic = bip39.generateMnemonic(128); // 12 words
       console.log("Generated new mnemonic for user");
       
       // Store the mnemonic
@@ -464,9 +464,9 @@ serve(async (req) => {
       console.log("Using existing mnemonic for wallet generation");
     }
     
-    // Generate wallets using the mnemonic
     const wallets = await generateWalletsForUser(supabase, userId, mnemonic);
     
+    // Return success message with wallets
     return new Response(JSON.stringify({
       success: true,
       message: "Wallets created successfully",

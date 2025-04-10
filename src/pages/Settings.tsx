@@ -36,6 +36,7 @@ const Settings = () => {
     address: string;
   }>>([]);
   const [userMnemonic, setUserMnemonic] = useState<string | null>(null);
+  const [isMnemonicLoading, setIsMnemonicLoading] = useState(false);
   
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -76,12 +77,17 @@ const Settings = () => {
     
     try {
       setLoading(true);
+      setIsMnemonicLoading(true);
       
+      console.log('Attempting to fetch mnemonic for user:', user.id);
       // Fetch the user's mnemonic using our helper function
       const mnemonic = await getUserMnemonic(user.id);
       
       if (mnemonic) {
+        console.log('Successfully retrieved stored mnemonic');
         setUserMnemonic(mnemonic);
+      } else {
+        console.log('No stored mnemonic found');
       }
       
       // Now fetch wallet data
@@ -95,8 +101,8 @@ const Settings = () => {
       }
       
       // Filter to show only main chain wallets (BTC, ETH, SOL, TRX)
-      const mainChains = ['Bitcoin', 'Ethereum', 'Solana', 'Tron'];
-      const mainCurrencies = ['BTC', 'ETH', 'SOL', 'TRX'];
+      const mainChains = ['Bitcoin', 'Ethereum', 'Solana', 'Tron', 'Sui', 'Monad'];
+      const mainCurrencies = ['BTC', 'ETH', 'SOL', 'TRX', 'SUI', 'MONAD'];
       
       const filteredWallets = walletData.filter(wallet => 
         mainChains.includes(wallet.blockchain) && 
@@ -106,22 +112,27 @@ const Settings = () => {
       setWallets(filteredWallets);
       
       // If no mnemonic was found, generate a new one and store it
-      if (!mnemonic) {
+      if (!mnemonic && user.id) {
+        console.log('No mnemonic found, generating a new one');
         const newMnemonic = getOrCreateMnemonic();
         setUserMnemonic(newMnemonic);
         
+        console.log('Storing newly generated mnemonic');
         // Store the generated mnemonic in the database for future use
-        if (user.id) {
-          const success = await storeUserMnemonic(user.id, newMnemonic);
-          if (!success) {
-            console.error("Error storing mnemonic");
-          } else {
-            console.log("Successfully stored mnemonic for user");
-          }
+        const success = await storeUserMnemonic(user.id, newMnemonic);
+        if (!success) {
+          console.error("Error storing mnemonic");
+          toast({
+            title: "Error",
+            description: "Failed to save your recovery phrase securely",
+            variant: "destructive"
+          });
+        } else {
+          console.log("Successfully stored mnemonic for user");
         }
       }
     } catch (err) {
-      console.error('Error fetching wallets:', err);
+      console.error('Error fetching wallets or mnemonic:', err);
       toast({
         title: 'Error',
         description: 'Failed to fetch wallet information',
@@ -129,6 +140,7 @@ const Settings = () => {
       });
     } finally {
       setLoading(false);
+      setIsMnemonicLoading(false);
     }
   };
   
@@ -307,17 +319,27 @@ const Settings = () => {
                     <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
                       <div className="flex justify-between items-center mb-3">
                         <h4 className="font-medium">Universal Recovery Seed</h4>
-                        <button 
-                          onClick={() => userMnemonic && copySeedPhrase(userMnemonic)}
-                          className="text-kash-green hover:opacity-70 p-1"
-                        >
-                          <Copy size={16} />
-                        </button>
+                        {userMnemonic && (
+                          <button 
+                            onClick={() => copySeedPhrase(userMnemonic)}
+                            className="text-kash-green hover:opacity-70 p-1"
+                          >
+                            <Copy size={16} />
+                          </button>
+                        )}
                       </div>
                       
-                      {userMnemonic && (
+                      {isMnemonicLoading ? (
+                        <div className="p-3 flex justify-center">
+                          <Loader2 className="h-5 w-5 animate-spin text-kash-green" />
+                        </div>
+                      ) : userMnemonic ? (
                         <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono break-all">
                           {userMnemonic}
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-white border border-gray-200 rounded text-sm text-gray-500">
+                          No recovery phrase found
                         </div>
                       )}
                       
@@ -328,21 +350,34 @@ const Settings = () => {
                       {/* Display the list of wallets derived from this seed */}
                       <div className="mt-4">
                         <h5 className="font-medium text-sm mb-2">Your Wallets</h5>
-                        <div className="space-y-2">
-                          {wallets.map((wallet, index) => (
-                            <div key={index} className="p-2 border border-gray-100 rounded bg-white">
-                              <div className="flex justify-between">
-                                <div>
-                                  <p className="text-sm font-medium">{wallet.blockchain}</p>
-                                  <p className="text-xs text-gray-500 truncate">{wallet.address}</p>
+                        {wallets.length > 0 ? (
+                          <div className="space-y-2">
+                            {wallets.map((wallet, index) => (
+                              <div key={index} className="p-2 border border-gray-100 rounded bg-white">
+                                <div className="flex justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium">{wallet.blockchain}</p>
+                                    <p className="text-xs text-gray-500 truncate">{wallet.address}</p>
+                                  </div>
+                                  <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded-full">
+                                    {wallet.currency}
+                                  </span>
                                 </div>
-                                <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded-full">
-                                  {wallet.currency}
-                                </span>
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-3 text-center text-sm text-gray-500">
+                            <p>No wallets found.</p>
+                            <KashButton 
+                              className="mt-2" 
+                              size="sm"
+                              onClick={() => navigate('/dashboard')}
+                            >
+                              Go to Dashboard to create wallets
+                            </KashButton>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </AccordionContent>
