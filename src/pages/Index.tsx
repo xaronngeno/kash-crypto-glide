@@ -14,6 +14,7 @@ const Index = () => {
     
     // Always redirect to auth page by default
     const timer = setTimeout(() => {
+      // Only redirect to dashboard if actually authenticated
       if (isAuthenticated) {
         navigate('/dashboard');
       } else {

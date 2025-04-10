@@ -19,7 +19,7 @@ import { Loader2 } from 'lucide-react';
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signOut, isAuthenticated } = useAuth();
+  const { user, signOut, isAuthenticated, loading: authLoading } = useAuth();
   const [currencyDisplay, setCurrencyDisplay] = useState('USD');
   const [profile, setProfile] = useState<{
     first_name: string | null;
@@ -35,39 +35,39 @@ const Settings = () => {
   const mockSeedPhrase = "point coffee twist knock deposit differ yard adjust battle reason million elite";
   
   useEffect(() => {
-    // If not authenticated, we don't need to fetch profile
-    if (!isAuthenticated) {
-      setLoading(false);
+    // Immediately redirect if not authenticated and not loading
+    if (!authLoading && !isAuthenticated) {
+      navigate('/auth', { state: { from: location } });
       return;
     }
     
-    const fetchUserProfile = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, phone, numeric_id')
-          .eq('id', user.id)
-          .maybeSingle();
-        
-        if (error) {
-          console.error('Error fetching profile:', error);
-        } else {
-          setProfile(data);
+    // Only fetch profile if authenticated
+    if (isAuthenticated && user) {
+      const fetchUserProfile = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, phone, numeric_id')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          if (error) {
+            console.error('Error fetching profile:', error);
+          } else {
+            setProfile(data);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchUserProfile();
-  }, [user, isAuthenticated]);
+      };
+      
+      fetchUserProfile();
+    } else {
+      setLoading(false);
+    }
+  }, [user, isAuthenticated, authLoading, navigate]);
   
   const handleLogout = async () => {
     try {
@@ -108,17 +108,6 @@ const Settings = () => {
     }
     return user?.email || 'User';
   };
-
-  // Copy user ID to clipboard
-  const copyUserId = () => {
-    if (!user) return;
-    
-    navigator.clipboard.writeText(user.id);
-    toast({
-      title: "User ID copied",
-      description: "User ID has been copied to clipboard.",
-    });
-  };
   
   const authFormSchema = z.object({
     password: z.string().min(6, "Password must be at least 6 characters"),
@@ -157,7 +146,8 @@ const Settings = () => {
     setIsAuthDialogOpen(true);
   };
 
-  if (loading) {
+  // Loading state
+  if (authLoading || loading) {
     return (
       <MainLayout title="Settings">
         <div className="flex justify-center items-center h-64">
@@ -167,16 +157,8 @@ const Settings = () => {
     );
   }
   
-  // If not authenticated, show a message and redirect to login
+  // If not authenticated, redirect immediately
   if (!isAuthenticated) {
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        navigate('/auth', { state: { from: location } });
-      }, 1500);
-      
-      return () => clearTimeout(timer);
-    }, [navigate]);
-    
     return (
       <MainLayout title="Settings">
         <div className="flex flex-col items-center justify-center h-64">
@@ -202,20 +184,23 @@ const Settings = () => {
               {profile?.phone && (
                 <p className="text-sm text-gray-500">{profile.phone}</p>
               )}
-              {/* User ID section */}
-              <div className="mt-2 flex items-center">
-                <p className="text-xs text-gray-500 mr-1">User ID: {profile?.numeric_id || 'Not available'}</p>
-                <button onClick={copyUserId} className="text-kash-green hover:text-kash-green/80">
-                  <Copy size={14} />
-                </button>
-              </div>
-              {/* Account ID section */}
-              <div className="mt-1 flex items-center">
-                <p className="text-xs text-gray-500 mr-1">Account ID: {user?.id ? `${user.id.substring(0, 8)}...` : 'Not available'}</p>
-                <button onClick={copyUserId} className="text-kash-green hover:text-kash-green/80">
-                  <Copy size={14} />
-                </button>
-              </div>
+              {/* Only show User ID if it exists in the profile */}
+              {profile?.numeric_id && (
+                <div className="mt-2 flex items-center">
+                  <p className="text-xs text-gray-500 mr-1">User ID: {profile.numeric_id}</p>
+                  <button onClick={() => {
+                    if (profile.numeric_id) {
+                      navigator.clipboard.writeText(profile.numeric_id.toString());
+                      toast({
+                        title: "User ID copied",
+                        description: "User ID has been copied to clipboard.",
+                      });
+                    }
+                  }} className="text-kash-green hover:text-kash-green/80">
+                    <Copy size={14} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </KashCard>
