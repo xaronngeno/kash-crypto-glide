@@ -7,13 +7,14 @@ import { derivePath } from 'ed25519-hd-key';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import CryptoJS from 'crypto-js';
 
-// Define the derivation paths for different blockchains
+// Define the standard derivation paths for different blockchains that match external wallets
 const DERIVATION_PATHS = {
-  ETHEREUM: "m/44'/60'/0'/0/0",
-  SOLANA: "m/44'/501'/0'/0'",
-  TRON: "m/44'/195'/0'/0/0",
-  SUI: "m/44'/784'/0'/0'/0'",
-  MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
+  // BIP44 standard paths
+  ETHEREUM: "m/44'/60'/0'/0/0",     // Standard for ETH and EVM chains
+  SOLANA: "m/44'/501'/0'/0'",       // Standard for Solana (matches Phantom)
+  TRON: "m/44'/195'/0'/0/0",        // Standard for Tron
+  SUI: "m/44'/784'/0'/0'/0'",       // Standard for Sui
+  MONAD: "m/44'/60'/0'/0/0",        // Uses Ethereum path as Monad is EVM-compatible
 };
 
 // Interface for WalletData
@@ -47,7 +48,7 @@ export function getOrCreateMnemonic(existingMnemonic?: string, wordCount: number
 }
 
 /**
- * Generate an Ethereum-compatible wallet from a mnemonic
+ * Generate an Ethereum-compatible wallet from a mnemonic using standard derivation
  * @param mnemonic BIP-39 mnemonic phrase
  * @param path Derivation path
  * @param blockchain Blockchain name
@@ -59,7 +60,7 @@ export function generateEVMWallet(
   blockchain: string
 ): MnemonicWalletData {
   try {
-    // Create wallet properly from mnemonic with derivation path
+    // Create wallet properly from mnemonic with derivation path that matches external wallets
     const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, path);
 
     return {
@@ -75,16 +76,16 @@ export function generateEVMWallet(
 }
 
 /**
- * Generate a Solana wallet from a mnemonic
+ * Generate a Solana wallet from a mnemonic using standard derivation path that matches Phantom
  * @param mnemonic BIP-39 mnemonic phrase
  * @returns Wallet data object with address and private key
  */
 export function generateSolanaWallet(mnemonic: string): MnemonicWalletData {
   try {
-    // Convert mnemonic to seed
+    // Convert mnemonic to seed using standard method
     const seed = bip39.mnemonicToSeedSync(mnemonic);
     
-    // Derive the keypair from the seed using the Solana path
+    // Derive the keypair using the standard Solana path (matches Phantom wallet)
     const { key } = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
     
     // Create a Solana keypair from the derived key
@@ -103,13 +104,13 @@ export function generateSolanaWallet(mnemonic: string): MnemonicWalletData {
 }
 
 /**
- * Generate a Tron wallet from a mnemonic
+ * Generate a Tron wallet from a mnemonic using standard derivation
  * @param mnemonic BIP-39 mnemonic phrase
  * @returns Wallet data object with address and private key
  */
 export function generateTronWallet(mnemonic: string): MnemonicWalletData {
   try {
-    // Use ETH derivation with TRON path
+    // Use ETH derivation with TRON path (standard derivation)
     const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.TRON);
     
     // For compatibility with TronWeb, we extract the private key
@@ -131,7 +132,7 @@ export function generateTronWallet(mnemonic: string): MnemonicWalletData {
 }
 
 /**
- * Generate a Sui wallet from a mnemonic
+ * Generate a Sui wallet from a mnemonic using standard derivation
  * @param mnemonic BIP-39 mnemonic phrase
  * @returns Wallet data object with address and private key
  */

@@ -1,15 +1,16 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
-// Define the derivation paths for different blockchains
+// Define the standard derivation paths that match external wallets
 const DERIVATION_PATHS = {
-  ETHEREUM: "m/44'/60'/0'/0/0",
-  SOLANA: "m/44'/501'/0'/0'",
-  TRON: "m/44'/195'/0'/0/0",
-  MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
-  SUI: "m/44'/784'/0'/0'/0'",
+  ETHEREUM: "m/44'/60'/0'/0/0",     // Standard for ETH and EVM chains
+  SOLANA: "m/44'/501'/0'/0'",       // Standard for Solana (matches Phantom)
+  TRON: "m/44'/195'/0'/0/0",        // Standard for Tron
+  SUI: "m/44'/784'/0'/0'/0'",       // Standard for Sui
+  MONAD: "m/44'/60'/0'/0/0",        // Uses Ethereum path as Monad is EVM-compatible
 };
 
 // Generate a strong, unique mnemonic
@@ -70,7 +71,7 @@ async function generateSolanaWallet(mnemonic: string) {
     const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
     const { Keypair } = await import("https://esm.sh/@solana/web3.js@1.91.1");
     
-    // Derive the keypair
+    // Derive the keypair using standard Solana path (matches Phantom wallet)
     const derivedKey = derivePath(DERIVATION_PATHS.SOLANA, Array.from(new Uint8Array(seed))
       .map(b => b.toString(16).padStart(2, '0')).join('')).key;
     
@@ -100,7 +101,7 @@ async function generateTronWallet(mnemonic: string) {
   try {
     console.log("Starting Tron wallet generation from mnemonic");
     
-    // Use ethers.js with Tron path
+    // Use ethers.js with standard Tron path
     const ethers = await import("https://esm.sh/ethers@6.13.5");
     const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.TRON);
     
@@ -134,7 +135,7 @@ async function generateSuiWallet(mnemonic: string) {
     // For this implementation, we'll use the ed25519-hd-key package
     const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
     
-    // Derive the keypair from the seed using the Sui path
+    // Derive the keypair from the seed using the standard Sui path
     const derivedKey = derivePath(DERIVATION_PATHS.SUI, Array.from(seedBuffer)
       .map(b => b.toString(16).padStart(2, '0')).join('')).key;
     
