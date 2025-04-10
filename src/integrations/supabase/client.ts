@@ -24,7 +24,8 @@ export const supabase = createClient<Database>(
 
 // Function to directly execute raw SQL queries
 export const executeSql = async (query: string, params?: any[]) => {
-  const { data, error } = await supabase.rpc('execute', { query, params });
+  // Use type assertion to override TypeScript's default behavior
+  const { data, error } = await (supabase.rpc('execute', { query, params }) as unknown as Promise<{ data: any, error: any }>);
   if (error) throw error;
   return data;
 };
@@ -33,12 +34,12 @@ export const executeSql = async (query: string, params?: any[]) => {
 export const getUserMnemonic = async (userId: string): Promise<string | null> => {
   try {
     // Type assertion to handle the RPC response properly
-    const { data, error } = await supabase.rpc('get_user_mnemonic', { 
+    const { data, error } = await (supabase.rpc('get_user_mnemonic', { 
       user_id_param: userId 
-    }) as unknown as { 
+    }) as unknown as Promise<{ 
       data: { main_mnemonic: string }[] | null, 
       error: any 
-    };
+    }>);
     
     if (error) {
       console.error('Error fetching mnemonic:', error);
@@ -57,10 +58,10 @@ export const getUserMnemonic = async (userId: string): Promise<string | null> =>
 export const storeUserMnemonic = async (userId: string, mnemonic: string): Promise<boolean> => {
   try {
     // Type assertion for RPC call
-    const { error } = await supabase.rpc('store_user_mnemonic', { 
+    const { error } = await (supabase.rpc('store_user_mnemonic', { 
       user_id_param: userId,
       mnemonic_param: mnemonic
-    }) as { data: null, error: any };
+    }) as unknown as Promise<{ data: null, error: any }>);
     
     if (error) {
       console.error('Error storing mnemonic:', error);
