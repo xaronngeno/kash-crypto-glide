@@ -56,35 +56,56 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Check if user exists with this email
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: "checking-only", // Dummy password to check if email exists
-      });
+      // Check if user exists with this email by looking up user with this email
+      const { data, error } = await supabase.auth.admin
+        .listUsers({
+          filter: {
+            email: email
+          }
+        })
+        .catch(() => {
+          // If admin API not available, fallback to sign in attempt
+          return supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: false,
+            }
+          });
+        });
+
+      // Check if the email is associated with any user
+      const emailExists = data && ((Array.isArray(data.users) && data.users.length > 0) || 
+                                  (data.user !== null) || 
+                                  (!error));
       
-      if (error && error.message.includes("Invalid login credentials")) {
+      if (!emailExists) {
         // Email doesn't exist, move to signup stage
         setAuthStage(AuthStage.SIGNUP);
-      } else if (error) {
-        // Some other error occurred with the login check
-        if (error.message.includes("Email not confirmed")) {
+      } else {
+        // Email exists, check if it's confirmed
+        if (error && error.message.includes("Email not confirmed")) {
           setAuthStage(AuthStage.EMAIL_VERIFICATION);
         } else {
-          // If error but not "invalid credentials", move to password stage anyway
-          // Could be wrong password but email exists
+          // Email exists and is confirmed, proceed to password input
           setAuthStage(AuthStage.PASSWORD_INPUT);
         }
-      } else {
-        // User exists and credentials are valid (shouldn't happen with dummy password)
-        setAuthStage(AuthStage.PASSWORD_INPUT);
       }
     } catch (error: any) {
       console.error("Authentication error:", error);
-      toast({
-        title: "Authentication failed",
-        description: error.message || "Failed to authenticate. Please try again.",
-        variant: "destructive"
-      });
+      
+      // If we get specific error about email not being confirmed
+      if (error.message && error.message.includes("Email not confirmed")) {
+        setAuthStage(AuthStage.EMAIL_VERIFICATION);
+      } else {
+        // Default to password stage if we can't determine - better UX than showing an error
+        setAuthStage(AuthStage.PASSWORD_INPUT);
+        
+        toast({
+          title: "Email check failed",
+          description: "We'll proceed with login. If you don't have an account, you can go back and create one.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
