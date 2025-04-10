@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -12,15 +11,11 @@ interface UseWalletsProps {
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creatingWallets, setCreatingWallets] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
 
   // Reference for tracking if wallets are already created
   const walletsCreatedRef = useRef(false);
-  
-  // Abort controller for cancelling requests
-  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Default assets for fallback
   const defaultAssetsMap = {
@@ -59,52 +54,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       );
     }
   }, [prices]);
-
-  // Create wallets function
-  const createWalletsForUser = useCallback(async () => {
-    if (!user || !session?.access_token || creatingWallets || walletsCreatedRef.current) return;
-    
-    try {
-      setCreatingWallets(true);
-      console.log("Attempting to create wallets for user:", user.id);
-      
-      const { data, error } = await supabase.functions.invoke('create-wallets', {
-        method: 'POST',
-        body: { userId: user.id }
-      });
-      
-      if (error) {
-        throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
-      }
-      
-      console.log("Wallets created successfully:", data);
-      walletsCreatedRef.current = true;
-      toast({
-        title: 'Success',
-        description: 'Your wallets have been created!',
-        variant: 'default'
-      });
-      
-      return data.wallets;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
-      console.error("Error creating wallets:", errorMessage);
-      setError(errorMessage);
-      toast({
-        title: 'Using demo wallets',
-        description: 'We\'re showing you demo wallets with sample data.',
-        variant: 'default'
-      });
-      
-      // Use default assets on error
-      const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-      setAssets(demoAssets);
-      return null;
-    } finally {
-      setCreatingWallets(false);
-      setLoading(false);
-    }
-  }, [user, session?.access_token, creatingWallets, toast]);
 
   // Process wallets function
   const processWallets = useCallback((wallets: any[]) => {
@@ -186,6 +135,41 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     }
   }, [prices]);
 
+  // Create wallets automatically if not already created
+  const createWalletsForUser = useCallback(async () => {
+    if (!user || !session?.access_token || walletsCreatedRef.current) return;
+    
+    try {
+      console.log("Attempting to create wallets for user:", user.id);
+      
+      const { data, error } = await supabase.functions.invoke('create-wallets', {
+        method: 'POST',
+        body: { userId: user.id }
+      });
+      
+      if (error) {
+        throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
+      }
+      
+      console.log("Wallets created successfully:", data);
+      walletsCreatedRef.current = true;
+      
+      // Don't show a toast for automatic wallet creation
+      return data.wallets;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
+      console.error("Error creating wallets:", errorMessage);
+      setError(errorMessage);
+      
+      // Use default assets on error
+      const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+      setAssets(demoAssets);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, session?.access_token]);
+
   // Fetch user assets
   useEffect(() => {
     const fetchUserAssets = async () => {
@@ -201,25 +185,21 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         setLoading(true);
         console.log("Fetching wallets for user:", user.id);
         
-        // Cancel any existing request
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
-        
-        // Create new abort controller with timeout
-        abortControllerRef.current = new AbortController();
+        // Set a timeout to prevent hanging requests
         const timeoutId = setTimeout(() => {
-          if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
+          console.log("Wallet fetch timeout reached, using cached data");
+          // If we have assets already, keep using them
+          if (assets.length === 0) {
+            const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+            setAssets(demoAssets);
           }
-        }, 5000);
+          setLoading(false);
+        }, 2500); // Reduced timeout for better UX
         
         // Get real wallet balances
-        // Remove the signal parameter since it's not supported in FunctionInvokeOptions
         const { data: wallets, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
           method: 'POST',
           body: { userId: user.id }
-          // Removed the signal parameter that was causing the error
         });
         
         clearTimeout(timeoutId);
@@ -243,9 +223,9 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           if (!dbWallets || dbWallets.length === 0) {
             console.log("No wallets found for user");
             
-            // Try to create wallets in the background
-            if (!walletsCreatedRef.current && !creatingWallets) {
-              createWalletsForUser();
+            // Auto-create wallets if none exist
+            if (!walletsCreatedRef.current) {
+              await createWalletsForUser();
             } else {
               setLoading(false);
             }
@@ -262,12 +242,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
         console.error('Error fetching wallets:', errorMessage);
         setError("Error fetching wallet data");
-        toast({
-          title: 'Error loading wallets',
-          description: 'Could not load your wallet data. Please try again later.',
-          variant: 'destructive',
-          duration: 5000,
-        });
         
         // Use default assets on error
         const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
@@ -276,14 +250,10 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       }
     };
 
+    // Execute fetch immediately
     fetchUserAssets();
     
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [user, session, processWallets, createWalletsForUser]);
+  }, [user, session, processWallets, createWalletsForUser, assets.length]);
 
   // Safety timeout to prevent endless loading
   useEffect(() => {
@@ -297,16 +267,14 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           setAssets(demoAssets);
         }
       }
-    }, 3000); // 3 second maximum timeout
+    }, 2000); // Reduced from 3000ms to 2000ms for faster display
     
     return () => clearTimeout(safetyTimer);
   }, [loading, assets]);
 
   return { 
     assets, 
-    loading, 
-    isCreatingWallets: creatingWallets,
-    error,
-    createWallets: createWalletsForUser 
+    loading,
+    error
   };
 };

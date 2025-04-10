@@ -10,7 +10,6 @@ import { useWallets } from '@/hooks/useWallets';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/components/AuthProvider';
-import { toast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -18,15 +17,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
-  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(40); // Start at 40% to feel faster
   const { prices, loading: pricesLoading } = useCryptoPrices();
   const { user, profile, isAuthenticated, loading: authLoading } = useAuth();
-  const { 
-    assets, 
-    loading: walletLoading, 
-    isCreatingWallets, 
-    error: walletError 
-  } = useWallets({ prices });
+  const { assets, loading: walletLoading, error: walletError } = useWallets({ prices });
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -35,56 +29,32 @@ const Dashboard = () => {
     }
   }, [navigate, isAuthenticated, authLoading]);
 
-  // Simple loading progress effect
+  // Simple loading progress effect - move faster to feel more responsive
   useEffect(() => {
-    if (walletLoading || pricesLoading || isCreatingWallets) {
+    if (walletLoading || pricesLoading) {
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
           if (prev >= 90) return 90;
-          return prev + 15;
+          return prev + 20; // Faster increment
         });
-      }, 250);
+      }, 200); // Quicker intervals
       
       return () => clearInterval(interval);
     } else {
       setLoadingProgress(100);
     }
-  }, [walletLoading, pricesLoading, isCreatingWallets]);
+  }, [walletLoading, pricesLoading]);
 
   const totalBalance = assets.reduce((acc, asset) => {
     const value = typeof asset.value === 'number' ? asset.value : 0;
     return acc + value;
   }, 0);
 
-  const isLoading = (walletLoading || pricesLoading || isCreatingWallets);
+  const isLoading = (walletLoading || pricesLoading);
 
   const handleRetryLoading = () => {
     window.location.reload();
   };
-
-  const renderLoadingSkeleton = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col items-center justify-center pt-4">
-        <div className="text-gray-500 text-sm mb-1">Total Balance</div>
-        <Skeleton className="h-8 w-48" />
-        <div className="mt-4 w-full">
-          <Skeleton className="h-20 w-full" />
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-xl font-semibold">Your Assets</h2>
-        </div>
-        
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 
   const renderInfoMessage = () => {
     return (
@@ -107,24 +77,40 @@ const Dashboard = () => {
   return (
     <MainLayout title="Portfolio">
       {isLoading && (
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-2">
           <div className="flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-kash-green mr-2" />
-            <p className="text-sm text-gray-500">
-              {isCreatingWallets 
-                ? "Setting up your wallets..." 
-                : "Loading your portfolio..."}
-            </p>
+            <Loader2 className="h-6 w-6 animate-spin text-kash-green mr-2" />
+            <p className="text-sm text-gray-500">Loading your portfolio...</p>
           </div>
           
           <div className="px-4 w-full">
             <Progress 
               value={loadingProgress} 
-              className="h-2 bg-gray-100"
+              className="h-1.5 bg-gray-100"
             />
           </div>
           
-          {renderLoadingSkeleton()}
+          <div className="space-y-6 opacity-50">
+            <div className="flex flex-col items-center justify-center pt-4">
+              <div className="text-gray-500 text-sm mb-1">Total Balance</div>
+              <Skeleton className="h-8 w-48" />
+              <div className="mt-4 w-full">
+                <Skeleton className="h-16 w-full" />
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-xl font-semibold">Your Assets</h2>
+              </div>
+              
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

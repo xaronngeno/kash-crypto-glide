@@ -23,9 +23,9 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get wallets from database - with a timeout to prevent hanging
+    // Get wallets from database - with a shorter timeout to prevent hanging
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
+    const timeout = setTimeout(() => controller.abort(), 2000); // Reduced timeout from 3000ms to 2000ms
 
     try {
       const { data: wallets, error: walletsError } = await supabase
