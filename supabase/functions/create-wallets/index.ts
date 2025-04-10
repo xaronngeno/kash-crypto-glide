@@ -176,21 +176,23 @@ async function createUserWallets(supabase: any, userId: string) {
   try {
     console.log(`Creating wallets for user: ${userId}`);
     
-    // Get user profile to check numeric ID
+    // Get user profile to check numeric ID - FIX: use maybeSingle instead of single
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("numeric_id")
       .eq("id", userId)
-      .single();
+      .maybeSingle();  // Changed from single() to maybeSingle()
       
     if (profileError) {
       throw new Error(`Error fetching user profile: ${profileError.message}`);
     }
     
-    if (!profile || !profile.numeric_id) {
+    let numeric_id = profile?.numeric_id;
+    
+    if (!profile || !numeric_id) {
       // Assign a numeric ID if not already present
       console.log("User doesn't have a numeric ID yet, generating one");
-      let numeric_id;
+      numeric_id = null;
       let idUnique = false;
       
       // Try up to 10 times to generate a unique ID
