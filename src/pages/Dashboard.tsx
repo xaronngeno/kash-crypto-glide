@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -31,16 +30,13 @@ const Dashboard = () => {
     refreshWallets
   } = useWallets({ prices });
 
-  // Redirect to auth if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       navigate('/auth');
     }
   }, [navigate, isAuthenticated, authLoading]);
 
-  // Debug logging for user and wallet relationship
   useEffect(() => {
-    // Log auth state
     console.log('Auth state:', { 
       userId: user?.id,
       userEmail: user?.email,
@@ -57,7 +53,6 @@ const Dashboard = () => {
       console.log(`Loaded ${assets.length} assets for user`);
     }
 
-    // Alert user if wallets are being created
     if (isCreatingWallets) {
       toast({
         title: 'Setting up your wallet',
@@ -66,18 +61,15 @@ const Dashboard = () => {
       });
     }
 
-    // Show error toast if there's a wallet loading error
     if (walletError) {
       console.error('Wallet loading error:', walletError);
     }
     
-    // Show info toast if there's a price loading error
     if (pricesError) {
       console.error('Price loading error:', pricesError);
     }
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
 
-  // Force create wallets if none exist or if main currencies are missing
   useEffect(() => {
     const createWalletsIfNeeded = async () => {
       if (!walletLoading && user?.id && !isCreatingWallets) {
@@ -85,7 +77,6 @@ const Dashboard = () => {
           console.log('No wallets found, attempting to create them automatically');
           await createWallets();
         } else {
-          // Check if all main currencies are present
           const mainCurrencies = ['BTC', 'ETH', 'SOL', 'MONAD', 'TRX', 'SUI'];
           const existingCurrencies = new Set(assets.map(asset => asset.symbol));
           const missingCurrencies = mainCurrencies.filter(currency => !existingCurrencies.has(currency));
@@ -106,7 +97,6 @@ const Dashboard = () => {
     createWalletsIfNeeded();
   }, [walletLoading, assets, user?.id, isCreatingWallets, createWallets]);
 
-  // If not authenticated or still loading auth, show loading state
   if (authLoading) {
     return (
       <MainLayout title="Portfolio">
@@ -118,7 +108,6 @@ const Dashboard = () => {
     );
   }
   
-  // Immediately redirect if not authenticated
   if (!isAuthenticated) {
     return (
       <MainLayout title="Portfolio">
@@ -130,15 +119,14 @@ const Dashboard = () => {
     );
   }
 
-  // Simple loading progress effect
   useEffect(() => {
     if (walletLoading || pricesLoading || isCreatingWallets) {
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
           if (prev >= 90) return 90;
-          return prev + 10; // Faster progress
+          return prev + 10;
         });
-      }, 300); // Shorter interval
+      }, 300);
       
       return () => clearInterval(interval);
     } else {
@@ -154,7 +142,6 @@ const Dashboard = () => {
   const isLoading = (walletLoading || pricesLoading || isCreatingWallets);
 
   const handleRetryLoading = () => {
-    // Try to refetch data
     refetchPrices();
     toast({
       title: 'Refreshing data',
@@ -162,19 +149,19 @@ const Dashboard = () => {
       duration: 3000,
     });
     
-    // Force reload of wallet data
     refreshWallets();
   };
 
-  const handleForceCreate = () => {
+  const handleForceCreate = (): Promise<any> => {
     if (!isCreatingWallets) {
       toast({
         title: 'Creating new wallets',
         description: 'Generating new wallets for your account...',
         duration: 3000,
       });
-      createWallets();
+      return createWallets();
     }
+    return Promise.resolve();
   };
 
   const renderLoadingSkeleton = () => (
