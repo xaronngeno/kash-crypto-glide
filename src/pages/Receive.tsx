@@ -1,23 +1,99 @@
 
 import { useState, useEffect } from 'react';
-import { Copy, QrCode, Info, Bitcoin, Wallet } from 'lucide-react';
+import { Copy, QrCode, Info, Wallet, ExternalLink, Search } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
+import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 
 interface WalletAddress {
   blockchain: string;
   symbol: string;
   address: string;
+  logo?: string;
 }
+
+const getNetworkLogo = (blockchain: string) => {
+  switch (blockchain.toLowerCase()) {
+    case 'bitcoin':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
+    case 'ethereum':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
+    case 'solana':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png';
+    case 'tron':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png';
+    case 'binance smart chain':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png';
+    case 'polygon':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png';
+    default:
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
+  }
+};
+
+const getCurrencyLogo = (symbol: string) => {
+  switch (symbol.toUpperCase()) {
+    case 'BTC':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
+    case 'ETH':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
+    case 'SOL':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png';
+    case 'TRX':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png';
+    case 'USDT':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/825.png';
+    case 'BNB':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png';
+    case 'MATIC':
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png';
+    default:
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
+  }
+};
+
+const NetworkBadge = ({ network }: { network: string }) => {
+  let color = "bg-gray-100 text-gray-600";
+  
+  switch (network.toLowerCase()) {
+    case 'bitcoin':
+      color = "bg-amber-100 text-amber-600";
+      break;
+    case 'ethereum':
+      color = "bg-indigo-100 text-indigo-600";
+      break;
+    case 'solana':
+      color = "bg-purple-100 text-purple-600";
+      break;
+    case 'tron':
+      color = "bg-red-100 text-red-600";
+      break;
+    case 'binance smart chain':
+      color = "bg-yellow-100 text-yellow-700";
+      break;
+    case 'polygon':
+      color = "bg-blue-100 text-blue-600";
+      break;
+  }
+  
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full ${color} font-medium`}>
+      {network}
+    </span>
+  );
+};
 
 const Receive = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { prices } = useCryptoPrices();
   const [walletAddresses, setWalletAddresses] = useState<WalletAddress[]>([]);
   const [selectedChain, setSelectedChain] = useState<WalletAddress | null>(null);
   const [showQR, setShowQR] = useState(false);
@@ -25,6 +101,41 @@ const Receive = () => {
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [noWalletsFound, setNoWalletsFound] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [displayedWallets, setDisplayedWallets] = useState<WalletAddress[]>([]);
+  const [groupedWallets, setGroupedWallets] = useState<Record<string, WalletAddress[]>>({});
+
+  useEffect(() => {
+    // Group wallets by currency for display purposes
+    if (walletAddresses.length > 0) {
+      const grouped: Record<string, WalletAddress[]> = {};
+      
+      walletAddresses.forEach(wallet => {
+        if (!grouped[wallet.symbol]) {
+          grouped[wallet.symbol] = [];
+        }
+        grouped[wallet.symbol].push({
+          ...wallet,
+          logo: getCurrencyLogo(wallet.symbol)
+        });
+      });
+      
+      setGroupedWallets(grouped);
+    }
+  }, [walletAddresses]);
+
+  useEffect(() => {
+    // Filter wallets based on search term
+    if (searchTerm) {
+      const filtered = walletAddresses.filter(wallet => 
+        wallet.symbol.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        wallet.blockchain.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setDisplayedWallets(filtered);
+    } else {
+      setDisplayedWallets(walletAddresses);
+    }
+  }, [searchTerm, walletAddresses]);
 
   useEffect(() => {
     const fetchWalletAddresses = async () => {
@@ -59,7 +170,8 @@ const Receive = () => {
               addresses.push({
                 blockchain: wallet.blockchain,
                 symbol: wallet.currency,
-                address: wallet.address
+                address: wallet.address,
+                logo: getCurrencyLogo(wallet.currency)
               });
             }
           });
@@ -67,6 +179,7 @@ const Receive = () => {
           console.log("Fetched wallet addresses:", addresses);
           
           setWalletAddresses(addresses);
+          setDisplayedWallets(addresses);
           setSelectedChain(addresses[0]);
           setNoWalletsFound(false);
         } else {
@@ -130,12 +243,14 @@ const Receive = () => {
             addresses.push({
               blockchain: wallet.blockchain,
               symbol: wallet.currency,
-              address: wallet.address
+              address: wallet.address,
+              logo: getCurrencyLogo(wallet.currency)
             });
           }
         });
         
         setWalletAddresses(addresses);
+        setDisplayedWallets(addresses);
         setSelectedChain(addresses[0]);
         setNoWalletsFound(false);
         
@@ -216,92 +331,115 @@ const Receive = () => {
   return (
     <MainLayout title="Receive" showBack>
       <div className="space-y-6">
-        <div className="text-center mb-6">
+        <div className="text-center mb-4">
           <h2 className="text-xl font-semibold mb-1">Receive Crypto</h2>
           <p className="text-gray-600">
-            Select a blockchain and share your wallet address
+            Select a wallet to view and share your address
           </p>
         </div>
         
-        {/* Wallet summary section */}
-        <KashCard className="p-4 mb-2">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">Your Wallets</h3>
-            <KashButton 
-              variant="ghost" 
-              className="text-sm flex items-center gap-1"
-              onClick={() => setShowAllDetails(!showAllDetails)}
-            >
-              <Info size={16} />
-              {showAllDetails ? "Hide Details" : "Show All Details"}
-            </KashButton>
+        {/* Search bar */}
+        <div className="relative mb-4">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={16} className="text-gray-400" />
           </div>
-          
-          <p className="text-sm text-gray-500 mt-1 mb-3">
-            {walletAddresses.length} wallets available
-          </p>
-          
-          {showAllDetails && (
-            <div className="space-y-4 mt-4 border-t pt-4">
-              {walletAddresses.map((wallet, index) => (
-                <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-medium">{wallet.symbol}</h4>
-                      <p className="text-xs text-gray-500">{wallet.blockchain}</p>
+          <input
+            type="text"
+            className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Search wallets..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        {/* Phantom-style wallet list */}
+        <div className="space-y-4">
+          {Object.entries(groupedWallets).map(([symbol, wallets]) => (
+            <div key={symbol} className="mb-3">
+              <div className="flex items-center mb-2 px-1">
+                <Avatar className="h-5 w-5 mr-2">
+                  <AvatarImage src={getCurrencyLogo(symbol)} alt={symbol} />
+                  <AvatarFallback>{symbol[0]}</AvatarFallback>
+                </Avatar>
+                <h3 className="font-medium">{symbol}</h3>
+                {prices[symbol] && (
+                  <span className="ml-2 text-xs text-gray-500">
+                    ${prices[symbol].price.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                {wallets.map((wallet, idx) => (
+                  <KashCard 
+                    key={`${wallet.blockchain}-${idx}`}
+                    className={`p-4 transition-all duration-200 hover:shadow-md ${
+                      selectedChain?.address === wallet.address ? 'border-blue-400 ring-1 ring-blue-200' : 'border-gray-100'
+                    }`}
+                    onClick={() => setSelectedChain(wallet)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={getNetworkLogo(wallet.blockchain)} alt={wallet.blockchain} />
+                          <AvatarFallback>{wallet.blockchain[0]}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <NetworkBadge network={wallet.blockchain} />
+                          <p className="text-xs text-gray-500 mt-1">
+                            {wallet.address.substring(0, 6)}...{wallet.address.substring(wallet.address.length - 4)}
+                          </p>
+                        </div>
+                      </div>
+                      <KashButton 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(wallet.address);
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Copy size={14} />
+                      </KashButton>
                     </div>
-                    <KashButton 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => copyToClipboard(wallet.address)}
-                      className="h-8 px-2"
-                    >
-                      <Copy size={14} />
-                    </KashButton>
-                  </div>
-                  <p className="text-xs font-mono bg-white p-2 rounded border break-all">
-                    {wallet.address}
-                  </p>
-                </div>
-              ))}
+                  </KashCard>
+                ))}
+              </div>
             </div>
-          )}
-        </KashCard>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {walletAddresses.map((chain, index) => (
-            <KashButton
-              key={`${chain.blockchain}-${chain.symbol}-${index}`}
-              variant={selectedChain?.blockchain === chain.blockchain && selectedChain?.symbol === chain.symbol ? "primary" : "outline"}
-              className="py-3 flex items-center justify-center gap-1"
-              onClick={() => setSelectedChain(chain)}
-            >
-              {chain.symbol === 'BTC' && <Bitcoin size={14} className="mr-1" />}
-              {chain.symbol === 'SOL' && <Wallet size={14} className="mr-1" />}
-              {chain.symbol}
-            </KashButton>
           ))}
         </div>
 
         {selectedChain && (
-          <KashCard className="p-5">
+          <KashCard className="p-5 mt-6">
             <div className="text-center">
-              <h3 className="font-medium text-lg mb-3">{selectedChain.blockchain} Address</h3>
+              <div className="flex items-center justify-center mb-3">
+                <Avatar className="h-10 w-10 mr-2">
+                  <AvatarImage src={getNetworkLogo(selectedChain.blockchain)} alt={selectedChain.blockchain} />
+                  <AvatarFallback>{selectedChain.blockchain[0]}</AvatarFallback>
+                </Avatar>
+                <h3 className="font-medium text-lg">
+                  {selectedChain.symbol} on {selectedChain.blockchain}
+                </h3>
+              </div>
               
               {showQR ? (
                 <div className="mb-4 flex justify-center">
-                  <div className="w-48 h-48 bg-gray-100 flex items-center justify-center">
+                  <div className="p-4 bg-white rounded-lg border border-gray-100 shadow-sm">
                     <QRCodeSVG 
                       value={selectedChain.address}
-                      size={200}
+                      size={180}
                       level="H"
                       includeMargin={true}
-                      className="w-40 h-40"
+                      className="w-full h-full"
                     />
+                    <p className="text-xs text-gray-500 mt-2 break-all px-2">
+                      {selectedChain.address}
+                    </p>
                   </div>
                 </div>
               ) : (
-                <div className="bg-kash-lightGray p-4 rounded-lg mb-4 break-all text-sm font-mono">
+                <div className="bg-gray-50 p-4 rounded-lg mb-4 break-all text-sm font-mono border border-gray-100">
                   {selectedChain.address}
                 </div>
               )}
@@ -331,9 +469,13 @@ const Receive = () => {
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
           <h4 className="font-medium text-amber-700 mb-1">Important</h4>
           <ul className="text-sm text-amber-700 space-y-1 list-disc pl-5">
-            <li>Only send {selectedChain?.symbol} to this address</li>
-            <li>Sending any other cryptocurrency may result in permanent loss</li>
-            <li>Verify the entire address before sending any funds</li>
+            {selectedChain && (
+              <>
+                <li>Only send {selectedChain.symbol} on the {selectedChain.blockchain} network to this address</li>
+                <li>Sending any other cryptocurrency or using the wrong network may result in permanent loss</li>
+                <li>Always verify the entire address before sending any funds</li>
+              </>
+            )}
           </ul>
         </div>
       </div>
