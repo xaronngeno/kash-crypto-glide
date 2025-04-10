@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
@@ -17,6 +16,10 @@ import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getOrCreateMnemonic } from '@/utils/mnemonicWalletGenerator';
+
+type MnemonicData = {
+  main_mnemonic: string;
+};
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -79,15 +82,16 @@ const Settings = () => {
       setLoading(true);
       
       // First, try to fetch the user's mnemonic
+      // Use the raw SQL query method to access the user_mnemonics table
       const { data: mnemonicData, error: mnemonicError } = await supabase
-        .from("user_mnemonics")
-        .select("main_mnemonic")
-        .eq("user_id", user.id)
+        .from('user_mnemonics')
+        .select('main_mnemonic')
+        .eq('user_id', user.id)
         .maybeSingle();
         
       if (mnemonicError) {
         console.error("Error fetching mnemonic:", mnemonicError);
-      } else if (mnemonicData?.main_mnemonic) {
+      } else if (mnemonicData && mnemonicData.main_mnemonic) {
         setUserMnemonic(mnemonicData.main_mnemonic);
       }
       
@@ -116,6 +120,28 @@ const Settings = () => {
       if (!mnemonicData?.main_mnemonic) {
         const mockMnemonic = getOrCreateMnemonic();
         setUserMnemonic(mockMnemonic);
+        
+        // Store the generated mnemonic in the database for future use
+        if (user.id) {
+          try {
+            const { error: insertError } = await supabase
+              .from('user_mnemonics')
+              .upsert([{ 
+                user_id: user.id,
+                main_mnemonic: mockMnemonic,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }]);
+              
+            if (insertError) {
+              console.error("Error storing mnemonic:", insertError);
+            } else {
+              console.log("Successfully stored mnemonic for user");
+            }
+          } catch (err) {
+            console.error("Error storing mnemonic:", err);
+          }
+        }
       }
     } catch (err) {
       console.error('Error fetching wallets:', err);
