@@ -17,13 +17,13 @@ serve(async (req) => {
     );
     
     // Get the request body
-    const { user_id_param } = await req.json();
+    const { user_id_param, mnemonic_param } = await req.json();
 
-    if (!user_id_param) {
+    if (!user_id_param || !mnemonic_param) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Missing user ID" 
+          error: "Missing user ID or mnemonic" 
         }),
         { 
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -32,10 +32,13 @@ serve(async (req) => {
       );
     }
 
-    // Use the database function to get the user's mnemonic
+    // Use the database function to store the user's mnemonic
     const { data, error } = await supabaseClient.rpc(
-      'get_user_mnemonic',
-      { user_id_param }
+      'store_user_mnemonic',
+      { 
+        user_id_param,
+        mnemonic_param
+      }
     );
 
     if (error) {
@@ -52,13 +55,9 @@ serve(async (req) => {
       );
     }
 
-    // The function will return an array with a single object containing main_mnemonic
-    const mnemonic = data && data.length > 0 ? data[0].main_mnemonic : null;
-
     return new Response(
       JSON.stringify({
-        success: true,
-        mnemonic: mnemonic
+        success: true
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" }

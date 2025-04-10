@@ -37,7 +37,7 @@ export const executeSql = async (query: string, params?: any[]) => {
 export const getUserMnemonic = async (userId: string): Promise<string | null> => {
   try {
     // Explicitly cast the RPC call to any before making it
-    const { data, error } = await (supabase.functions.invoke('get_user_mnemonic', {
+    const { data, error } = await (supabase.functions.invoke('get-user-mnemonic', {
       body: { user_id_param: userId }
     }) as any);
     
@@ -47,7 +47,7 @@ export const getUserMnemonic = async (userId: string): Promise<string | null> =>
     }
     
     // The function returns a single-value array
-    return data && data.length > 0 ? data[0].main_mnemonic : null;
+    return data && data.mnemonic ? data.mnemonic : null;
   } catch (err) {
     console.error('Error in getUserMnemonic:', err);
     return null;
@@ -58,7 +58,7 @@ export const getUserMnemonic = async (userId: string): Promise<string | null> =>
 export const storeUserMnemonic = async (userId: string, mnemonic: string): Promise<boolean> => {
   try {
     // Explicitly cast the RPC call to any before making it
-    const { error } = await (supabase.functions.invoke('store_user_mnemonic', {
+    const { error } = await (supabase.functions.invoke('store-user-mnemonic', {
       body: { 
         user_id_param: userId,
         mnemonic_param: mnemonic
