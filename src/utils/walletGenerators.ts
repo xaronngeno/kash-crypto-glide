@@ -174,7 +174,7 @@ export const getOrCreateMnemonic = (existingMnemonic?: string): string => {
   return bip39.generateMnemonic();
 };
 
-// Generate all wallets for a user - focused on ETH, SOL, TRX only
+// Generate all wallets for a user - focused on ETH, SOL, TRX
 export const generateAllWallets = async (): Promise<WalletData[]> => {
   const wallets: WalletData[] = [];
   

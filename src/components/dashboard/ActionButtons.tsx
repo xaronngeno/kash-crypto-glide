@@ -1,9 +1,7 @@
 
-import { Send, ArrowDownToLine, RefreshCw } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
-import { KashButton } from '../ui/KashButton';
-import { toast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { Send, ArrowDown, Wallet } from "lucide-react";
 
 interface ActionButtonsProps {
   onForceCreateWallets?: () => Promise<any>;
@@ -11,61 +9,34 @@ interface ActionButtonsProps {
 
 export const ActionButtons = ({ onForceCreateWallets }: ActionButtonsProps) => {
   const navigate = useNavigate();
-  const [isRecreating, setIsRecreating] = useState(false);
   
-  const handleRecreateClick = async () => {
-    if (!onForceCreateWallets) return;
-    
-    setIsRecreating(true);
-    toast({
-      title: 'Creating wallets',
-      description: 'This may take a moment...',
-    });
-    
-    try {
-      await onForceCreateWallets();
-      toast({
-        title: 'Success',
-        description: 'Your wallets have been created successfully!',
-      });
-    } catch (error) {
-      console.error("Error recreating wallets:", error);
-      toast({
-        title: 'Error',
-        description: 'There was a problem creating your wallets.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRecreating(false);
-    }
-  };
-
   return (
-    <div className="flex space-x-3">
-      <KashButton 
-        variant="outline" 
-        icon={<ArrowDownToLine size={18} />}
-        onClick={() => navigate('/receive')}
-      >
-        Receive
-      </KashButton>
-      <KashButton 
-        variant="outline" 
-        icon={<Send size={18} />}
+    <div className="flex gap-3 justify-center">
+      <Button 
         onClick={() => navigate('/send')}
+        variant="outline" 
+        className="bg-white flex gap-2 items-center border border-gray-200 hover:bg-gray-50"
       >
-        Send
-      </KashButton>
-      {onForceCreateWallets && (
-        <KashButton
-          variant="outline"
-          icon={<RefreshCw size={18} className={isRecreating ? "animate-spin" : ""} />}
-          onClick={handleRecreateClick}
-          disabled={isRecreating}
-        >
-          {isRecreating ? 'Creating...' : 'Create Wallets'}
-        </KashButton>
-      )}
+        <Send size={15} className="text-gray-800" />
+        <span className="text-gray-800">Send</span>
+      </Button>
+      
+      <Button
+        onClick={() => navigate('/receive')}
+        variant="outline"
+        className="bg-white flex gap-2 items-center border border-gray-200 hover:bg-gray-50"
+      >
+        <ArrowDown size={15} className="text-gray-800" />
+        <span className="text-gray-800">Receive</span>
+      </Button>
+      
+      <Button
+        onClick={() => navigate('/buy')}
+        className="bg-kash-green flex gap-2 items-center hover:bg-kash-green/90 text-white"
+      >
+        <Wallet size={15} className="text-white" />
+        <span>Buy</span>
+      </Button>
     </div>
   );
 };

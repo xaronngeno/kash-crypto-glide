@@ -104,6 +104,24 @@ const Auth = () => {
       
       console.log("Login successful:", data.session ? "Session created" : "No session");
       
+      try {
+        if (data.user) {
+          console.log("Checking/creating wallets after login for user:", data.user.id);
+          supabase.functions.invoke('create-wallets', {
+            method: 'POST',
+            body: { userId: data.user.id }
+          }).then(({ data, error }) => {
+            if (error) {
+              console.error("Background wallet check/creation failed:", error);
+            } else {
+              console.log("Background wallet check/creation completed:", data);
+            }
+          });
+        }
+      } catch (walletError) {
+        console.error("Error in background wallet creation:", walletError);
+      }
+      
       const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
       

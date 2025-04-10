@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -16,7 +15,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
 
-  // Create wallets function
+  // Create wallets function (kept for internal use)
   const createWallets = async (): Promise<any> => {
     if (!user?.id || !session?.access_token || creatingWallets) {
       return Promise.resolve(null);

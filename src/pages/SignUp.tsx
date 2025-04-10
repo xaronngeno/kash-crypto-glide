@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User } from 'lucide-react';
@@ -79,34 +80,49 @@ const SignUp = () => {
         });
         console.error("Registration error:", error);
       } else {
-        toast({
-          title: "Account created",
-          description: "Your account has been successfully created.",
-        });
+        // Generate wallets immediately
+        setProcessingStatus('Generating secure wallets...');
         
-        // Navigate to dashboard first for better UX
-        navigate('/dashboard');
-        
-        // Create wallets in background using edge function
         if (data.user) {
           try {
-            setProcessingStatus('Generating secure wallets...');
             console.log("Calling wallet creation edge function");
             
-            // Call the edge function to create wallets
             const { data: walletData, error: walletError } = await supabase.functions.invoke('create-wallets', {
+              method: 'POST',
               body: { userId: data.user.id }
             });
             
             if (walletError) {
               console.error("Error calling wallet creation function:", walletError);
+              toast({
+                title: "Wallet creation warning",
+                description: "Your account was created, but there was an issue setting up your wallets.",
+                variant: "default"
+              });
             } else {
               console.log("Wallets created successfully:", walletData);
+              toast({
+                title: "Account created",
+                description: "Your account has been created with secure wallets!",
+              });
             }
           } catch (walletError) {
             console.error("Error in wallet creation process:", walletError);
-            // We don't block the user experience here, just log the error
+            toast({
+              title: "Account created",
+              description: "Your account was created, but there was an issue setting up your wallets.",
+              variant: "default"
+            });
+          } finally {
+            // Navigate to dashboard after wallet creation attempt is done
+            navigate('/dashboard');
           }
+        } else {
+          toast({
+            title: "Account created",
+            description: "Your account has been successfully created.",
+          });
+          navigate('/dashboard');
         }
       }
     } catch (error: any) {

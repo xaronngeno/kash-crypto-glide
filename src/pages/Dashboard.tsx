@@ -30,7 +30,6 @@ const Dashboard = () => {
     loading: walletLoading, 
     isCreatingWallets, 
     error: walletError,
-    createWallets,
     refreshWallets
   } = useWallets({ prices });
 
@@ -75,30 +74,15 @@ const Dashboard = () => {
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
 
   useEffect(() => {
-    const createWalletsIfNeeded = async () => {
-      if (!walletLoading && user?.id && !isCreatingWallets) {
-        if (assets.length === 0) {
-          console.log('No wallets found, attempting to create them automatically');
-          await createWallets();
-        } else {
-          const existingCurrencies = new Set(assets.map(asset => asset.symbol));
-          const missingCurrencies = MAIN_CURRENCIES.filter(currency => !existingCurrencies.has(currency));
-          
-          if (missingCurrencies.length > 0) {
-            console.log(`Missing main currencies: ${missingCurrencies.join(', ')}. Recreating wallets.`);
-            toast({
-              title: 'Updating wallets',
-              description: `Creating missing wallets: ${missingCurrencies.join(', ')}`,
-              duration: 3000,
-            });
-            await createWallets();
-          }
-        }
+    const safetyTimer = setTimeout(() => {
+      if (walletLoading) {
+        console.log("Safety timeout reached - forcing loading state to complete");
+        setLoadingProgress(100);
       }
-    };
+    }, 10000); // 10 second maximum timeout
     
-    createWalletsIfNeeded();
-  }, [walletLoading, assets, user?.id, isCreatingWallets, createWallets]);
+    return () => clearTimeout(safetyTimer);
+  }, [walletLoading]);
 
   if (authLoading) {
     return (
@@ -155,18 +139,6 @@ const Dashboard = () => {
     refreshWallets();
   };
 
-  const handleForceCreate = (): Promise<any> => {
-    if (!isCreatingWallets) {
-      toast({
-        title: 'Creating new wallets',
-        description: 'Generating new wallets for your account...',
-        duration: 3000,
-      });
-      return createWallets();
-    }
-    return Promise.resolve();
-  };
-
   const renderLoadingSkeleton = () => (
     <div className="space-y-6">
       <div className="flex flex-col items-center justify-center pt-4">
@@ -198,47 +170,16 @@ const Dashboard = () => {
         <AlertTitle>Error Loading Wallet Data</AlertTitle>
         <AlertDescription className="flex flex-col">
           <span>{walletError || "Failed to load your wallet data"}</span>
-          <div className="flex space-x-2 mt-4">
-            <KashButton 
-              onClick={handleRetryLoading}
-              size="sm"
-            >
-              Retry Loading
-            </KashButton>
-            <KashButton 
-              onClick={() => handleForceCreate()}
-              size="sm"
-              variant="outline"
-              disabled={isCreatingWallets}
-            >
-              {isCreatingWallets ? 'Creating...' : 'Create New Wallets'}
-            </KashButton>
-          </div>
+          <KashButton 
+            onClick={handleRetryLoading}
+            className="mt-4"
+            size="sm"
+          >
+            Retry Loading
+          </KashButton>
         </AlertDescription>
       </Alert>
     );
-  };
-
-  const renderNoWalletsMessage = () => {
-    if (assets.length === 0 && !isLoading && !isCreatingWallets) {
-      return (
-        <Alert variant="default" className="mb-6 bg-blue-50 border-blue-100">
-          <AlertCircle className="h-4 w-4 text-blue-500" />
-          <AlertTitle>No Wallets Found</AlertTitle>
-          <AlertDescription className="flex flex-col">
-            <span>You don't have any wallets yet. Create wallets to get started.</span>
-            <KashButton 
-              onClick={() => handleForceCreate()}
-              className="mt-4"
-              disabled={isCreatingWallets}
-            >
-              {isCreatingWallets ? 'Creating Wallets...' : 'Create My Wallets'}
-            </KashButton>
-          </AlertDescription>
-        </Alert>
-      );
-    }
-    return null;
   };
 
   return (
@@ -269,7 +210,21 @@ const Dashboard = () => {
         <div className="space-y-6">
           {walletError && renderErrorMessage()}
           
-          {renderNoWalletsMessage()}
+          {assets.length === 0 && !isLoading && !isCreatingWallets && (
+            <Alert variant="default" className="mb-6 bg-blue-50 border-blue-100">
+              <AlertCircle className="h-4 w-4 text-blue-500" />
+              <AlertTitle>No Wallets Found</AlertTitle>
+              <AlertDescription className="flex flex-col">
+                <span>Your wallet data could not be loaded. Please try refreshing the page or contact support if the issue persists.</span>
+                <KashButton 
+                  onClick={handleRetryLoading}
+                  className="mt-4"
+                >
+                  Refresh Data
+                </KashButton>
+              </AlertDescription>
+            </Alert>
+          )}
           
           {assets.length > 0 && (
             <>
@@ -289,7 +244,7 @@ const Dashboard = () => {
                 </div>
                 
                 <div className="mt-4">
-                  <ActionButtons onForceCreateWallets={handleForceCreate} />
+                  <ActionButtons />
                 </div>
               </div>
 
