@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
@@ -230,20 +231,37 @@ async function createUserWallets(supabase: any, userId: string) {
       });
     }
 
-    const mnemonic = getOrCreateMnemonic();
-    console.log("Generated BIP-39 mnemonic for HD wallet creation");
+    // Try to get existing mnemonic from the user_mnemonics table first
+    const { data: mnemonicData, error: mnemonicError } = await supabase.rpc(
+      'get_user_mnemonic',
+      { user_id_param: userId }
+    );
     
-    const { error: mnemonicError } = await supabase
-      .from("user_mnemonics")
-      .upsert([{
-        user_id: userId,
-        main_mnemonic: mnemonic,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }]);
-    
+    let mnemonic;
     if (mnemonicError) {
-      console.error("Error saving mnemonic:", mnemonicError);
+      console.error("Error fetching user mnemonic:", mnemonicError);
+      mnemonic = getOrCreateMnemonic(); // Generate a new one if there was an error
+    } else if (mnemonicData && mnemonicData.length > 0 && mnemonicData[0].main_mnemonic) {
+      console.log("Found existing mnemonic for user");
+      mnemonic = mnemonicData[0].main_mnemonic;
+    } else {
+      console.log("No existing mnemonic found, generating a new one");
+      mnemonic = getOrCreateMnemonic();
+    }
+    
+    console.log("Using mnemonic for HD wallet creation");
+    
+    // Store the mnemonic (new or existing) to ensure it's saved
+    const { error: storeMnemonicError } = await supabase.rpc(
+      'store_user_mnemonic',
+      {
+        user_id_param: userId,
+        mnemonic_param: mnemonic
+      }
+    );
+    
+    if (storeMnemonicError) {
+      console.error("Error storing mnemonic:", storeMnemonicError);
     }
     
     const wallets = [];
