@@ -104,9 +104,8 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const LOCALSTORAGE_CACHE_KEY = 'kash_crypto_prices_cache';
 
 export function useCryptoPrices() {
-  const [prices, setPrices] = useState<CryptoPrices>(fallbackPrices); // Initialize with fallback prices immediately
-  const [loading, setLoading] = useState(false); // Start with loading false for instant UI
-  const [error, setError] = useState<string | null>(null);
+  // Start with fallback prices immediately - no loading state
+  const [prices, setPrices] = useState<CryptoPrices>(fallbackPrices);
   
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef<number>(0);
@@ -131,6 +130,12 @@ export function useCryptoPrices() {
     } catch (err) {
       console.error('Error reading from localStorage:', err);
     }
+    
+    // Set a minimum timeout to fetch prices in the background
+    // This creates a near-instant perception while real data loads
+    setTimeout(() => {
+      fetchPrices(true);
+    }, 1); // 1ms delay (practically instant)
   }, []);
   
   const fetchPrices = useCallback(async (forceFetch = false) => {
@@ -207,13 +212,18 @@ export function useCryptoPrices() {
   }, []);
 
   useEffect(() => {
-    // Fetch prices in the background
-    fetchPrices();
+    // Fetch prices in the background after a minimal delay
+    const timeoutId = setTimeout(() => {
+      fetchPrices();
+    }, 1);
     
     // Set up interval for periodic updates
     const intervalId = setInterval(() => fetchPrices(), 5 * 60 * 1000); // Every 5 minutes
     
-    return () => clearInterval(intervalId);
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+    };
   }, [fetchPrices]);
 
   return { 

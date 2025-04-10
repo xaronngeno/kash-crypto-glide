@@ -25,6 +25,7 @@ const Dashboard = () => {
     }
   }, [navigate, isAuthenticated, authLoading]);
 
+  // Calculate total balance immediately
   const totalBalance = assets.reduce((acc, asset) => {
     const value = typeof asset.value === 'number' ? asset.value : 0;
     return acc + value;

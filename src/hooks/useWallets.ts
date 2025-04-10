@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -10,8 +11,6 @@ interface UseWalletsProps {
 
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
 
   // Reference for tracking if wallets are already created
@@ -166,68 +165,71 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     }
   }, [user, session?.access_token]);
 
-  // Fetch user assets in the background
+  // Fetch user assets in the background with near-zero delay
   useEffect(() => {
-    const fetchUserAssets = async () => {
-      if (!user || !session?.access_token) {
-        console.log("No user or session available");
-        return;
-      }
-      
-      try {
-        console.log("Fetching wallets for user in background:", user.id);
-        
-        // Get real wallet balances without setting loading state
-        const { data: wallets, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
-          method: 'POST',
-          body: { userId: user.id }
-        });
-            
-        if (walletsError) {
-          throw walletsError;
+    // Avoids tiny delays in data fetching
+    setTimeout(() => {
+      const fetchUserAssets = async () => {
+        if (!user || !session?.access_token) {
+          console.log("No user or session available");
+          return;
         }
         
-        // Process wallets if available
-        if (wallets && wallets.success && wallets.wallets) {
-          console.log("Successfully fetched wallet balances:", wallets);
-          processWallets(wallets.wallets);
-        } else {
-          // Fallback to DB wallets if edge function fails
-          const { data: dbWallets, error: dbWalletsError } = await supabase
-            .from('wallets')
-            .select('*')
-            .eq('user_id', user.id);
-            
-          if (dbWalletsError) {
-            throw dbWalletsError;
+        try {
+          console.log("Fetching wallets for user in background:", user.id);
+          
+          // Get real wallet balances without setting loading state
+          const { data: wallets, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
+            method: 'POST',
+            body: { userId: user.id }
+          });
+              
+          if (walletsError) {
+            throw walletsError;
           }
           
-          if (!dbWallets || dbWallets.length === 0) {
-            console.log("No wallets found for user");
-            
-            // Auto-create wallets if none exist
-            if (!walletsCreatedRef.current) {
-              await createWalletsForUser();
+          // Process wallets if available
+          if (wallets && wallets.success && wallets.wallets) {
+            console.log("Successfully fetched wallet balances:", wallets);
+            processWallets(wallets.wallets);
+          } else {
+            // Fallback to DB wallets if edge function fails
+            const { data: dbWallets, error: dbWalletsError } = await supabase
+              .from('wallets')
+              .select('*')
+              .eq('user_id', user.id);
+              
+            if (dbWalletsError) {
+              throw dbWalletsError;
             }
-            return;
+            
+            if (!dbWallets || dbWallets.length === 0) {
+              console.log("No wallets found for user");
+              
+              // Auto-create wallets if none exist
+              if (!walletsCreatedRef.current) {
+                await createWalletsForUser();
+              }
+              return;
+            }
+            
+            console.log(`Found ${dbWallets.length} wallets for user:`, user.id);
+            processWallets(dbWallets);
           }
-          
-          console.log(`Found ${dbWallets.length} wallets for user:`, user.id);
-          processWallets(dbWallets);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
+          console.error('Error fetching wallets:', errorMessage);
         }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
-        console.error('Error fetching wallets:', errorMessage);
-      }
-    };
-
-    // Execute fetch immediately in background
-    fetchUserAssets();
-    
-    // Set up periodic refresh in the background
-    const refreshInterval = setInterval(fetchUserAssets, 60000); // Every 60 seconds
-    
-    return () => clearInterval(refreshInterval);
+      };
+  
+      // Execute fetch immediately in background with minimal delay
+      fetchUserAssets();
+      
+      // Set up periodic refresh in the background
+      const refreshInterval = setInterval(fetchUserAssets, 60000); // Every 60 seconds
+      
+      return () => clearInterval(refreshInterval);
+    }, 1); // 1ms delay - practically instant but allows React to render first
   }, [user, session, processWallets, createWalletsForUser]);
 
   return { 
