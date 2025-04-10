@@ -11,7 +11,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return (
       <div className="flex h-screen items-center justify-center flex-col">
         <Loader2 className="h-12 w-12 animate-spin text-kash-green mb-4" />
-        <p className="text-gray-500">Loading your account...</p>
+        <p className="text-gray-500">Verifying your account...</p>
       </div>
     );
   }

@@ -14,11 +14,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { Loader2 } from 'lucide-react';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAuthenticated } = useAuth();
   const [currencyDisplay, setCurrencyDisplay] = useState('USD');
   const [profile, setProfile] = useState<{
     first_name: string | null;
@@ -34,15 +35,24 @@ const Settings = () => {
   const mockSeedPhrase = "point coffee twist knock deposit differ yard adjust battle reason million elite";
   
   useEffect(() => {
+    // If not authenticated, we don't need to fetch profile
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+    
     const fetchUserProfile = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       
       try {
         const { data, error } = await supabase
           .from('profiles')
           .select('first_name, last_name, phone, numeric_id')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         
         if (error) {
           console.error('Error fetching profile:', error);
@@ -57,7 +67,7 @@ const Settings = () => {
     };
     
     fetchUserProfile();
-  }, [user]);
+  }, [user, isAuthenticated]);
   
   const handleLogout = async () => {
     try {
@@ -66,7 +76,7 @@ const Settings = () => {
         title: "Logged out",
         description: "You have been successfully logged out.",
       });
-      navigate('/signin');
+      navigate('/auth');
     } catch (error) {
       console.error('Error logging out:', error);
       toast({
@@ -146,6 +156,36 @@ const Settings = () => {
   const handleViewSecureInfo = () => {
     setIsAuthDialogOpen(true);
   };
+
+  if (loading) {
+    return (
+      <MainLayout title="Settings">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-kash-green" />
+        </div>
+      </MainLayout>
+    );
+  }
+  
+  // If not authenticated, show a message and redirect to login
+  if (!isAuthenticated) {
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        navigate('/auth', { state: { from: location } });
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }, [navigate]);
+    
+    return (
+      <MainLayout title="Settings">
+        <div className="flex flex-col items-center justify-center h-64">
+          <p className="text-gray-500 mb-4">You need to be logged in to view this page.</p>
+          <p className="text-gray-400 text-sm">Redirecting to login...</p>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout title="Settings">
