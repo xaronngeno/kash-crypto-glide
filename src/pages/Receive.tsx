@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Copy, QrCode, Info, Search, Loader2, RefreshCw } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -11,7 +12,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX', 'SUI', 'MONAD'];
+const MAIN_CURRENCIES = ['ETH', 'SOL', 'TRX', 'SUI', 'MONAD'];
 
 interface WalletAddress {
   blockchain: string;
@@ -23,8 +24,6 @@ interface WalletAddress {
 
 const getNetworkLogo = (blockchain: string) => {
   switch (blockchain.toLowerCase()) {
-    case 'bitcoin':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
     case 'ethereum':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
     case 'solana':
@@ -40,14 +39,12 @@ const getNetworkLogo = (blockchain: string) => {
     case 'monad':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/24103.png';
     default:
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png'; // Default to ETH
   }
 };
 
 const getCurrencyLogo = (symbol: string) => {
   switch (symbol.toUpperCase()) {
-    case 'BTC':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
     case 'ETH':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
     case 'SOL':
@@ -75,7 +72,7 @@ const getCurrencyLogo = (symbol: string) => {
     case 'LINK':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1975.png';
     default:
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
+      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
   }
 };
 
@@ -83,9 +80,6 @@ const NetworkBadge = ({ network }: { network: string }) => {
   let color = "bg-gray-100 text-gray-600";
   
   switch (network.toLowerCase()) {
-    case 'bitcoin':
-      color = "bg-amber-100 text-amber-600";
-      break;
     case 'ethereum':
       color = "bg-indigo-100 text-indigo-600";
       break;

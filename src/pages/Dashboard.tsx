@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +14,9 @@ import { toast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { KashButton } from '@/components/ui/KashButton';
+
+// Updated to use ETH, SOL, TRX as main currencies
+const MAIN_CURRENCIES = ['ETH', 'SOL', 'TRX', 'MONAD', 'SUI'];
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -77,9 +81,8 @@ const Dashboard = () => {
           console.log('No wallets found, attempting to create them automatically');
           await createWallets();
         } else {
-          const mainCurrencies = ['BTC', 'ETH', 'SOL', 'MONAD', 'TRX', 'SUI'];
           const existingCurrencies = new Set(assets.map(asset => asset.symbol));
-          const missingCurrencies = mainCurrencies.filter(currency => !existingCurrencies.has(currency));
+          const missingCurrencies = MAIN_CURRENCIES.filter(currency => !existingCurrencies.has(currency));
           
           if (missingCurrencies.length > 0) {
             console.log(`Missing main currencies: ${missingCurrencies.join(', ')}. Recreating wallets.`);

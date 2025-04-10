@@ -197,7 +197,7 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
   try {
     console.log("Generating wallets from mnemonic for user:", userId);
     
-    // Generate wallets from the same mnemonic
+    // Generate wallets from the same mnemonic - only ETH, SOL, TRX
     const walletPromises = [
       generateEVMWallet(mnemonic),
       generateSolanaWallet(mnemonic),

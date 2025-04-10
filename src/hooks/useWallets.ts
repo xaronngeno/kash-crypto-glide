@@ -140,6 +140,8 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       case 'ETH': return 'Ethereum';
       case 'SOL': return 'Solana';
       case 'TRX': return 'Tron';
+      case 'MONAD': return 'Monad';
+      case 'SUI': return 'Sui';
       default: return symbol;
     }
   };
