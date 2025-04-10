@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
 import { useAuth } from '@/components/AuthProvider';
@@ -15,6 +15,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   const [walletsCreated, setWalletsCreated] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const { user, session, profile } = useAuth();
 
   const createWalletsForUser = async () => {
@@ -25,21 +26,47 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       setError(null);
       console.log("Attempting to create wallets for user:", user.id);
       
-      // Create wallets request
-      const { data, error: apiError } = await supabase.functions.invoke('create-wallets', {
-        method: 'POST',
-        body: { userId: user.id }
-      });
+      // Create wallets request with retry logic
+      const maxRetries = 3;
+      let attempt = 0;
+      let success = false;
+      let walletData = null;
       
-      if (apiError) {
-        throw new Error(`Wallet creation failed: ${apiError.message || "Unknown error"}`);
+      while (attempt < maxRetries && !success) {
+        try {
+          attempt++;
+          console.log(`Wallet creation attempt ${attempt} of ${maxRetries}`);
+          
+          const { data, error: apiError } = await supabase.functions.invoke('create-wallets', {
+            method: 'POST',
+            body: { userId: user.id }
+          });
+          
+          if (apiError) {
+            throw new Error(`Wallet creation failed: ${apiError.message || "Unknown error"}`);
+          }
+          
+          if (!data || !data.success) {
+            throw new Error(`Wallet creation failed: ${data?.message || "Unknown error"}`);
+          }
+          
+          console.log("Wallets created successfully:", data);
+          walletData = data.wallets;
+          success = true;
+        } catch (retryError) {
+          console.error(`Wallet creation attempt ${attempt} failed:`, retryError);
+          
+          if (attempt < maxRetries) {
+            // Wait before retrying (exponential backoff)
+            const delay = Math.pow(2, attempt) * 1000;
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            throw retryError; // Re-throw the error after all retries fail
+          }
+        }
       }
       
-      if (!data || !data.success) {
-        throw new Error(`Wallet creation failed: ${data?.message || "Unknown error"}`);
-      }
-      
-      console.log("Wallets created successfully:", data);
       setWalletsCreated(true);
       toast({
         title: 'Success',
@@ -52,7 +79,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         fetchUserAssets();
       }, 500);
       
-      return data.wallets;
+      return walletData;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
       console.error("Error creating wallets:", errorMessage);
@@ -89,7 +116,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     }
   }, [prices]);
 
-  const fetchUserAssets = async () => {
+  const fetchUserAssets = useCallback(async (forceRefresh = false) => {
     if (!user || !session?.access_token) {
       console.log("No user or session available");
       setLoading(false);
@@ -97,22 +124,51 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     }
     
     try {
-      setLoading(true);
+      if (forceRefresh || loading) {
+        setLoading(true);
+      }
       setError(null);
       console.log("Fetching wallets for user:", user.id);
       
-      // Get real wallet balances
-      const { data: walletsResponse, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
-        method: 'POST',
-        body: { userId: user.id }
-      });
+      // Get real wallet balances with retry logic
+      const maxRetries = 3;
+      let attempt = 0;
+      let success = false;
+      let walletsResponse: any = null;
       
-      if (walletsError) {
-        throw new Error(`Error fetching wallet balances: ${walletsError.message}`);
-      }
-      
-      if (!walletsResponse || !walletsResponse.success) {
-        throw new Error(`Failed to retrieve wallet data: ${walletsResponse?.message || "Unknown error"}`);
+      while (attempt < maxRetries && !success) {
+        try {
+          attempt++;
+          console.log(`Wallet fetch attempt ${attempt} of ${maxRetries}`);
+          
+          const { data, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
+            method: 'POST',
+            body: { userId: user.id }
+          });
+          
+          if (walletsError) {
+            throw new Error(`Error fetching wallet balances: ${walletsError.message}`);
+          }
+          
+          if (!data || !data.success) {
+            throw new Error(`Failed to retrieve wallet data: ${data?.message || "Unknown error"}`);
+          }
+          
+          walletsResponse = data;
+          success = true;
+        } catch (retryError) {
+          console.error(`Wallet fetch attempt ${attempt} failed:`, retryError);
+          
+          if (attempt < maxRetries) {
+            // Wait before retrying (exponential backoff)
+            const delay = Math.pow(2, attempt) * 1000;
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            setRetryCount(prev => prev + 1);
+            throw retryError; // Re-throw the error after all retries fail
+          }
+        }
       }
       
       // If the response indicates we should create wallets
@@ -154,15 +210,25 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
       console.error('Error fetching wallets:', errorMessage);
       setError("Error fetching wallet data: " + errorMessage);
-      toast({
-        title: 'Error loading wallets',
-        description: 'Could not load your wallet data. Please try again later.',
-        variant: 'destructive',
-        duration: 5000,
-      });
+      
+      // Only show toast on first error or force refresh
+      if (forceRefresh || retryCount <= 1) {
+        toast({
+          title: 'Error loading wallets',
+          description: 'Could not load your wallet data. Please try again later.',
+          variant: 'destructive',
+          duration: 5000,
+        });
+      }
+      
+      // Use cached data if available, otherwise empty array
+      if (assets.length === 0) {
+        setAssets([]);
+      }
+      
       setLoading(false);
     }
-  };
+  }, [user, session?.access_token, loading, retryCount]);
 
   const processWallets = (wallets: any[]) => {
     try {
@@ -258,7 +324,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   // Start fetching when the component mounts or user changes
   useEffect(() => {
     fetchUserAssets();
-  }, [user, session?.access_token]);
+  }, [user, session?.access_token, fetchUserAssets]);
 
   // Update when prices change
   useEffect(() => {
@@ -302,6 +368,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     isCreatingWallets: creatingWallets,
     error,
     createWallets: createWalletsForUser,
-    refreshWallets: fetchUserAssets
+    refreshWallets: () => fetchUserAssets(true)
   };
 };

@@ -32,6 +32,7 @@ async function fetchWalletBalances(supabase: any, userId: string) {
       .eq("user_id", userId);
     
     if (error) {
+      console.error(`Error fetching wallets: ${error.message}`);
       throw new Error(`Error fetching wallets: ${error.message}`);
     }
     
@@ -164,6 +165,17 @@ serve(async (req) => {
     // Get environment variables
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing required environment variables");
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: "Server configuration error" 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
+    }
 
     // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
