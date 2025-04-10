@@ -24,6 +24,7 @@ const Receive = () => {
   const [loading, setLoading] = useState(true);
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [noWalletsFound, setNoWalletsFound] = useState(false);
+  const [creatingWallets, setCreatingWallets] = useState(false);
 
   useEffect(() => {
     const fetchWalletAddresses = async () => {
@@ -69,14 +70,8 @@ const Receive = () => {
           setSelectedChain(addresses[0]);
           setNoWalletsFound(false);
         } else {
-          console.log("No wallets found for user");
-          setNoWalletsFound(true);
-          toast({
-            title: "No wallets found",
-            description: "Please contact support to set up your wallets.",
-            variant: "destructive"
-          });
-          setWalletAddresses([]);
+          console.log("No wallets found for user, attempting to create wallets");
+          await createWallets();
         }
       } catch (error) {
         console.error("Error fetching wallet addresses:", error);
@@ -94,6 +89,76 @@ const Receive = () => {
 
     fetchWalletAddresses();
   }, [user, toast]);
+
+  const createWallets = async () => {
+    if (!user || creatingWallets) return;
+    
+    try {
+      setCreatingWallets(true);
+      console.log("Creating wallets for user:", user.id);
+      
+      const { data, error } = await supabase.functions.invoke('create-wallets', {
+        method: 'POST',
+        body: { userId: user.id }
+      });
+      
+      if (error) {
+        throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
+      }
+      
+      console.log("Wallets created successfully:", data);
+      
+      // Fetch the newly created wallets
+      const { data: wallets, error: fetchError } = await supabase
+        .from('wallets')
+        .select('blockchain, currency, address')
+        .eq('user_id', user.id);
+      
+      if (fetchError) {
+        throw fetchError;
+      }
+      
+      if (wallets && wallets.length > 0) {
+        const uniqueWalletKeys = new Set();
+        const addresses: WalletAddress[] = [];
+        
+        wallets.forEach(wallet => {
+          const walletKey = `${wallet.blockchain}-${wallet.currency}`;
+          
+          if (!uniqueWalletKeys.has(walletKey)) {
+            uniqueWalletKeys.add(walletKey);
+            addresses.push({
+              blockchain: wallet.blockchain,
+              symbol: wallet.currency,
+              address: wallet.address
+            });
+          }
+        });
+        
+        setWalletAddresses(addresses);
+        setSelectedChain(addresses[0]);
+        setNoWalletsFound(false);
+        
+        toast({
+          title: "Wallets created",
+          description: "Your wallets have been created successfully.",
+        });
+      } else {
+        setNoWalletsFound(true);
+        throw new Error("No wallets were created");
+      }
+    } catch (error) {
+      console.error("Error creating wallets:", error);
+      toast({
+        title: "Error creating wallets",
+        description: "Failed to create wallets. Please try again later.",
+        variant: "destructive"
+      });
+      setNoWalletsFound(true);
+    } finally {
+      setCreatingWallets(false);
+    }
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -115,15 +180,33 @@ const Receive = () => {
     );
   }
 
+  if (creatingWallets) {
+    return (
+      <MainLayout title="Receive" showBack>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-pulse text-center">
+            <p className="text-gray-600">Creating your wallets...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   if (noWalletsFound) {
     return (
       <MainLayout title="Receive" showBack>
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <div className="bg-amber-50 p-4 rounded-lg border border-amber-100 w-full">
             <h3 className="font-medium text-amber-700 mb-2">No Wallets Found</h3>
-            <p className="text-amber-700 text-sm">
-              Your account doesn't have any wallets set up yet. Please contact support to help you set up your wallets.
+            <p className="text-amber-700 text-sm mb-4">
+              Your account doesn't have any wallets set up yet.
             </p>
+            <KashButton 
+              onClick={createWallets} 
+              disabled={creatingWallets}
+            >
+              Create My Wallets
+            </KashButton>
           </div>
         </div>
       </MainLayout>
