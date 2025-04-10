@@ -196,6 +196,55 @@ function handleCors(req: Request) {
   return null;
 }
 
+// Fetch existing mnemonic for a user
+async function getUserMnemonic(supabase: any, userId: string): Promise<string | null> {
+  try {
+    console.log(`Checking for existing mnemonic for user: ${userId}`);
+    const { data, error } = await supabase
+      .from("user_mnemonics")
+      .select("main_mnemonic")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error fetching mnemonic:", error);
+      return null;
+    }
+    
+    return data?.main_mnemonic || null;
+  } catch (err) {
+    console.error("Error in getUserMnemonic:", err);
+    return null;
+  }
+}
+
+// Store a user's mnemonic
+async function storeUserMnemonic(supabase: any, userId: string, mnemonic: string): Promise<boolean> {
+  try {
+    console.log(`Storing mnemonic for user: ${userId}`);
+    
+    const { error } = await supabase
+      .from("user_mnemonics")
+      .upsert({
+        user_id: userId,
+        main_mnemonic: mnemonic,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
+      });
+    
+    if (error) {
+      console.error("Error storing mnemonic:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (err) {
+    console.error("Error in storeUserMnemonic:", err);
+    return false;
+  }
+}
+
 // Generate wallets for a user with proper error handling for each chain
 async function generateWalletsForUser(supabase: any, userId: string, mnemonic: string) {
   try {
@@ -267,7 +316,27 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
       const { blockchain, currency, address, privateKey, wallet_type } = wallet;
       
       try {
-        // Use insert instead of upsert to avoid ON CONFLICT errors
+        // Check for existing wallet to avoid duplicates
+        const { data: existingWallet, error: checkError } = await supabase
+          .from('wallets')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('blockchain', blockchain)
+          .eq('currency', currency)
+          .maybeSingle();
+          
+        if (checkError) {
+          console.error(`Error checking for existing ${blockchain} wallet:`, checkError);
+          continue;
+        }
+        
+        if (existingWallet) {
+          // Wallet already exists, just add it to the success list
+          successfullyStoredWallets.push(wallet);
+          continue;
+        }
+        
+        // Create a new wallet
         const { data: insertedWallet, error } = await supabase
           .from('wallets')
           .insert([{
@@ -313,10 +382,32 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Parse request body
-    const { userId } = await req.json();
+    let requestData;
+    try {
+      const text = await req.text();
+      if (text && text.trim()) {
+        requestData = JSON.parse(text);
+      } else {
+        requestData = {};
+      }
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: "Invalid JSON in request body" 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+    
+    const userId = requestData.userId;
     
     if (!userId) {
-      return new Response(JSON.stringify({ error: "No userId provided" }), {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: "No userId provided" 
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
@@ -333,6 +424,14 @@ serve(async (req) => {
     } else if (existingWallets && existingWallets.length > 0) {
       // User already has wallets
       console.log(`User ${userId} already has ${existingWallets.length} wallets`);
+      
+      // Make sure the mnemonic is stored
+      const existingMnemonic = await getUserMnemonic(supabase, userId);
+      if (!existingMnemonic) {
+        // If wallets exist but no mnemonic, generate a warning
+        console.warn("User has wallets but no mnemonic stored. This could lead to recovery issues.");
+      }
+      
       return new Response(JSON.stringify({
         success: true,
         message: "User already has wallets",
@@ -341,29 +440,31 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Generate a new mnemonic
-    const mnemonic = getOrCreateMnemonic();
-    console.log("Using new mnemonic for HD wallet creation");
     
-    // Try to store the mnemonic in the wallets table directly (simplified approach)
-    try {
-      const { data: mnemonicData, error: mnemonicError } = await supabase
-        .from("user_mnemonics")
-        .insert([{
-          user_id: userId,
-          main_mnemonic: mnemonic,
-        }]);
+    // Get existing mnemonic or create a new one
+    let mnemonic = await getUserMnemonic(supabase, userId);
+    
+    if (!mnemonic) {
+      // Generate a new mnemonic if none exists
+      mnemonic = getOrCreateMnemonic();
+      console.log("Generated new mnemonic for user");
       
-      if (mnemonicError) {
-        console.error("Error storing mnemonic directly:", mnemonicError);
-      } else {
-        console.log("Successfully stored mnemonic directly");
+      // Store the mnemonic
+      const mnemonicStored = await storeUserMnemonic(supabase, userId, mnemonic);
+      if (!mnemonicStored) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Failed to store mnemonic"
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        });
       }
-    } catch (directMnemonicError) {
-      console.error("Exception storing mnemonic directly:", directMnemonicError);
+    } else {
+      console.log("Using existing mnemonic for wallet generation");
     }
     
+    // Generate wallets using the mnemonic
     const wallets = await generateWalletsForUser(supabase, userId, mnemonic);
     
     return new Response(JSON.stringify({

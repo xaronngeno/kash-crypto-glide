@@ -36,6 +36,21 @@ async function fetchWalletBalances(supabase: any, userId: string) {
     }
     
     if (!wallets || wallets.length === 0) {
+      console.log(`No wallets found for user ${userId}. Checking if we should create them.`);
+      
+      // Check for stored mnemonic
+      const { data: mnemonicData, error: mnemonicError } = await supabase
+        .from("user_mnemonics")
+        .select("main_mnemonic")
+        .eq("user_id", userId)
+        .maybeSingle();
+      
+      if (mnemonicError) {
+        console.error("Error checking for mnemonic:", mnemonicError);
+      } else if (mnemonicData?.main_mnemonic) {
+        console.log("User has mnemonic but no wallets. This is inconsistent.");
+      }
+      
       return {
         success: true,
         message: "No wallets found for user",

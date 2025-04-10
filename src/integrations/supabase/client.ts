@@ -35,19 +35,27 @@ export const executeSql = async (query: string, params?: any[]) => {
 
 // Function to get a user's mnemonic
 export const getUserMnemonic = async (userId: string): Promise<string | null> => {
+  if (!userId) {
+    console.error('Cannot fetch mnemonic: No user ID provided');
+    return null;
+  }
+
   try {
-    // Explicitly cast the RPC call to any before making it
-    const { data, error } = await (supabase.functions.invoke('get-user-mnemonic', {
+    const { data, error } = await supabase.functions.invoke('get-user-mnemonic', {
       body: { user_id_param: userId }
-    }) as any);
+    });
     
     if (error) {
       console.error('Error fetching mnemonic:', error);
       return null;
     }
     
-    // The function returns a single-value array
-    return data && data.mnemonic ? data.mnemonic : null;
+    if (!data || !data.success) {
+      console.error('Failed to fetch mnemonic:', data?.error || 'Unknown error');
+      return null;
+    }
+    
+    return data.mnemonic;
   } catch (err) {
     console.error('Error in getUserMnemonic:', err);
     return null;
@@ -56,17 +64,26 @@ export const getUserMnemonic = async (userId: string): Promise<string | null> =>
 
 // Function to store a user's mnemonic
 export const storeUserMnemonic = async (userId: string, mnemonic: string): Promise<boolean> => {
+  if (!userId || !mnemonic) {
+    console.error('Cannot store mnemonic: Missing user ID or mnemonic');
+    return false;
+  }
+
   try {
-    // Explicitly cast the RPC call to any before making it
-    const { error } = await (supabase.functions.invoke('store-user-mnemonic', {
+    const { data, error } = await supabase.functions.invoke('store-user-mnemonic', {
       body: { 
         user_id_param: userId,
         mnemonic_param: mnemonic
       }
-    }) as any);
+    });
     
     if (error) {
       console.error('Error storing mnemonic:', error);
+      return false;
+    }
+    
+    if (!data || !data.success) {
+      console.error('Failed to store mnemonic:', data?.error || 'Unknown error');
       return false;
     }
     
