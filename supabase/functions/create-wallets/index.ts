@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
@@ -50,6 +49,7 @@ function encryptPrivateKey(privateKey: string, userId: string): string {
 // Function to create a Solana wallet
 function createSolanaWallet(userId: string) {
   try {
+    console.log("Creating Solana wallet...");
     const keypair = solanaWeb3.Keypair.generate();
     const privateKeyHex = Buffer.from(keypair.secretKey).toString('hex');
     
@@ -90,12 +90,17 @@ function createTronWallet(userId: string) {
 // Function to create a Bitcoin wallet
 function createBitcoinWallet(userId: string) {
   try {
+    console.log("Creating Bitcoin wallet...");
     const network = bitcoinjs.networks.bitcoin;
     const keyPair = bitcoinjs.ECPair.makeRandom({ network });
-    const { address } = bitcoinjs.payments.p2pkh({
+    const { address } = bitcoinjs.payments.p2wpkh({
       pubkey: keyPair.publicKey,
       network,
     });
+    
+    if (!address) {
+      throw new Error("Failed to generate Bitcoin address");
+    }
     
     const privateKey = keyPair.toWIF();
     
@@ -182,178 +187,212 @@ async function createUserWallets(supabase: any, userId: string) {
     // Check if user already has wallets
     const { data: existingWallets, error: checkError } = await supabase
       .from("wallets")
-      .select("currency")
+      .select("currency, blockchain")
       .eq("user_id", userId);
 
     if (checkError) {
       throw new Error(`Error checking existing wallets: ${checkError.message}`);
     }
 
+    // Create an object to keep track of which wallets exist
+    const existingWalletKeys = new Set();
     if (existingWallets && existingWallets.length > 0) {
       console.log(`User ${userId} already has ${existingWallets.length} wallets`);
-      return { success: true, message: "Wallets already exist", wallets: existingWallets };
+      
+      // Track existing wallet combinations
+      existingWallets.forEach(wallet => {
+        existingWalletKeys.add(`${wallet.blockchain}-${wallet.currency}`);
+      });
     }
 
     // Create wallet objects to insert
     const wallets = [];
 
-    // 1. Create Bitcoin wallet
-    try {
-      const btcWallet = createBitcoinWallet(userId);
-      wallets.push({
-        user_id: userId,
-        blockchain: "Bitcoin",
-        currency: "BTC",
-        address: btcWallet.address,
-        private_key: btcWallet.private_key,
-        wallet_type: "imported",
-        balance: 0, // Start with zero balance
-      });
-      console.log("Created BTC wallet");
-    } catch (btcError) {
-      console.error("Error creating BTC wallet:", btcError);
+    // 1. Create Bitcoin wallet if it doesn't exist
+    if (!existingWalletKeys.has("Bitcoin-BTC")) {
+      try {
+        console.log("Creating Bitcoin wallet");
+        const btcWallet = createBitcoinWallet(userId);
+        wallets.push({
+          user_id: userId,
+          blockchain: "Bitcoin",
+          currency: "BTC",
+          address: btcWallet.address,
+          private_key: btcWallet.private_key,
+          wallet_type: "imported",
+          balance: 0, // Start with zero balance
+        });
+        console.log("Created BTC wallet");
+      } catch (btcError) {
+        console.error("Error creating BTC wallet:", btcError);
+      }
     }
 
-    // 2. Create Ethereum wallet
-    try {
-      const ethWallet = createEVMWallet("Ethereum", "ETH", userId);
-      wallets.push({
-        user_id: userId,
-        blockchain: ethWallet.blockchain,
-        currency: ethWallet.currency,
-        address: ethWallet.address,
-        private_key: ethWallet.private_key,
-        wallet_type: "imported",
-        balance: 0,
-      });
-      
-      // Also create USDT wallet on Ethereum with the same address
-      // For USDT, we need to track which network it's on
-      wallets.push({
-        user_id: userId,
-        blockchain: "Ethereum",
-        currency: "USDT",
-        address: ethWallet.address,
-        private_key: ethWallet.private_key,
-        wallet_type: "token",
-        balance: 0,
-      });
-      console.log("Created ETH and USDT (ERC20) wallets");
-    } catch (ethError) {
-      console.error("Error creating ETH wallet:", ethError);
+    // 2. Create Ethereum wallet if it doesn't exist
+    if (!existingWalletKeys.has("Ethereum-ETH")) {
+      try {
+        console.log("Creating ETH wallet");
+        const ethWallet = createEVMWallet("Ethereum", "ETH", userId);
+        wallets.push({
+          user_id: userId,
+          blockchain: ethWallet.blockchain,
+          currency: ethWallet.currency,
+          address: ethWallet.address,
+          private_key: ethWallet.private_key,
+          wallet_type: "imported",
+          balance: 0,
+        });
+        
+        // Also create USDT wallet on Ethereum with the same address if it doesn't exist
+        if (!existingWalletKeys.has("Ethereum-USDT")) {
+          wallets.push({
+            user_id: userId,
+            blockchain: "Ethereum",
+            currency: "USDT",
+            address: ethWallet.address,
+            private_key: ethWallet.private_key,
+            wallet_type: "token",
+            balance: 0,
+          });
+        }
+        console.log("Created ETH and USDT (ERC20) wallets");
+      } catch (ethError) {
+        console.error("Error creating ETH wallet:", ethError);
+      }
     }
 
-    // 3. Create Solana wallet
-    try {
-      const solWallet = createSolanaWallet(userId);
-      wallets.push({
-        user_id: userId,
-        blockchain: "Solana",
-        currency: "SOL",
-        address: solWallet.address,
-        private_key: solWallet.private_key,
-        wallet_type: "imported",
-        balance: 0,
-      });
-      
-      // Add USDT on Solana (SPL token)
-      wallets.push({
-        user_id: userId,
-        blockchain: "Solana",
-        currency: "USDT",
-        address: solWallet.address,
-        private_key: solWallet.private_key,
-        wallet_type: "token",
-        balance: 0,
-      });
-      console.log("Created SOL wallet and USDT (SPL) wallet");
-    } catch (solError) {
-      console.error("Error creating SOL wallet:", solError);
+    // 3. Create Solana wallet if it doesn't exist
+    if (!existingWalletKeys.has("Solana-SOL")) {
+      try {
+        console.log("Creating Solana wallet");
+        const solWallet = createSolanaWallet(userId);
+        wallets.push({
+          user_id: userId,
+          blockchain: "Solana",
+          currency: "SOL",
+          address: solWallet.address,
+          private_key: solWallet.private_key,
+          wallet_type: "imported",
+          balance: 0,
+        });
+        
+        // Add USDT on Solana (SPL token) if it doesn't exist
+        if (!existingWalletKeys.has("Solana-USDT")) {
+          wallets.push({
+            user_id: userId,
+            blockchain: "Solana",
+            currency: "USDT",
+            address: solWallet.address,
+            private_key: solWallet.private_key,
+            wallet_type: "token",
+            balance: 0,
+          });
+        }
+        console.log("Created SOL wallet and USDT (SPL) wallet");
+      } catch (solError) {
+        console.error("Error creating SOL wallet:", solError);
+      }
     }
 
-    // 4. Create Tron wallet
-    try {
-      const tronWallet = createTronWallet(userId);
-      wallets.push({
-        user_id: userId,
-        blockchain: "Tron",
-        currency: "TRX",
-        address: tronWallet.address,
-        private_key: tronWallet.private_key,
-        wallet_type: "imported",
-        balance: 0,
-      });
-      
-      // Add USDT on Tron (TRC20)
-      wallets.push({
-        user_id: userId,
-        blockchain: "Tron",
-        currency: "USDT",
-        address: tronWallet.address,
-        private_key: tronWallet.private_key,
-        wallet_type: "token",
-        balance: 0,
-      });
-      console.log("Created TRX wallet and USDT (TRC20) wallet");
-    } catch (tronError) {
-      console.error("Error creating TRX wallet:", tronError);
+    // 4. Create Tron wallet if it doesn't exist
+    if (!existingWalletKeys.has("Tron-TRX")) {
+      try {
+        console.log("Creating Tron wallet");
+        const tronWallet = createTronWallet(userId);
+        wallets.push({
+          user_id: userId,
+          blockchain: "Tron",
+          currency: "TRX",
+          address: tronWallet.address,
+          private_key: tronWallet.private_key,
+          wallet_type: "imported",
+          balance: 0,
+        });
+        
+        // Add USDT on Tron (TRC20) if it doesn't exist
+        if (!existingWalletKeys.has("Tron-USDT")) {
+          wallets.push({
+            user_id: userId,
+            blockchain: "Tron",
+            currency: "USDT",
+            address: tronWallet.address,
+            private_key: tronWallet.private_key,
+            wallet_type: "token",
+            balance: 0,
+          });
+        }
+        console.log("Created TRX wallet and USDT (TRC20) wallet");
+      } catch (tronError) {
+        console.error("Error creating TRX wallet:", tronError);
+      }
     }
 
-    // 5. Create additional EVM-compatible wallets
+    // 5. Create additional EVM-compatible wallets if they don't exist
     try {
       // Binance Smart Chain (BSC)
-      const bscWallet = createEVMWallet("Binance Smart Chain", "BNB", userId);
-      wallets.push({
-        user_id: userId,
-        blockchain: bscWallet.blockchain,
-        currency: bscWallet.currency,
-        address: bscWallet.address,
-        private_key: bscWallet.private_key,
-        wallet_type: "imported",
-        balance: 0,
-      });
-      
-      // Add USDT on BSC (BEP20)
-      wallets.push({
-        user_id: userId,
-        blockchain: "Binance Smart Chain",
-        currency: "USDT",
-        address: bscWallet.address,
-        private_key: bscWallet.private_key,
-        wallet_type: "token",
-        balance: 0,
-      });
+      if (!existingWalletKeys.has("Binance Smart Chain-BNB")) {
+        console.log("Creating BSC wallet");
+        const bscWallet = createEVMWallet("Binance Smart Chain", "BNB", userId);
+        wallets.push({
+          user_id: userId,
+          blockchain: bscWallet.blockchain,
+          currency: bscWallet.currency,
+          address: bscWallet.address,
+          private_key: bscWallet.private_key,
+          wallet_type: "imported",
+          balance: 0,
+        });
+        
+        // Add USDT on BSC (BEP20) if it doesn't exist
+        if (!existingWalletKeys.has("Binance Smart Chain-USDT")) {
+          wallets.push({
+            user_id: userId,
+            blockchain: "Binance Smart Chain",
+            currency: "USDT",
+            address: bscWallet.address,
+            private_key: bscWallet.private_key,
+            wallet_type: "token",
+            balance: 0,
+          });
+        }
+      }
       
       // Polygon
-      const polygonWallet = createEVMWallet("Polygon", "MATIC", userId);
-      wallets.push({
-        user_id: userId,
-        blockchain: polygonWallet.blockchain,
-        currency: polygonWallet.currency,
-        address: polygonWallet.address,
-        private_key: polygonWallet.private_key,
-        wallet_type: "imported",
-        balance: 0,
-      });
-      
-      // Add USDT on Polygon
-      wallets.push({
-        user_id: userId,
-        blockchain: "Polygon",
-        currency: "USDT",
-        address: polygonWallet.address,
-        private_key: polygonWallet.private_key,
-        wallet_type: "token",
-        balance: 0,
-      });
+      if (!existingWalletKeys.has("Polygon-MATIC")) {
+        console.log("Creating Polygon wallet");
+        const polygonWallet = createEVMWallet("Polygon", "MATIC", userId);
+        wallets.push({
+          user_id: userId,
+          blockchain: polygonWallet.blockchain,
+          currency: polygonWallet.currency,
+          address: polygonWallet.address,
+          private_key: polygonWallet.private_key,
+          wallet_type: "imported",
+          balance: 0,
+        });
+        
+        // Add USDT on Polygon if it doesn't exist
+        if (!existingWalletKeys.has("Polygon-USDT")) {
+          wallets.push({
+            user_id: userId,
+            blockchain: "Polygon",
+            currency: "USDT",
+            address: polygonWallet.address,
+            private_key: polygonWallet.private_key,
+            wallet_type: "token",
+            balance: 0,
+          });
+        }
+      }
       
       console.log("Created additional EVM wallets and USDT tokens");
     } catch (evmError) {
       console.error("Error creating additional EVM wallets:", evmError);
     }
 
-    // Insert wallets into database
+    // Insert wallets into database if there are any to insert
     if (wallets.length > 0) {
+      console.log(`Inserting ${wallets.length} new wallets`);
       const { data: insertedWallets, error: insertError } = await supabase
         .from("wallets")
         .insert(wallets)
@@ -363,7 +402,21 @@ async function createUserWallets(supabase: any, userId: string) {
         throw new Error(`Error inserting wallets: ${insertError.message}`);
       }
 
-      return { success: true, message: "Wallets created successfully", count: wallets.length, wallets: insertedWallets };
+      return { 
+        success: true, 
+        message: "Wallets created successfully", 
+        count: wallets.length, 
+        existingCount: existingWallets?.length || 0,
+        wallets: insertedWallets 
+      };
+    } else if (existingWallets && existingWallets.length > 0) {
+      return { 
+        success: true, 
+        message: "Wallets already exist", 
+        count: 0,
+        existingCount: existingWallets.length,
+        wallets: existingWallets 
+      };
     } else {
       throw new Error("No wallets were created");
     }

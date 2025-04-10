@@ -98,7 +98,6 @@ const Receive = () => {
   const [selectedChain, setSelectedChain] = useState<WalletAddress | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showAllDetails, setShowAllDetails] = useState(false);
   const [noWalletsFound, setNoWalletsFound] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -157,6 +156,8 @@ const Receive = () => {
         }
 
         if (data && data.length > 0) {
+          console.log("Fetched wallet addresses:", data);
+          
           // Use a Set to track unique combinations of blockchain+symbol
           const uniqueWalletKeys = new Set();
           const addresses: WalletAddress[] = [];
@@ -175,8 +176,6 @@ const Receive = () => {
               });
             }
           });
-          
-          console.log("Fetched wallet addresses:", addresses);
           
           setWalletAddresses(addresses);
           setDisplayedWallets(addresses);
