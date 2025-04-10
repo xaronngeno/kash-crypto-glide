@@ -12,231 +12,68 @@ interface UseWalletsProps {
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [walletsCreated, setWalletsCreated] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const { user, session, profile } = useAuth();
+  const { user, session } = useAuth();
 
-  const createWalletsForUser = async () => {
-    if (!user || !session?.access_token || creatingWallets) return null;
+  // Create wallets function
+  const createWallets = async (): Promise<any> => {
+    if (!user?.id || !session?.access_token || creatingWallets) {
+      return Promise.resolve(null);
+    }
     
     try {
       setCreatingWallets(true);
       setError(null);
-      console.log("Attempting to create wallets for user:", user.id);
+      console.log("Creating wallets for user:", user.id);
       
-      // Create wallets request with retry logic
-      const maxRetries = 3;
-      let attempt = 0;
-      let success = false;
-      let walletData = null;
+      const { data, error: apiError } = await supabase.functions.invoke('create-wallets', {
+        method: 'POST',
+        body: { userId: user.id }
+      });
       
-      while (attempt < maxRetries && !success) {
-        try {
-          attempt++;
-          console.log(`Wallet creation attempt ${attempt} of ${maxRetries}`);
-          
-          const { data, error: apiError } = await supabase.functions.invoke('create-wallets', {
-            method: 'POST',
-            body: { userId: user.id }
-          });
-          
-          if (apiError) {
-            throw new Error(`Wallet creation failed: ${apiError.message || "Unknown error"}`);
-          }
-          
-          if (!data || !data.success) {
-            throw new Error(`Wallet creation failed: ${data?.message || "Unknown error"}`);
-          }
-          
-          console.log("Wallets created successfully:", data);
-          walletData = data.wallets;
-          success = true;
-        } catch (retryError) {
-          console.error(`Wallet creation attempt ${attempt} failed:`, retryError);
-          
-          if (attempt < maxRetries) {
-            // Wait before retrying (exponential backoff)
-            const delay = Math.pow(2, attempt) * 1000;
-            console.log(`Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          } else {
-            throw retryError; // Re-throw the error after all retries fail
-          }
-        }
+      if (apiError) {
+        throw new Error(`Wallet creation failed: ${apiError.message}`);
       }
       
-      setWalletsCreated(true);
+      if (!data || !data.success) {
+        throw new Error(data?.message || "Unknown error creating wallets");
+      }
+      
+      console.log("Wallets created successfully:", data);
+      
       toast({
         title: 'Success',
         description: 'Your wallets have been created!',
-        variant: 'default'
       });
       
       // Fetch the wallet data again to refresh the list
-      setTimeout(() => {
-        fetchUserAssets();
-      }, 500);
+      await fetchUserAssets();
       
-      return walletData;
+      return data.wallets;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
       console.error("Error creating wallets:", errorMessage);
       setError(errorMessage);
+      
       toast({
         title: 'Error creating wallets',
         description: 'We could not create your wallets. Please try again later.',
         variant: 'destructive',
-        duration: 5000,
       });
-      setLoading(false);
-      return null;
+      
+      return Promise.reject(errorMessage);
     } finally {
       setCreatingWallets(false);
     }
   };
 
-  useEffect(() => {
-    if (prices && Object.keys(prices).length > 0) {
-      setAssets(prevAssets => 
-        prevAssets.map(asset => {
-          const priceData = prices[asset.symbol];
-          if (priceData) {
-            return {
-              ...asset,
-              price: priceData.price,
-              change: priceData.change_24h,
-              value: asset.amount * priceData.price
-            };
-          }
-          return asset;
-        })
-      );
-    }
-  }, [prices]);
-
-  const fetchUserAssets = useCallback(async (forceRefresh = false) => {
-    if (!user || !session?.access_token) {
-      console.log("No user or session available");
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      if (forceRefresh || loading) {
-        setLoading(true);
-      }
-      setError(null);
-      console.log("Fetching wallets for user:", user.id);
-      
-      // Get real wallet balances with retry logic
-      const maxRetries = 3;
-      let attempt = 0;
-      let success = false;
-      let walletsResponse: any = null;
-      
-      while (attempt < maxRetries && !success) {
-        try {
-          attempt++;
-          console.log(`Wallet fetch attempt ${attempt} of ${maxRetries}`);
-          
-          const { data, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
-            method: 'POST',
-            body: { userId: user.id }
-          });
-          
-          if (walletsError) {
-            throw new Error(`Error fetching wallet balances: ${walletsError.message}`);
-          }
-          
-          if (!data || !data.success) {
-            throw new Error(`Failed to retrieve wallet data: ${data?.message || "Unknown error"}`);
-          }
-          
-          walletsResponse = data;
-          success = true;
-        } catch (retryError) {
-          console.error(`Wallet fetch attempt ${attempt} failed:`, retryError);
-          
-          if (attempt < maxRetries) {
-            // Wait before retrying (exponential backoff)
-            const delay = Math.pow(2, attempt) * 1000;
-            console.log(`Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          } else {
-            setRetryCount(prev => prev + 1);
-            throw retryError; // Re-throw the error after all retries fail
-          }
-        }
-      }
-      
-      // If the response indicates we should create wallets
-      if (walletsResponse.shouldCreateWallets) {
-        console.log("Server indicates wallets should be created or recreated", walletsResponse);
-        
-        if (walletsResponse.missingCurrencies && walletsResponse.missingCurrencies.length > 0) {
-          console.log(`Missing currencies detected: ${walletsResponse.missingCurrencies.join(', ')}`);
-          toast({
-            title: 'Missing wallet currencies',
-            description: `Creating missing wallet currencies: ${walletsResponse.missingCurrencies.join(', ')}`,
-            duration: 3000,
-          });
-        }
-        
-        // Process any existing wallets first
-        if (walletsResponse.wallets && walletsResponse.wallets.length > 0) {
-          processWallets(walletsResponse.wallets);
-        } else {
-          setAssets([]);
-        }
-        
-        // Create the missing wallets
-        await createWalletsForUser();
-        return;
-      }
-      
-      if (!walletsResponse.wallets || walletsResponse.wallets.length === 0) {
-        console.log("No wallets found for user");
-        setAssets([]);
-        setLoading(false);
-        return;
-      }
-      
-      // Process the wallets into assets
-      processWallets(walletsResponse.wallets);
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
-      console.error('Error fetching wallets:', errorMessage);
-      setError("Error fetching wallet data: " + errorMessage);
-      
-      // Only show toast on first error or force refresh
-      if (forceRefresh || retryCount <= 1) {
-        toast({
-          title: 'Error loading wallets',
-          description: 'Could not load your wallet data. Please try again later.',
-          variant: 'destructive',
-          duration: 5000,
-        });
-      }
-      
-      // Use cached data if available, otherwise empty array
-      if (assets.length === 0) {
-        setAssets([]);
-      }
-      
-      setLoading(false);
-    }
-  }, [user, session?.access_token, loading, retryCount]);
-
+  // Process wallets into assets
   const processWallets = (wallets: any[]) => {
     try {
       console.log("Processing wallets:", wallets);
-      // Start with an empty asset list
-      const processedAssets: Asset[] = [];
       
-      // Group wallets by currency, keeping track of network
+      // Group wallets by currency
       const currencyNetworkBalances: Record<string, { 
         totalBalance: number, 
         networks: Record<string, { address: string, balance: number }>
@@ -269,8 +106,8 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       });
       
       // Convert to assets array
-      Object.entries(currencyNetworkBalances).forEach(([symbol, data]) => {
-        // Create asset without relying on demo data
+      const processedAssets = Object.entries(currencyNetworkBalances).map(([symbol, data]) => {
+        // Create asset
         const asset: Asset = {
           id: symbol,
           name: getAssetName(symbol),
@@ -283,19 +120,16 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           networks: data.networks
         };
         
-        processedAssets.push(asset);
+        return asset;
       });
-      
-      console.log("Processed assets:", processedAssets);
       
       // Sort by value (highest first)
       processedAssets.sort((a, b) => b.value - a.value);
-      
       setAssets(processedAssets);
       setLoading(false);
     } catch (processError) {
       console.error("Error processing wallet data:", processError);
-      setError("Failed to process wallet data: " + (processError instanceof Error ? processError.message : "Unknown error"));
+      setError("Failed to process wallet data");
       setLoading(false);
     }
   };
@@ -303,58 +137,109 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   // Helper function to get proper asset names
   const getAssetName = (symbol: string): string => {
     switch(symbol.toUpperCase()) {
-      case 'BTC': return 'Bitcoin';
       case 'ETH': return 'Ethereum';
       case 'SOL': return 'Solana';
-      case 'USDT': return 'Tether';
       case 'TRX': return 'Tron';
-      case 'BNB': return 'Binance Coin';
-      case 'MATIC': return 'Polygon';
-      case 'MONAD': return 'Monad';
-      case 'SUI': return 'Sui';
-      case 'XRP': return 'XRP';
-      case 'ADA': return 'Cardano';
-      case 'DOT': return 'Polkadot';
-      case 'DOGE': return 'Dogecoin';
-      case 'LINK': return 'Chainlink';
       default: return symbol;
     }
   };
 
-  // Start fetching when the component mounts or user changes
-  useEffect(() => {
-    fetchUserAssets();
-  }, [user, session?.access_token, fetchUserAssets]);
+  // Fetch wallets
+  const fetchUserAssets = useCallback(async () => {
+    if (!user?.id || !session?.access_token) {
+      console.log("No user or session available");
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      console.log("Fetching wallets for user:", user.id);
+      
+      const { data, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
+        method: 'POST',
+        body: { userId: user.id }
+      });
+      
+      if (walletsError) {
+        throw new Error(`Error fetching wallet balances: ${walletsError.message}`);
+      }
+      
+      if (!data || !data.success) {
+        throw new Error(data?.message || "Unknown error fetching wallets");
+      }
+      
+      // If the response indicates we should create wallets
+      if (data.shouldCreateWallets) {
+        console.log("Server indicates wallets should be created");
+        
+        if (data.wallets && data.wallets.length > 0) {
+          processWallets(data.wallets);
+        } else {
+          setAssets([]);
+        }
+        
+        // Create the missing wallets
+        await createWallets();
+        return;
+      }
+      
+      if (!data.wallets || data.wallets.length === 0) {
+        console.log("No wallets found for user");
+        setAssets([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Process the wallets into assets
+      processWallets(data.wallets);
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
+      console.error('Error fetching wallets:', errorMessage);
+      setError("Error fetching wallet data: " + errorMessage);
+      
+      toast({
+        title: 'Error loading wallets',
+        description: 'Could not load your wallet data. Please try again later.',
+        variant: 'destructive',
+      });
+      
+      setLoading(false);
+    }
+  }, [user?.id, session?.access_token]);
 
-  // Update when prices change
+  // Update assets when prices change
   useEffect(() => {
     if (prices && Object.keys(prices).length > 0 && assets.length > 0) {
-      updateAssetPrices();
+      setAssets(prevAssets => 
+        prevAssets.map(asset => {
+          const priceData = prices[asset.symbol];
+          if (priceData) {
+            return {
+              ...asset,
+              price: priceData.price,
+              change: priceData.change_24h,
+              value: asset.amount * priceData.price
+            };
+          }
+          return asset;
+        })
+      );
     }
   }, [prices]);
 
-  const updateAssetPrices = () => {
-    setAssets(prevAssets => 
-      prevAssets.map(asset => {
-        const priceData = prices[asset.symbol];
-        if (priceData) {
-          return {
-            ...asset,
-            price: priceData.price,
-            change: priceData.change_24h,
-            value: asset.amount * priceData.price
-          };
-        }
-        return asset;
-      })
-    );
-  };
+  // Initial fetching
+  useEffect(() => {
+    fetchUserAssets();
+  }, [fetchUserAssets]);
 
-  // Safety timeout to prevent infinite loading
+  // Safety timeout
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
       if (loading) {
-        console.warn("Safety timeout reached - forcing loading state to complete");
+        console.log("Safety timeout reached - forcing loading state to complete");
         setLoading(false);
       }
     }, 10000); // 10 second maximum timeout
@@ -367,7 +252,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     loading, 
     isCreatingWallets: creatingWallets,
     error,
-    createWallets: createWalletsForUser,
-    refreshWallets: () => fetchUserAssets(true)
+    createWallets,
+    refreshWallets: fetchUserAssets
   };
 };

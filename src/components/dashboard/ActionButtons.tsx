@@ -14,29 +14,29 @@ export const ActionButtons = ({ onForceCreateWallets }: ActionButtonsProps) => {
   const [isRecreating, setIsRecreating] = useState(false);
   
   const handleRecreateClick = async () => {
-    if (onForceCreateWallets) {
-      setIsRecreating(true);
+    if (!onForceCreateWallets) return;
+    
+    setIsRecreating(true);
+    toast({
+      title: 'Creating wallets',
+      description: 'This may take a moment...',
+    });
+    
+    try {
+      await onForceCreateWallets();
       toast({
-        title: 'Recreating wallets',
-        description: 'This may take a moment...',
+        title: 'Success',
+        description: 'Your wallets have been created successfully!',
       });
-      
-      try {
-        await onForceCreateWallets();
-        toast({
-          title: 'Wallets updated',
-          description: 'Your wallets have been recreated successfully.',
-        });
-      } catch (error) {
-        console.error("Error recreating wallets:", error);
-        toast({
-          title: 'Error recreating wallets',
-          description: 'There was a problem recreating your wallets. Please refresh the page and try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsRecreating(false);
-      }
+    } catch (error) {
+      console.error("Error recreating wallets:", error);
+      toast({
+        title: 'Error',
+        description: 'There was a problem creating your wallets.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRecreating(false);
     }
   };
 
@@ -63,7 +63,7 @@ export const ActionButtons = ({ onForceCreateWallets }: ActionButtonsProps) => {
           onClick={handleRecreateClick}
           disabled={isRecreating}
         >
-          {isRecreating ? 'Creating...' : 'Recreate'}
+          {isRecreating ? 'Creating...' : 'Create Wallets'}
         </KashButton>
       )}
     </div>

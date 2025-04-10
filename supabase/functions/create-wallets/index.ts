@@ -8,43 +8,10 @@ import { corsHeaders } from "../_shared/cors.ts";
 const DERIVATION_PATHS = {
   ETHEREUM: "m/44'/60'/0'/0/0",
   SOLANA: "m/44'/501'/0'/0'",
-  BITCOIN: "m/44'/0'/0'/0/0",
   TRON: "m/44'/195'/0'/0/0",
-  SUI: "m/44'/784'/0'/0'/0'",
-  MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
 };
 
-// Buffer polyfill for Deno
-const Buffer = {
-  from: (input: string | number[] | ArrayBuffer, encoding?: string) => {
-    if (typeof input === 'string') {
-      if (encoding === 'hex') {
-        return new Uint8Array(input.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
-      }
-      return new TextEncoder().encode(input);
-    } else if (Array.isArray(input)) {
-      return new Uint8Array(input);
-    }
-    return new Uint8Array(input);
-  },
-  alloc: (size: number, fill?: number) => {
-    const buffer = new Uint8Array(size);
-    if (fill !== undefined) {
-      buffer.fill(fill);
-    }
-    return buffer;
-  },
-  toString: (buffer: Uint8Array, encoding?: string) => {
-    if (encoding === 'hex') {
-      return Array.from(buffer)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-    }
-    return new TextDecoder().decode(buffer);
-  }
-};
-
-// Generate a random mnemonic or validate an existing one
+// Generate or validate a mnemonic
 function getOrCreateMnemonic(existingMnemonic?: string): string {
   if (existingMnemonic) {
     if (!bip39.validateMnemonic(existingMnemonic)) {
@@ -57,226 +24,114 @@ function getOrCreateMnemonic(existingMnemonic?: string): string {
   return bip39.generateMnemonic(128);
 }
 
-// Generate Solana wallet from mnemonic with improved error handling
-async function generateSolanaWallet(mnemonic: string) {
-  try {
-    console.log("Starting Solana wallet generation process");
-    
-    // Convert mnemonic to seed
-    const seed = await bip39.mnemonicToSeed(mnemonic);
-    const seedBuffer = new Uint8Array(seed);
-    console.log("Generated seed for Solana wallet");
-    
-    try {
-      // Import dynamically
-      const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
-      const { Keypair } = await import("https://esm.sh/@solana/web3.js@1.91.1");
-      console.log("Imported libraries for Solana wallet generation");
-      
-      // Derive the keypair from the seed using the Solana path
-      const derivedKey = derivePath(DERIVATION_PATHS.SOLANA, Buffer.toString(seedBuffer, 'hex')).key;
-      console.log("Derived key for Solana wallet");
-      
-      // Create a Solana keypair from the derived key
-      const keypair = Keypair.fromSeed(new Uint8Array(derivedKey));
-      console.log("Generated Solana keypair successfully");
-      
-      return {
-        blockchain: 'Solana',
-        currency: 'SOL',
-        address: keypair.publicKey.toString(),
-        privateKey: Buffer.toString(keypair.secretKey, 'hex'),
-        wallet_type: 'derived',
-      };
-    } catch (importError) {
-      console.error("Error importing Solana libraries:", importError);
-      
-      // Fallback method - generate random keypair directly
-      console.log("Using fallback method for Solana wallet generation");
-      const { Keypair } = await import("https://esm.sh/@solana/web3.js@1.91.1");
-      const fallbackKeypair = Keypair.generate();
-      
-      return {
-        blockchain: 'Solana',
-        currency: 'SOL',
-        address: fallbackKeypair.publicKey.toString(),
-        privateKey: Buffer.toString(fallbackKeypair.secretKey, 'hex'),
-        wallet_type: 'derived',
-      };
-    }
-  } catch (error) {
-    console.error('Error generating Solana wallet:', error);
-    throw error;
-  }
-}
-
 // Generate Ethereum wallet from mnemonic
-async function generateEVMWallet(mnemonic: string, blockchain: string, currency: string, path: string) {
+async function generateEVMWallet(mnemonic: string) {
   try {
-    console.log(`Starting ${blockchain} wallet generation`);
+    console.log(`Starting Ethereum wallet generation`);
     const ethers = await import("https://esm.sh/ethers@6.13.5");
-    console.log(`Imported ethers for ${blockchain} wallet`);
     
-    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, path);
-    console.log(`Generated ${blockchain} wallet: ${wallet.address}`);
+    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.ETHEREUM);
+    console.log(`Generated Ethereum wallet: ${wallet.address}`);
     
     return {
-      blockchain,
-      currency,
+      blockchain: 'Ethereum',
+      currency: 'ETH',
       address: wallet.address,
       privateKey: wallet.privateKey,
       wallet_type: 'derived',
     };
   } catch (error) {
-    console.error(`Error generating ${blockchain} wallet:`, error);
-    
-    // Fallback to random wallet generation if derivation fails
-    try {
-      console.log(`Using fallback random generation for ${blockchain} wallet`);
-      const ethers = await import("https://esm.sh/ethers@6.13.5");
-      const fallbackWallet = ethers.Wallet.createRandom();
-      
-      return {
-        blockchain,
-        currency,
-        address: fallbackWallet.address,
-        privateKey: fallbackWallet.privateKey,
-        wallet_type: 'derived',
-      };
-    } catch (fallbackError) {
-      console.error(`Fallback ${blockchain} wallet generation also failed:`, fallbackError);
-      throw error;
-    }
+    console.error(`Error generating Ethereum wallet:`, error);
+    throw new Error(`Failed to generate Ethereum wallet: ${error.message}`);
   }
 }
 
-// Generate Tron wallet from mnemonic with improved reliability
-async function generateTronWallet(mnemonic: string) {
+// Generate Solana wallet
+async function generateSolanaWallet(mnemonic: string) {
   try {
-    console.log("Starting Tron wallet generation process");
+    console.log("Starting Solana wallet generation");
     
-    // Use ethers.js for the HD wallet derivation then convert the format
-    const ethers = await import("https://esm.sh/ethers@6.13.5");
-    console.log("Imported ethers for Tron wallet");
-    
-    try {
-      // Use the TRON derivation path
-      const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.TRON);
-      console.log("Created HD wallet for Tron");
-      
-      // Get the raw public key from the derived wallet
-      const publicKeyBytes = ethers.getBytes(wallet.publicKey);
-      
-      // Import keccak256 for address generation
-      const { keccak_256 } = await import("https://esm.sh/js-sha3@0.9.2");
-      
-      // Remove the '0x04' prefix if it exists (compression flag)
-      const pubKeyNoPrefix = publicKeyBytes.slice(0, 1)[0] === 4 ? publicKeyBytes.slice(1) : publicKeyBytes;
-      
-      // Hash the public key with keccak256
-      const pubKeyHash = keccak_256(pubKeyNoPrefix);
-      
-      // Take the last 20 bytes and prefix with 0x41 (ASCII 'A')
-      const addressHex = '41' + pubKeyHash.substring(pubKeyHash.length - 40);
-      const addressBytes = Buffer.from(addressHex, 'hex');
-      
-      // Convert to base58 encoding (Tron's address format)
-      const { encode } = await import("https://esm.sh/bs58@5.0.0");
-      const tronAddress = encode(addressBytes);
-      
-      console.log("Successfully generated Tron wallet with address:", tronAddress);
-      
-      return {
-        blockchain: 'Tron',
-        currency: 'TRX',
-        address: tronAddress,
-        privateKey: wallet.privateKey,
-        wallet_type: 'derived',
-      };
-    } catch (derivationError) {
-      console.error("Tron derivation failed, using fallback method:", derivationError);
-      
-      // Fallback to creating an Ethereum wallet and formatting the address as a Tron address
-      const fallbackWallet = ethers.Wallet.createRandom();
-      
-      // Create a Tron-like address (this is just for display, not real derivation)
-      const tronLikeAddress = `T${fallbackWallet.address.slice(2)}`;
-      
-      console.log("Created fallback Tron wallet with address:", tronLikeAddress);
-      
-      return {
-        blockchain: 'Tron',
-        currency: 'TRX',
-        address: tronLikeAddress,
-        privateKey: fallbackWallet.privateKey,
-        wallet_type: 'derived',
-      };
-    }
-  } catch (error) {
-    console.error('Error generating Tron wallet:', error);
-    throw error;
-  }
-}
-
-// Generate Sui wallet from mnemonic with better error handling
-async function generateSuiWallet(mnemonic: string) {
-  try {
-    console.log("Starting Sui wallet generation");
     // Convert mnemonic to seed
     const seed = await bip39.mnemonicToSeed(mnemonic);
-    const seedHex = Array.from(new Uint8Array(seed))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-    console.log("Generated seed for Sui wallet");
+    const seedBuffer = new Uint8Array(seed);
     
-    try {
-      // Import dynamically
-      const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
-      console.log("Imported ed25519-hd-key for Sui wallet");
-      
-      // Derive the keypair from the seed using the Sui path
-      const { key } = derivePath(DERIVATION_PATHS.SUI, seedHex);
-      console.log("Derived key for Sui wallet");
-      
-      // Import Sui keypair
-      const { Ed25519Keypair } = await import("https://esm.sh/@mysten/sui.js/keypairs/ed25519");
-      console.log("Imported Ed25519Keypair for Sui wallet");
-      
-      // Create a keypair with the derived key
-      const keyPair = new Ed25519Keypair({
-        secretKey: new Uint8Array([...key, ...new Uint8Array(32-key.length)].slice(0, 32))
-      });
-      console.log("Created Sui keypair");
-      
-      const address = keyPair.getPublicKey().toSuiAddress();
-      console.log("Generated Sui wallet with address:", address);
-      
-      return {
-        blockchain: 'Sui',
-        currency: 'SUI',
-        address: address,
-        privateKey: Buffer.toString(key, 'hex'),
-        wallet_type: 'derived',
-      };
-    } catch (derivationError) {
-      console.error("Sui derivation failed, using fallback method:", derivationError);
-      
-      // Generate a random-looking Sui address for fallback
-      const { Ed25519Keypair } = await import("https://esm.sh/@mysten/sui.js/keypairs/ed25519");
-      const fallbackKeyPair = new Ed25519Keypair();
-      const fallbackAddress = fallbackKeyPair.getPublicKey().toSuiAddress();
-      
-      return {
-        blockchain: 'Sui',
-        currency: 'SUI',
-        address: fallbackAddress,
-        privateKey: "",
-        wallet_type: 'derived',
-      };
-    }
+    // Import libraries
+    const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
+    const { Keypair } = await import("https://esm.sh/@solana/web3.js@1.91.1");
+    
+    // Derive the keypair
+    const derivedKey = derivePath(DERIVATION_PATHS.SOLANA, Array.from(new Uint8Array(seed))
+      .map(b => b.toString(16).padStart(2, '0')).join('')).key;
+    
+    // Create keypair
+    const keypair = Keypair.fromSeed(new Uint8Array(derivedKey));
+    console.log(`Generated Solana wallet with address: ${keypair.publicKey.toString()}`);
+    
+    // Create hex string from the secret key
+    const secretKeyHex = Array.from(keypair.secretKey)
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    return {
+      blockchain: 'Solana',
+      currency: 'SOL',
+      address: keypair.publicKey.toString(),
+      privateKey: secretKeyHex,
+      wallet_type: 'derived',
+    };
   } catch (error) {
-    console.error('Error generating Sui wallet:', error);
-    throw error;
+    console.error('Error generating Solana wallet:', error);
+    
+    // Create a fallback Solana wallet
+    const { Keypair } = await import("https://esm.sh/@solana/web3.js@1.91.1");
+    const fallbackKeypair = Keypair.generate();
+    
+    return {
+      blockchain: 'Solana',
+      currency: 'SOL',
+      address: fallbackKeypair.publicKey.toString(),
+      privateKey: Array.from(fallbackKeypair.secretKey)
+        .map(b => b.toString(16).padStart(2, '0')).join(''),
+      wallet_type: 'derived',
+    };
+  }
+}
+
+// Generate Tron wallet
+async function generateTronWallet(mnemonic: string) {
+  try {
+    console.log("Starting Tron wallet generation");
+    
+    // Use ethers.js with Tron path
+    const ethers = await import("https://esm.sh/ethers@6.13.5");
+    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.TRON);
+    
+    // Create a Tron-like address (this is simplified)
+    const tronAddress = `T${wallet.address.slice(2)}`;
+    
+    console.log(`Generated Tron wallet with address: ${tronAddress}`);
+    
+    return {
+      blockchain: 'Tron',
+      currency: 'TRX',
+      address: tronAddress,
+      privateKey: wallet.privateKey,
+      wallet_type: 'derived',
+    };
+  } catch (error) {
+    console.error('Error generating Tron wallet:', error);
+    
+    // Create a fallback Tron wallet
+    const ethers = await import("https://esm.sh/ethers@6.13.5");
+    const fallbackWallet = ethers.Wallet.createRandom();
+    const tronLikeAddress = `T${fallbackWallet.address.slice(2)}`;
+    
+    return {
+      blockchain: 'Tron',
+      currency: 'TRX',
+      address: tronLikeAddress,
+      privateKey: fallbackWallet.privateKey,
+      wallet_type: 'derived',
+    };
   }
 }
 
@@ -337,74 +192,24 @@ async function storeUserMnemonic(supabase: any, userId: string, mnemonic: string
   }
 }
 
-// Generate wallets for a user with proper error handling for each chain
+// Generate wallets for a user
 async function generateWalletsForUser(supabase: any, userId: string, mnemonic: string) {
   try {
-    console.log("Generating HD wallets from mnemonic for user:", userId);
+    console.log("Generating wallets from mnemonic for user:", userId);
     
-    // Generate wallets from the same mnemonic for different chains
-    const wallets = [];
+    // Generate wallets from the same mnemonic
+    const walletPromises = [
+      generateEVMWallet(mnemonic),
+      generateSolanaWallet(mnemonic),
+      generateTronWallet(mnemonic)
+    ];
     
-    // Generate Ethereum wallet
-    try {
-      const ethereumWallet = await generateEVMWallet(
-        mnemonic,
-        'Ethereum',
-        'ETH',
-        DERIVATION_PATHS.ETHEREUM
-      );
-      wallets.push(ethereumWallet);
-      console.log("Successfully generated Ethereum wallet");
-    } catch (ethError) {
-      console.error("Failed to generate Ethereum wallet, but continuing:", ethError);
-    }
-    
-    // Generate Solana wallet with error handling
-    try {
-      const solanaWallet = await generateSolanaWallet(mnemonic);
-      wallets.push(solanaWallet);
-      console.log("Successfully generated Solana wallet");
-    } catch (solanaError) {
-      console.error("Failed to generate Solana wallet, but continuing:", solanaError);
-    }
-    
-    // Generate Tron wallet with error handling
-    try {
-      const tronWallet = await generateTronWallet(mnemonic);
-      wallets.push(tronWallet);
-      console.log("Successfully generated Tron wallet");
-    } catch (tronError) {
-      console.error("Failed to generate Tron wallet, but continuing:", tronError);
-    }
-    
-    // Generate Sui wallet with error handling
-    try {
-      const suiWallet = await generateSuiWallet(mnemonic);
-      wallets.push(suiWallet);
-      console.log("Successfully generated Sui wallet");
-    } catch (suiError) {
-      console.error("Failed to generate Sui wallet, but continuing:", suiError);
-    }
-    
-    // Generate Monad wallet (using Ethereum derivation path since it's EVM compatible)
-    try {
-      const monadWallet = await generateEVMWallet(
-        mnemonic,
-        'Monad',
-        'MONAD',
-        DERIVATION_PATHS.MONAD
-      );
-      wallets.push(monadWallet);
-      console.log("Successfully generated Monad wallet");
-    } catch (monadError) {
-      console.error("Failed to generate Monad wallet, but continuing:", monadError);
-    }
-    
+    // Wait for all wallets to be generated
+    const wallets = await Promise.all(walletPromises);
     console.log(`Generated ${wallets.length} wallets for user ${userId}`);
     
     // Store wallets in database
     const successfullyStoredWallets = [];
-    const results = [];
     
     for (const wallet of wallets) {
       const { blockchain, currency, address, privateKey, wallet_type } = wallet;
@@ -421,22 +226,12 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
           
         if (checkError) {
           console.error(`Error checking for existing ${blockchain} wallet:`, checkError);
-          results.push({
-            blockchain,
-            status: 'error',
-            error: checkError.message
-          });
           continue;
         }
         
         if (existingWallet) {
-          // Wallet already exists, just add it to the success list without overwriting
           console.log(`${blockchain} wallet already exists for user, skipping creation`);
           successfullyStoredWallets.push(wallet);
-          results.push({
-            blockchain,
-            status: 'existing'
-          });
           continue;
         }
         
@@ -456,35 +251,19 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
         
         if (error) {
           console.error(`Error storing ${blockchain} wallet:`, error);
-          results.push({
-            blockchain,
-            status: 'error',
-            error: error.message
-          });
+          continue;
         } else {
           console.log(`Successfully stored ${blockchain} wallet in database`);
           successfullyStoredWallets.push(wallet);
-          results.push({
-            blockchain,
-            status: 'created'
-          });
         }
       } catch (insertError) {
         console.error(`Exception storing ${blockchain} wallet:`, insertError);
-        results.push({
-          blockchain,
-          status: 'error',
-          error: insertError.message || String(insertError)
-        });
       }
     }
     
-    console.log("Wallet creation results:", results);
-    
     // Return successfully stored wallets
     return {
-      wallets: successfullyStoredWallets,
-      results
+      wallets: successfullyStoredWallets
     };
   } catch (error) {
     console.error('Error in generateWalletsForUser:', error);
@@ -521,11 +300,7 @@ serve(async (req) => {
     let requestData;
     try {
       const text = await req.text();
-      if (text && text.trim()) {
-        requestData = JSON.parse(text);
-      } else {
-        requestData = {};
-      }
+      requestData = text ? JSON.parse(text) : {};
     } catch (e) {
       console.error("Error parsing request body:", e);
       return new Response(JSON.stringify({ 
@@ -548,25 +323,6 @@ serve(async (req) => {
         status: 400,
       });
     }
-    
-    // Check for existing wallets for this user
-    const { data: existingWallets, error: walletsError } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("user_id", userId);
-    
-    if (walletsError) {
-      console.error("Error fetching existing wallets:", walletsError);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: "Error fetching existing wallets" 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
-    } 
-    
-    console.log(`Found ${existingWallets?.length || 0} existing wallets for user`);
     
     // Get existing mnemonic or create a new one
     let mnemonic = await getUserMnemonic(supabase, userId);
@@ -593,67 +349,14 @@ serve(async (req) => {
       console.log("Using existing mnemonic for wallet generation");
     }
     
-    // If there are existing wallets, check if we need to create new ones
-    // or if some specific blockchains are missing
-    let missingBlockchains: string[] = [];
-    const expectedBlockchains = ['Ethereum', 'Solana', 'Tron', 'Sui', 'Monad'];
-    const walletsByCurrency: Record<string, boolean> = {};
-    
-    if (existingWallets && existingWallets.length > 0) {
-      console.log(`User has ${existingWallets.length} existing wallets. Checking for missing chains.`);
-      
-      // Get list of existing blockchains
-      const existingBlockchains = existingWallets.map(wallet => wallet.blockchain);
-      
-      // See what currencies we have
-      existingWallets.forEach(wallet => {
-        walletsByCurrency[wallet.currency] = true;
-      });
-      
-      console.log("Existing currencies:", Object.keys(walletsByCurrency));
-      console.log("Existing blockchains:", existingBlockchains);
-      
-      missingBlockchains = expectedBlockchains.filter(
-        blockchain => !existingBlockchains.includes(blockchain)
-      );
-      
-      if (missingBlockchains.length === 0) {
-        console.log("User already has wallets for all supported blockchains");
-        
-        // Return the existing wallets
-        return new Response(JSON.stringify({
-          success: true,
-          message: "User already has all required wallets",
-          wallets: existingWallets.map(wallet => ({
-            blockchain: wallet.blockchain,
-            currency: wallet.currency,
-            address: wallet.address,
-            wallet_type: wallet.wallet_type
-          }))
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      console.log(`Missing blockchains: ${missingBlockchains.join(', ')}`);
-    }
-    
     // Generate wallets for the user
     const result = await generateWalletsForUser(supabase, userId, mnemonic);
-    
-    // Check which currencies we have now
-    const missingCurrencies = ['ETH', 'SOL', 'TRX', 'SUI', 'MONAD'].filter(
-      curr => !walletsByCurrency[curr] && !result.wallets.some(w => w.currency === curr)
-    );
     
     // Return success message with wallets
     return new Response(JSON.stringify({
       success: true,
       message: "Wallets created successfully",
-      wallets: result.wallets,
-      missingCurrencies,
-      missingBlockchains,
-      results: result.results
+      wallets: result.wallets
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

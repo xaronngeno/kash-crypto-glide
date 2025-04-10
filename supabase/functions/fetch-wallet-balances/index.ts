@@ -17,16 +17,15 @@ function handleCors(req: Request) {
   return null;
 }
 
-// Include ALL supported cryptocurrencies - removing Bitcoin from required list
-// since we're having issues with it
-const MAIN_CURRENCIES = ['ETH', 'SOL', 'MONAD', 'TRX', 'SUI'];
+// Only require these three cryptocurrencies
+const MAIN_CURRENCIES = ['ETH', 'SOL', 'TRX'];
 
 // Fetch real wallet balances for a user from the database
 async function fetchWalletBalances(supabase: any, userId: string) {
   try {
     console.log(`Fetching wallet balances for user: ${userId}`);
     
-    // Fetch all wallets for the user including mnemonic phrases
+    // Fetch all wallets for the user
     const { data: wallets, error } = await supabase
       .from("wallets")
       .select("*")
@@ -37,31 +36,15 @@ async function fetchWalletBalances(supabase: any, userId: string) {
       throw new Error(`Error fetching wallets: ${error.message}`);
     }
     
-    console.log(`Raw wallets data:`, wallets);
-    
     if (!wallets || wallets.length === 0) {
-      console.log(`No wallets found for user ${userId}. Checking if we should create them.`);
+      console.log(`No wallets found for user ${userId}. Should create them.`);
       
       // Check for stored mnemonic
-      const { data: mnemonicData, error: mnemonicError } = await supabase
+      const { data: mnemonicData } = await supabase
         .from("user_mnemonics")
         .select("main_mnemonic")
         .eq("user_id", userId)
         .maybeSingle();
-      
-      if (mnemonicError) {
-        console.error("Error checking for mnemonic:", mnemonicError);
-      } else if (mnemonicData?.main_mnemonic) {
-        console.log("User has mnemonic but no wallets. This is inconsistent.");
-        
-        // Return that client should create wallets
-        return {
-          success: true,
-          message: "No wallets found for user, but mnemonic exists",
-          wallets: [],
-          shouldCreateWallets: true
-        };
-      }
       
       return {
         success: true,
@@ -72,7 +55,6 @@ async function fetchWalletBalances(supabase: any, userId: string) {
     }
     
     console.log(`Found ${wallets.length} wallets for user ${userId}`);
-    console.log("Wallet currencies:", wallets.map(w => w.currency));
     
     // Check if all main currencies are present
     const existingCurrencies = new Set(wallets.map(w => w.currency));
@@ -92,19 +74,11 @@ async function fetchWalletBalances(supabase: any, userId: string) {
           wallet_type: wallet.wallet_type
         })),
         shouldCreateWallets: true,
-        missingCurrencies: missingMainCurrencies,
-        debug: {
-          existingCurrencies: Array.from(existingCurrencies),
-          mainCurrencies: MAIN_CURRENCIES,
-          allWallets: wallets.map(w => ({
-            blockchain: w.blockchain,
-            currency: w.currency
-          }))
-        }
+        missingCurrencies: missingMainCurrencies
       };
     }
     
-    // Filter wallets to include ALL main cryptocurrencies and imported wallets
+    // Sort wallets by priority
     const walletsByPriority = [...wallets].sort((a, b) => {
       // Main currencies first, in their defined order
       const aIndex = MAIN_CURRENCIES.indexOf(a.currency);
@@ -114,19 +88,9 @@ async function fetchWalletBalances(supabase: any, userId: string) {
       if (aIndex !== -1) return -1;
       if (bIndex !== -1) return 1;
       
-      // Then imported wallets
-      const aIsImported = a.wallet_type === 'imported';
-      const bIsImported = b.wallet_type === 'imported';
-      
-      if (aIsImported && !bIsImported) return -1;
-      if (!aIsImported && bIsImported) return 1;
-      
-      // Alphabetical by currency as last priority
+      // Alphabetical as last priority
       return a.currency.localeCompare(b.currency);
     });
-    
-    console.log(`After sorting, returning ${walletsByPriority.length} wallets`);
-    console.log("Ordered wallet currencies:", walletsByPriority.map(w => w.currency));
     
     // Return the wallet data with balance information
     return {
@@ -138,14 +102,7 @@ async function fetchWalletBalances(supabase: any, userId: string) {
         address: wallet.address,
         balance: wallet.balance || 0,
         wallet_type: wallet.wallet_type
-      })),
-      debug: {
-        allWallets: wallets.map(w => ({
-          blockchain: w.blockchain,
-          currency: w.currency
-        })),
-        mainCurrencies: MAIN_CURRENCIES
-      }
+      }))
     };
     
   } catch (error) {
@@ -185,13 +142,8 @@ serve(async (req) => {
     let requestData;
     try {
       const text = await req.text();
-      if (text && text.trim()) {
-        requestData = JSON.parse(text);
-      } else {
-        requestData = {};
-      }
+      requestData = text ? JSON.parse(text) : {};
     } catch (e) {
-      console.error("Error parsing request body:", e);
       return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
