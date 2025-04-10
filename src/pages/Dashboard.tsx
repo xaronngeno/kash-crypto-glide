@@ -35,8 +35,8 @@ const Dashboard = () => {
 
   return (
     <MainLayout title="Portfolio">
-      {isLoading && (
-        <div className="space-y-6 opacity-50">
+      {isLoading ? (
+        <div className="space-y-6">
           <div className="flex flex-col items-center justify-center pt-4">
             <div className="text-gray-500 text-sm mb-1">Total Balance</div>
             <Skeleton className="h-8 w-48" />
@@ -57,9 +57,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {!isLoading && (
+      ) : (
         <div className="space-y-6">
           <div className="flex flex-col items-center justify-center pt-4">
             <div className="text-gray-500 text-sm mb-1">Total Balance</div>
@@ -109,3 +107,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
