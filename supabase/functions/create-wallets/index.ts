@@ -133,9 +133,34 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     let userId: string;
 
-    // Check if we have a direct userId in the request body
-    const requestData = await req.json();
-    if (requestData.userId) {
+    // Check if this is a POST request and has a body
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 405,
+      });
+    }
+
+    // Parse the request body safely
+    let requestData;
+    try {
+      const text = await req.text();
+      // Only try to parse if there's actually content
+      if (text && text.trim()) {
+        requestData = JSON.parse(text);
+      } else {
+        requestData = {};
+      }
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Get user ID from request or auth header
+    if (requestData && requestData.userId) {
       userId = requestData.userId;
     } else if (authHeader && authHeader.startsWith("Bearer ")) {
       // Get JWT from auth header
@@ -150,7 +175,10 @@ serve(async (req) => {
       
       userId = user.id;
     } else {
-      throw new Error("No authorization or userId provided");
+      return new Response(JSON.stringify({ error: "No authorization or userId provided" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     // Create wallets for the user

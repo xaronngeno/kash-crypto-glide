@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock } from 'lucide-react';
+import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
@@ -24,6 +24,7 @@ const Settings = () => {
     first_name: string | null;
     last_name: string | null;
     phone: string | null;
+    numeric_id?: number | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSeedPhrase, setShowSeedPhrase] = useState(false);
@@ -39,7 +40,7 @@ const Settings = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('first_name, last_name, phone')
+          .select('first_name, last_name, phone, numeric_id')
           .eq('id', user.id)
           .single();
         
@@ -97,6 +98,17 @@ const Settings = () => {
     }
     return user?.email || 'User';
   };
+
+  // Copy user ID to clipboard
+  const copyUserId = () => {
+    if (!user) return;
+    
+    navigator.clipboard.writeText(user.id);
+    toast({
+      title: "User ID copied",
+      description: "User ID has been copied to clipboard.",
+    });
+  };
   
   const authFormSchema = z.object({
     password: z.string().min(6, "Password must be at least 6 characters"),
@@ -150,6 +162,20 @@ const Settings = () => {
               {profile?.phone && (
                 <p className="text-sm text-gray-500">{profile.phone}</p>
               )}
+              {/* User ID section */}
+              <div className="mt-2 flex items-center">
+                <p className="text-xs text-gray-500 mr-1">User ID: {profile?.numeric_id || 'Not available'}</p>
+                <button onClick={copyUserId} className="text-kash-green hover:text-kash-green/80">
+                  <Copy size={14} />
+                </button>
+              </div>
+              {/* Account ID section */}
+              <div className="mt-1 flex items-center">
+                <p className="text-xs text-gray-500 mr-1">Account ID: {user?.id ? `${user.id.substring(0, 8)}...` : 'Not available'}</p>
+                <button onClick={copyUserId} className="text-kash-green hover:text-kash-green/80">
+                  <Copy size={14} />
+                </button>
+              </div>
             </div>
           </div>
         </KashCard>

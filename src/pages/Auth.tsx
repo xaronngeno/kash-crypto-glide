@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, X, User, Phone } from 'lucide-react';
@@ -56,56 +55,35 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Check if user exists with this email by looking up user with this email
-      const { data, error } = await supabase.auth.admin
-        .listUsers({
-          filter: {
-            email: email
-          }
-        })
-        .catch(() => {
-          // If admin API not available, fallback to sign in attempt
-          return supabase.auth.signInWithOtp({
-            email,
-            options: {
-              shouldCreateUser: false,
-            }
-          });
-        });
-
-      // Check if the email is associated with any user
-      const emailExists = data && ((Array.isArray(data.users) && data.users.length > 0) || 
-                                  (data.user !== null) || 
-                                  (!error));
+      // Try to sign in with OTP without creating a user to check if email exists
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+        }
+      });
       
-      if (!emailExists) {
+      if (error && error.message.includes("Email not found")) {
         // Email doesn't exist, move to signup stage
         setAuthStage(AuthStage.SIGNUP);
+      } else if (error && error.message.includes("Email not confirmed")) {
+        // Email exists but is not confirmed
+        setAuthStage(AuthStage.EMAIL_VERIFICATION);
       } else {
-        // Email exists, check if it's confirmed
-        if (error && error.message.includes("Email not confirmed")) {
-          setAuthStage(AuthStage.EMAIL_VERIFICATION);
-        } else {
-          // Email exists and is confirmed, proceed to password input
-          setAuthStage(AuthStage.PASSWORD_INPUT);
-        }
+        // Email exists and is confirmed, or some other response - proceed to password input
+        setAuthStage(AuthStage.PASSWORD_INPUT);
       }
     } catch (error: any) {
       console.error("Authentication error:", error);
       
-      // If we get specific error about email not being confirmed
-      if (error.message && error.message.includes("Email not confirmed")) {
-        setAuthStage(AuthStage.EMAIL_VERIFICATION);
-      } else {
-        // Default to password stage if we can't determine - better UX than showing an error
-        setAuthStage(AuthStage.PASSWORD_INPUT);
-        
-        toast({
-          title: "Email check failed",
-          description: "We'll proceed with login. If you don't have an account, you can go back and create one.",
-          variant: "destructive"
-        });
-      }
+      // Default to password stage if we can't determine - better UX than showing an error
+      setAuthStage(AuthStage.PASSWORD_INPUT);
+      
+      toast({
+        title: "Email check failed",
+        description: "We'll proceed with login. If you don't have an account, you can go back and create one.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
