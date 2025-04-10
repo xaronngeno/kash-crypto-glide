@@ -36,7 +36,6 @@ async function fetchWalletBalances(supabase: any, userId: string) {
     }
     
     console.log(`Raw wallets data:`, wallets);
-    console.log(`Wallet currencies found:`, wallets.map(w => `${w.currency} on ${w.blockchain}`).join(', '));
     
     if (!wallets || wallets.length === 0) {
       console.log(`No wallets found for user ${userId}. Checking if we should create them.`);
@@ -53,19 +52,13 @@ async function fetchWalletBalances(supabase: any, userId: string) {
       } else if (mnemonicData?.main_mnemonic) {
         console.log("User has mnemonic but no wallets. This is inconsistent.");
         
-        // Try to create wallets since we have a mnemonic
-        console.log("Attempting to create wallets for user with existing mnemonic");
-        try {
-          // We'll let the client handle wallet creation since it has all the logic
-          return {
-            success: true,
-            message: "No wallets found for user, but mnemonic exists",
-            wallets: [],
-            shouldCreateWallets: true
-          };
-        } catch (createError) {
-          console.error("Error creating wallets:", createError);
-        }
+        // Return that client should create wallets
+        return {
+          success: true,
+          message: "No wallets found for user, but mnemonic exists",
+          wallets: [],
+          shouldCreateWallets: true
+        };
       }
       
       return {
@@ -77,6 +70,36 @@ async function fetchWalletBalances(supabase: any, userId: string) {
     
     console.log(`Found ${wallets.length} wallets for user ${userId}`);
     console.log("Wallet currencies:", wallets.map(w => w.currency));
+    
+    // Check if all main currencies are present
+    const existingCurrencies = new Set(wallets.map(w => w.currency));
+    const missingMainCurrencies = MAIN_CURRENCIES.filter(currency => !existingCurrencies.has(currency));
+    
+    if (missingMainCurrencies.length > 0) {
+      console.log(`Missing main currencies: ${missingMainCurrencies.join(', ')}. User should recreate wallets.`);
+      
+      return {
+        success: true,
+        message: "Some main currencies are missing",
+        wallets: wallets.map(wallet => ({
+          blockchain: wallet.blockchain,
+          currency: wallet.currency,
+          address: wallet.address,
+          balance: wallet.balance || 0,
+          wallet_type: wallet.wallet_type
+        })),
+        shouldCreateWallets: true,
+        missingCurrencies: missingMainCurrencies,
+        debug: {
+          existingCurrencies: Array.from(existingCurrencies),
+          mainCurrencies: MAIN_CURRENCIES,
+          allWallets: wallets.map(w => ({
+            blockchain: w.blockchain,
+            currency: w.currency
+          }))
+        }
+      };
+    }
     
     // Filter wallets to only include main cryptocurrencies and imported wallets
     const filteredWallets = wallets.filter(wallet => {
@@ -91,7 +114,7 @@ async function fetchWalletBalances(supabase: any, userId: string) {
     });
     
     console.log(`After filtering, returning ${filteredWallets.length} wallets`);
-    console.log("Filtered wallet data:", filteredWallets);
+    console.log("Filtered wallet currencies:", filteredWallets.map(w => w.currency));
     
     // Return the filtered wallet data with balance information
     return {

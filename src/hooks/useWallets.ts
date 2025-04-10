@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -112,6 +113,31 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       
       if (!walletsResponse || !walletsResponse.success) {
         throw new Error(`Failed to retrieve wallet data: ${walletsResponse?.message || "Unknown error"}`);
+      }
+      
+      // If the response indicates we should create wallets
+      if (walletsResponse.shouldCreateWallets) {
+        console.log("Server indicates wallets should be created or recreated", walletsResponse);
+        
+        if (walletsResponse.missingCurrencies && walletsResponse.missingCurrencies.length > 0) {
+          console.log(`Missing currencies detected: ${walletsResponse.missingCurrencies.join(', ')}`);
+          toast({
+            title: 'Missing wallet currencies',
+            description: `Creating missing wallet currencies: ${walletsResponse.missingCurrencies.join(', ')}`,
+            duration: 3000,
+          });
+        }
+        
+        // Process any existing wallets first
+        if (walletsResponse.wallets && walletsResponse.wallets.length > 0) {
+          processWallets(walletsResponse.wallets);
+        } else {
+          setAssets([]);
+        }
+        
+        // Create the missing wallets
+        await createWalletsForUser();
+        return;
       }
       
       if (!walletsResponse.wallets || walletsResponse.wallets.length === 0) {

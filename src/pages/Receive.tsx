@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { Copy, QrCode, Info, Search, Loader2 } from 'lucide-react';
+import { Copy, QrCode, Info, Search, Loader2, RefreshCw } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
@@ -12,7 +11,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-// Make sure we include all supported currencies
 const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX', 'SUI', 'MONAD'];
 
 interface WalletAddress {
@@ -131,8 +129,9 @@ const Receive = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [displayedWallets, setDisplayedWallets] = useState<WalletAddress[]>([]);
   const [groupedWallets, setGroupedWallets] = useState<Record<string, WalletAddress[]>>({});
-  const [debugInfo, setDebugInfo] = useState<any>(null); // For debugging purposes
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [missingCurrencies, setMissingCurrencies] = useState<string[]>([]);
 
   useEffect(() => {
     if (walletAddresses.length > 0) {
@@ -149,6 +148,11 @@ const Receive = () => {
       });
       
       setGroupedWallets(grouped);
+      
+      const existingSymbols = new Set(Object.keys(grouped));
+      const missing = MAIN_CURRENCIES.filter(c => !existingSymbols.has(c));
+      setMissingCurrencies(missing);
+      
       console.log("Grouped wallets:", grouped); // Debug log
     }
   }, [walletAddresses]);
@@ -187,13 +191,12 @@ const Receive = () => {
           throw error;
         }
 
-        setDebugInfo(data); // Store raw response for debugging
+        setDebugInfo(data);
         console.log("Received wallet data from function:", data);
         
         if (data && data.success && data.wallets && data.wallets.length > 0) {
           console.log("Fetched wallet addresses from function:", data.wallets);
           
-          // Include all supported currencies
           const addresses: WalletAddress[] = [];
           
           data.wallets.forEach((wallet: any) => {
@@ -212,6 +215,17 @@ const Receive = () => {
             setSelectedChain(addresses[0]);
           }
           setNoWalletsFound(addresses.length === 0);
+          
+          const existingSymbols = new Set(addresses.map(a => a.symbol));
+          const missing = MAIN_CURRENCIES.filter(c => !existingSymbols.has(c));
+          
+          if (missing.length > 0) {
+            console.log(`Missing currencies detected: ${missing.join(', ')}`);
+            setMissingCurrencies(missing);
+          } else {
+            setMissingCurrencies([]);
+          }
+          
         } else if (data && data.shouldCreateWallets) {
           console.log("No wallets found for user, but mnemonic exists. Creating wallets.");
           await createWallets();
@@ -249,7 +263,7 @@ const Receive = () => {
         body: { userId: user.id }
       });
       
-      console.log("Wallet creation response:", data); // Debug log
+      console.log("Wallet creation response:", data);
       
       if (error) {
         throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
@@ -257,44 +271,13 @@ const Receive = () => {
       
       console.log("Wallets created successfully:", data);
       
-      // Fetch the updated wallets after creation
-      const { data: wallets, error: fetchError } = await supabase.functions.invoke('fetch-wallet-balances', {
-        method: 'POST',
-        body: { userId: user.id }
+      await refreshWallets();
+      
+      toast({
+        title: "Wallets created",
+        description: "Your wallets have been created successfully.",
       });
       
-      if (fetchError) {
-        throw fetchError;
-      }
-      
-      if (wallets && wallets.success && wallets.wallets && wallets.wallets.length > 0) {
-        console.log("Fetched updated wallet list:", wallets.wallets);
-        
-        const addresses: WalletAddress[] = [];
-        
-        wallets.wallets.forEach((wallet: any) => {
-          addresses.push({
-            blockchain: wallet.blockchain,
-            symbol: wallet.currency,
-            address: wallet.address,
-            logo: getCurrencyLogo(wallet.currency),
-            wallet_type: wallet.wallet_type
-          });
-        });
-        
-        setWalletAddresses(addresses);
-        setDisplayedWallets(addresses);
-        setSelectedChain(addresses[0]);
-        setNoWalletsFound(false);
-        
-        toast({
-          title: "Wallets created",
-          description: "Your wallets have been created successfully.",
-        });
-      } else {
-        setNoWalletsFound(true);
-        throw new Error("No wallets were created");
-      }
     } catch (error: any) {
       console.error("Error creating wallets:", error);
       toast({
@@ -328,6 +311,8 @@ const Receive = () => {
       
       if (error) throw error;
       
+      console.log("Refresh wallet data:", data);
+      
       if (data?.success && data.wallets && data.wallets.length > 0) {
         const addresses: WalletAddress[] = data.wallets.map((wallet: any) => ({
           blockchain: wallet.blockchain,
@@ -344,10 +329,28 @@ const Receive = () => {
         }
         setNoWalletsFound(addresses.length === 0);
         
+        const existingSymbols = new Set(addresses.map(a => a.symbol));
+        const missing = MAIN_CURRENCIES.filter(c => !existingSymbols.has(c));
+        
+        if (missing.length > 0) {
+          console.log(`Missing currencies after refresh: ${missing.join(', ')}`);
+          setMissingCurrencies(missing);
+          
+          if (data?.shouldCreateWallets) {
+            console.log("Backend suggests we should create missing wallets");
+            await createWallets();
+          }
+        } else {
+          setMissingCurrencies([]);
+        }
+        
         toast({
           title: "Wallets refreshed",
           description: `Found ${addresses.length} wallets`,
         });
+      } else if (data?.shouldCreateWallets) {
+        console.log("Backend suggests we should create missing wallets");
+        await createWallets();
       } else {
         setNoWalletsFound(true);
       }
@@ -431,7 +434,6 @@ const Receive = () => {
     );
   }
 
-  // For debugging - show debug info if we have no wallets but have debug data
   if (walletAddresses.length === 0 && debugInfo) {
     return (
       <MainLayout title="Receive" showBack>
@@ -477,19 +479,55 @@ const Receive = () => {
           <p className="text-gray-600">
             Select a wallet to view and share your address
           </p>
+          
+          {missingCurrencies.length > 0 && (
+            <div className="mt-2 text-amber-600 bg-amber-50 p-2 rounded-md text-sm">
+              <p className="flex items-center justify-center">
+                <Info size={14} className="mr-1" /> 
+                Missing currencies: {missingCurrencies.join(', ')}
+              </p>
+              <KashButton 
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                onClick={createWallets}
+                disabled={creatingWallets}
+              >
+                {creatingWallets ? 
+                  <><Loader2 size={14} className="mr-2 animate-spin" /> Creating...</> : 
+                  <><RefreshCw size={14} className="mr-2" /> Recreate Wallets</>
+                }
+              </KashButton>
+            </div>
+          )}
         </div>
         
-        <div className="relative mb-4">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search size={16} className="text-gray-400" />
+        <div className="flex justify-between items-center">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search size={16} className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Search wallets..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="Search wallets..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          
+          <KashButton 
+            variant="ghost"
+            size="sm"
+            className="ml-2"
+            onClick={refreshWallets}
+            disabled={loading}
+          >
+            {loading ? 
+              <Loader2 size={18} className="animate-spin" /> : 
+              <RefreshCw size={18} />
+            }
+          </KashButton>
         </div>
 
         {Object.keys(groupedWallets).length === 0 ? (

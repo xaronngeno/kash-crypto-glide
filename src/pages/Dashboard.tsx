@@ -27,7 +27,8 @@ const Dashboard = () => {
     loading: walletLoading, 
     isCreatingWallets, 
     error: walletError,
-    createWallets
+    createWallets,
+    refreshWallets
   } = useWallets({ prices });
 
   // Redirect to auth if not authenticated
@@ -76,13 +77,34 @@ const Dashboard = () => {
     }
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
 
-  // Force create wallets if none exist
+  // Force create wallets if none exist or if main currencies are missing
   useEffect(() => {
-    if (!walletLoading && assets.length === 0 && user?.id && !isCreatingWallets) {
-      console.log('No wallets found, attempting to create them automatically');
-      createWallets();
-    }
-  }, [walletLoading, assets.length, user?.id, isCreatingWallets, createWallets]);
+    const createWalletsIfNeeded = async () => {
+      if (!walletLoading && user?.id && !isCreatingWallets) {
+        if (assets.length === 0) {
+          console.log('No wallets found, attempting to create them automatically');
+          await createWallets();
+        } else {
+          // Check if all main currencies are present
+          const mainCurrencies = ['BTC', 'ETH', 'SOL', 'MONAD', 'TRX', 'SUI'];
+          const existingCurrencies = new Set(assets.map(asset => asset.symbol));
+          const missingCurrencies = mainCurrencies.filter(currency => !existingCurrencies.has(currency));
+          
+          if (missingCurrencies.length > 0) {
+            console.log(`Missing main currencies: ${missingCurrencies.join(', ')}. Recreating wallets.`);
+            toast({
+              title: 'Updating wallets',
+              description: `Creating missing wallets: ${missingCurrencies.join(', ')}`,
+              duration: 3000,
+            });
+            await createWallets();
+          }
+        }
+      }
+    };
+    
+    createWalletsIfNeeded();
+  }, [walletLoading, assets, user?.id, isCreatingWallets, createWallets]);
 
   // If not authenticated or still loading auth, show loading state
   if (authLoading) {
@@ -141,18 +163,11 @@ const Dashboard = () => {
     });
     
     // Force reload of wallet data
-    if (createWallets) {
-      createWallets();
-    } else {
-      // Force page reload as fallback
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
-    }
+    refreshWallets();
   };
 
   const handleForceCreate = () => {
-    if (createWallets && !isCreatingWallets) {
+    if (!isCreatingWallets) {
       toast({
         title: 'Creating new wallets',
         description: 'Generating new wallets for your account...',
@@ -200,16 +215,14 @@ const Dashboard = () => {
             >
               Retry Loading
             </KashButton>
-            {!assets.length && (
-              <KashButton 
-                onClick={createWallets}
-                size="sm"
-                variant="outline"
-                disabled={isCreatingWallets}
-              >
-                {isCreatingWallets ? 'Creating...' : 'Create Wallets'}
-              </KashButton>
-            )}
+            <KashButton 
+              onClick={handleForceCreate}
+              size="sm"
+              variant="outline"
+              disabled={isCreatingWallets}
+            >
+              {isCreatingWallets ? 'Creating...' : 'Create New Wallets'}
+            </KashButton>
           </div>
         </AlertDescription>
       </Alert>
@@ -264,31 +277,7 @@ const Dashboard = () => {
 
       {!isLoading && (
         <div className="space-y-6">
-          {walletError && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error Loading Wallet Data</AlertTitle>
-              <AlertDescription className="flex flex-col">
-                <span>{walletError || "Failed to load your wallet data"}</span>
-                <div className="flex space-x-2 mt-4">
-                  <KashButton 
-                    onClick={handleRetryLoading}
-                    size="sm"
-                  >
-                    Retry Loading
-                  </KashButton>
-                  <KashButton 
-                    onClick={handleForceCreate}
-                    size="sm"
-                    variant="outline"
-                    disabled={isCreatingWallets}
-                  >
-                    {isCreatingWallets ? 'Creating...' : 'Create New Wallets'}
-                  </KashButton>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
+          {walletError && renderErrorMessage()}
           
           {renderNoWalletsMessage()}
           
@@ -310,7 +299,7 @@ const Dashboard = () => {
                 </div>
                 
                 <div className="mt-4">
-                  <ActionButtons />
+                  <ActionButtons onForceCreateWallets={handleForceCreate} />
                 </div>
               </div>
 

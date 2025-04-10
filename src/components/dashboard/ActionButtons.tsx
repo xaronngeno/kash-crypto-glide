@@ -1,63 +1,40 @@
 
-import { Link } from 'react-router-dom';
-import { ArrowDownRight, ArrowUpRight, Repeat, CreditCard } from 'lucide-react';
-import { KashButton } from '@/components/ui/KashButton';
+import { Send, ArrowDownToLine, Repeat, RefreshCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { KashButton } from '../ui/KashButton';
 
-export const ActionButtons = () => {
+interface ActionButtonsProps {
+  onForceCreateWallets?: () => void;
+}
+
+export const ActionButtons = ({ onForceCreateWallets }: ActionButtonsProps) => {
+  const navigate = useNavigate();
+
   return (
-    <div className="grid grid-cols-4 gap-2 w-full">
-      <Link 
-        to="/receive" 
-        className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
+    <div className="flex space-x-3">
+      <KashButton 
+        variant="outline" 
+        icon={<ArrowDownToLine size={18} />}
+        onClick={() => navigate('/receive')}
       >
-        <KashButton 
-          variant="ghost"
-          fullWidth
-          className="flex-col h-20"
-          icon={<ArrowDownRight size={20} className="mb-1" />}
-        >
-          <span>Receive</span>
-        </KashButton>
-      </Link>
-      <Link 
-        to="/send" 
-        className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
+        Receive
+      </KashButton>
+      <KashButton 
+        variant="outline" 
+        icon={<Send size={18} />}
+        onClick={() => navigate('/send')}
       >
+        Send
+      </KashButton>
+      {onForceCreateWallets && (
         <KashButton
-          variant="ghost"
-          fullWidth
-          className="flex-col h-20"
-          icon={<ArrowUpRight size={20} className="mb-1" />}
+          variant="outline"
+          icon={<RefreshCcw size={18} />}
+          onClick={onForceCreateWallets}
         >
-          <span>Send</span>
+          Recreate
         </KashButton>
-      </Link>
-      <Link 
-        to="/swap" 
-        className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
-      >
-        <KashButton
-          variant="ghost"
-          fullWidth
-          className="flex-col h-20"
-          icon={<Repeat size={20} className="mb-1" />}
-        >
-          <span>Swap</span>
-        </KashButton>
-      </Link>
-      <Link 
-        to="/buy" 
-        className="w-full border border-kash-green rounded-lg transition-all hover:border-opacity-80"
-      >
-        <KashButton
-          variant="ghost"
-          fullWidth
-          className="flex-col h-20"
-          icon={<CreditCard size={20} className="mb-1" />}
-        >
-          <span>Buy</span>
-        </KashButton>
-      </Link>
+      )}
     </div>
   );
 };
