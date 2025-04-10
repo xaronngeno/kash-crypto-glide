@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -214,10 +215,11 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         }, 5000);
         
         // Get real wallet balances
+        // Remove the signal parameter since it's not supported in FunctionInvokeOptions
         const { data: wallets, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
           method: 'POST',
-          body: { userId: user.id },
-          signal: abortControllerRef.current.signal
+          body: { userId: user.id }
+          // Removed the signal parameter that was causing the error
         });
         
         clearTimeout(timeoutId);
