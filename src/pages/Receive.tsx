@@ -15,38 +15,6 @@ interface WalletAddress {
   address: string;
 }
 
-// Demo wallet addresses for users who don't have real wallets yet
-const demoWallets: WalletAddress[] = [
-  {
-    blockchain: 'Bitcoin',
-    symbol: 'BTC',
-    address: '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'
-  },
-  {
-    blockchain: 'Ethereum',
-    symbol: 'ETH',
-    address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
-  },
-  {
-    blockchain: 'Ethereum',
-    symbol: 'USDT',
-    address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
-  },
-  {
-    blockchain: 'Solana',
-    symbol: 'SOL',
-    address: 'EXuiKFwQUd9VKCMsR3VnQpD1RAYmrQRLpxW8pnZWCtan'
-  },
-  {
-    blockchain: 'Tron',
-    symbol: 'TRX',
-    address: 'TH2Quo8DVXpKzBGBeCoRmsmfw7P6jfrzVN'
-  }
-];
-
-// Required wallet types that must always be available
-const requiredWalletTypes = ['BTC', 'ETH', 'USDT', 'SOL', 'TRX'];
-
 const Receive = () => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -55,7 +23,7 @@ const Receive = () => {
   const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAllDetails, setShowAllDetails] = useState(false);
-  const [usingDemoWallets, setUsingDemoWallets] = useState(false);
+  const [noWalletsFound, setNoWalletsFound] = useState(false);
 
   useEffect(() => {
     const fetchWalletAddresses = async () => {
@@ -97,54 +65,28 @@ const Receive = () => {
           
           console.log("Fetched wallet addresses:", addresses);
           
-          // Check if we have all required wallet types
-          const fetchedSymbols = new Set(addresses.map(addr => addr.symbol));
-          let missingWalletTypes = false;
-          
-          for (const requiredType of requiredWalletTypes) {
-            if (!fetchedSymbols.has(requiredType)) {
-              missingWalletTypes = true;
-              // Add missing wallet types from demo data
-              const demoWallet = demoWallets.find(w => w.symbol === requiredType);
-              if (demoWallet) {
-                addresses.push({...demoWallet});
-                console.log(`Added missing ${requiredType} wallet from demo data`);
-              }
-            }
-          }
-          
-          if (missingWalletTypes) {
-            toast({
-              title: "Some demo wallets added",
-              description: "We've added demo wallets for missing blockchain types.",
-              variant: "default"
-            });
-          }
-          
           setWalletAddresses(addresses);
           setSelectedChain(addresses[0]);
-          setUsingDemoWallets(missingWalletTypes);
+          setNoWalletsFound(false);
         } else {
-          console.log("No wallets found for user, using demo wallets");
-          setWalletAddresses(demoWallets);
-          setSelectedChain(demoWallets[0]);
-          setUsingDemoWallets(true);
+          console.log("No wallets found for user");
+          setNoWalletsFound(true);
           toast({
-            title: "Demo Mode",
-            description: "Showing sample wallet addresses for demonstration.",
-            variant: "default"
+            title: "No wallets found",
+            description: "Please contact support to set up your wallets.",
+            variant: "destructive"
           });
+          setWalletAddresses([]);
         }
       } catch (error) {
         console.error("Error fetching wallet addresses:", error);
         toast({
-          title: "Demo Mode",
-          description: "Showing sample wallet addresses for demonstration.",
-          variant: "default"
+          title: "Error fetching wallets",
+          description: "There was a problem loading your wallets. Please try again later.",
+          variant: "destructive"
         });
-        setWalletAddresses(demoWallets);
-        setSelectedChain(demoWallets[0]);
-        setUsingDemoWallets(true);
+        setNoWalletsFound(true);
+        setWalletAddresses([]);
       } finally {
         setLoading(false);
       }
@@ -173,6 +115,21 @@ const Receive = () => {
     );
   }
 
+  if (noWalletsFound) {
+    return (
+      <MainLayout title="Receive" showBack>
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <div className="bg-amber-50 p-4 rounded-lg border border-amber-100 w-full">
+            <h3 className="font-medium text-amber-700 mb-2">No Wallets Found</h3>
+            <p className="text-amber-700 text-sm">
+              Your account doesn't have any wallets set up yet. Please contact support to help you set up your wallets.
+            </p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout title="Receive" showBack>
       <div className="space-y-6">
@@ -181,11 +138,6 @@ const Receive = () => {
           <p className="text-gray-600">
             Select a blockchain and share your wallet address
           </p>
-          {usingDemoWallets && (
-            <p className="text-xs text-amber-600 mt-1">
-              {usingDemoWallets === true ? "Showing sample demo addresses" : "Some demo addresses included"}
-            </p>
-          )}
         </div>
         
         {/* Wallet summary section */}
@@ -203,7 +155,7 @@ const Receive = () => {
           </div>
           
           <p className="text-sm text-gray-500 mt-1 mb-3">
-            {walletAddresses.length} wallets {usingDemoWallets ? "(some demo)" : "created at registration"}
+            {walletAddresses.length} wallets available
           </p>
           
           {showAllDetails && (
@@ -234,7 +186,6 @@ const Receive = () => {
         </KashCard>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {/* Use a unique key for each wallet button to prevent duplicates */}
           {walletAddresses.map((chain, index) => (
             <KashButton
               key={`${chain.blockchain}-${chain.symbol}-${index}`}
@@ -300,9 +251,6 @@ const Receive = () => {
             <li>Only send {selectedChain?.symbol} to this address</li>
             <li>Sending any other cryptocurrency may result in permanent loss</li>
             <li>Verify the entire address before sending any funds</li>
-            {usingDemoWallets && (
-              <li className="font-bold">These are demo addresses - do not send real funds!</li>
-            )}
           </ul>
         </div>
       </div>
