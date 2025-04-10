@@ -32,12 +32,11 @@ serve(async (req) => {
       );
     }
 
-    // Query the database for the user's mnemonic
-    const { data, error } = await supabaseClient
-      .from('user_mnemonics')
-      .select('main_mnemonic')
-      .eq('user_id', userId)
-      .maybeSingle();
+    // Use the database function to get the user's mnemonic
+    const { data, error } = await supabaseClient.rpc(
+      'get_user_mnemonic',
+      { user_id_param: userId }
+    );
 
     if (error) {
       console.error("Database error:", error);
@@ -53,10 +52,13 @@ serve(async (req) => {
       );
     }
 
+    // The function will return an array with a single object containing main_mnemonic
+    const mnemonic = data && data.length > 0 ? data[0].main_mnemonic : null;
+
     return new Response(
       JSON.stringify({
         success: true,
-        mnemonic: data?.main_mnemonic || null
+        mnemonic: mnemonic
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" }

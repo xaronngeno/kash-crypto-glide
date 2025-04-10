@@ -6,7 +6,7 @@ import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
-import { supabase, executeSql } from '@/integrations/supabase/client';
+import { supabase, getUserMnemonic, storeUserMnemonic } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -16,10 +16,6 @@ import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getOrCreateMnemonic } from '@/utils/mnemonicWalletGenerator';
-
-type MnemonicData = {
-  main_mnemonic: string;
-};
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -81,13 +77,11 @@ const Settings = () => {
     try {
       setLoading(true);
       
-      // First, try to fetch the user's mnemonic using raw SQL since the types might not be updated
-      const { data, error } = await supabase.rpc('get_user_mnemonic', { user_id_param: user.id });
+      // Fetch the user's mnemonic using our helper function
+      const mnemonic = await getUserMnemonic(user.id);
       
-      if (error) {
-        console.error("Error fetching mnemonic:", error);
-      } else if (data && data.length > 0 && data[0].main_mnemonic) {
-        setUserMnemonic(data[0].main_mnemonic);
+      if (mnemonic) {
+        setUserMnemonic(mnemonic);
       }
       
       // Now fetch wallet data
@@ -111,26 +105,18 @@ const Settings = () => {
       
       setWallets(filteredWallets);
       
-      // If no mnemonic was found in the database, generate a new one for display
-      if (!data || data.length === 0 || !data[0].main_mnemonic) {
-        const mockMnemonic = getOrCreateMnemonic();
-        setUserMnemonic(mockMnemonic);
+      // If no mnemonic was found, generate a new one and store it
+      if (!mnemonic) {
+        const newMnemonic = getOrCreateMnemonic();
+        setUserMnemonic(newMnemonic);
         
         // Store the generated mnemonic in the database for future use
         if (user.id) {
-          try {
-            const result = await supabase.rpc('store_user_mnemonic', { 
-              user_id_param: user.id,
-              mnemonic_param: mockMnemonic
-            });
-            
-            if (result.error) {
-              console.error("Error storing mnemonic:", result.error);
-            } else {
-              console.log("Successfully stored mnemonic for user");
-            }
-          } catch (err) {
-            console.error("Error storing mnemonic:", err);
+          const success = await storeUserMnemonic(user.id, newMnemonic);
+          if (!success) {
+            console.error("Error storing mnemonic");
+          } else {
+            console.log("Successfully stored mnemonic for user");
           }
         }
       }

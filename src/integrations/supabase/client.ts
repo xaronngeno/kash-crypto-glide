@@ -28,3 +28,41 @@ export const executeSql = async (query: string, params?: any[]) => {
   if (error) throw error;
   return data;
 };
+
+// Function to get a user's mnemonic
+export const getUserMnemonic = async (userId: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase.rpc('get_user_mnemonic', { user_id_param: userId });
+    
+    if (error) {
+      console.error('Error fetching mnemonic:', error);
+      return null;
+    }
+    
+    // The function returns a single-value array
+    return data && data.length > 0 ? data[0].main_mnemonic : null;
+  } catch (err) {
+    console.error('Error in getUserMnemonic:', err);
+    return null;
+  }
+};
+
+// Function to store a user's mnemonic
+export const storeUserMnemonic = async (userId: string, mnemonic: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase.rpc('store_user_mnemonic', { 
+      user_id_param: userId,
+      mnemonic_param: mnemonic
+    });
+    
+    if (error) {
+      console.error('Error storing mnemonic:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Error in storeUserMnemonic:', err);
+    return false;
+  }
+};
