@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
@@ -54,9 +53,6 @@ const DERIVATION_PATHS = {
   ETHEREUM: "m/44'/60'/0'/0/0",
   SOLANA: "m/44'/501'/0'/0'",
   BITCOIN: "m/44'/0'/0'/0/0",
-  BNB_CHAIN: "m/44'/714'/0'/0/0",
-  POLYGON: "m/44'/60'/0'/0/0", // Uses Ethereum path
-  AVALANCHE: "m/44'/9000'/0'/0/0",
   SUI: "m/44'/784'/0'/0'/0'",
   MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
 };
@@ -185,24 +181,6 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
     // Generate Solana wallet
     const solanaWallet = await generateSolanaWallet(mnemonic);
     wallets.push(solanaWallet);
-    
-    // Generate BNB Chain wallet (using same derivation as Ethereum but different path)
-    const bnbWallet = await generateEVMWallet(
-      mnemonic,
-      'Binance Smart Chain',
-      'BNB',
-      DERIVATION_PATHS.BNB_CHAIN
-    );
-    wallets.push(bnbWallet);
-    
-    // Generate Polygon wallet
-    const polygonWallet = await generateEVMWallet(
-      mnemonic,
-      'Polygon',
-      'MATIC',
-      DERIVATION_PATHS.POLYGON
-    );
-    wallets.push(polygonWallet);
     
     // Generate Monad wallet (using Ethereum derivation path since it's EVM compatible)
     const monadWallet = await generateEVMWallet(

@@ -17,8 +17,8 @@ function handleCors(req: Request) {
   return null;
 }
 
-// Main cryptocurrencies to focus on
-const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX'];
+// Main cryptocurrencies to focus on - updated to include only the ones we want
+const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX', 'MONAD'];
 
 // Fetch real wallet balances for a user from the database
 async function fetchWalletBalances(supabase: any, userId: string) {

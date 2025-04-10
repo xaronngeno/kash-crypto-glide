@@ -1,4 +1,3 @@
-
 import { Keypair } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
@@ -23,9 +22,6 @@ export const DERIVATION_PATHS = {
   ETHEREUM: "m/44'/60'/0'/0/0",
   SOLANA: "m/44'/501'/0'/0'",
   BITCOIN: "m/44'/0'/0'/0/0",
-  BNB_CHAIN: "m/44'/714'/0'/0/0",
-  POLYGON: "m/44'/60'/0'/0/0", // Uses Ethereum path
-  AVALANCHE: "m/44'/9000'/0'/0/0",
   SUI: "m/44'/784'/0'/0'/0'",
   MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
 };
@@ -54,16 +50,8 @@ export const generateEthWallet = (blockchain: string, platform: string): WalletD
     let derivationPath = DERIVATION_PATHS.ETHEREUM;
     
     // Use appropriate derivation path based on blockchain
-    switch (blockchain.toLowerCase()) {
-      case 'binance smart chain':
-        derivationPath = DERIVATION_PATHS.BNB_CHAIN;
-        break;
-      case 'polygon':
-        derivationPath = DERIVATION_PATHS.POLYGON;
-        break;
-      case 'monad':
-        derivationPath = DERIVATION_PATHS.MONAD;
-        break;
+    if (blockchain.toLowerCase() === 'monad') {
+      derivationPath = DERIVATION_PATHS.MONAD;
     }
     
     return {
@@ -215,9 +203,6 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
     // Add Sui wallet
     wallets.push(generateSuiWallet());
     
-    // Add Polygon wallet
-    wallets.push(generateEthWallet('Polygon', 'Polygon'));
-    
     try {
       // Try to generate Bitcoin wallets, but don't fail the entire function if they fail
       console.log('Attempting to generate Bitcoin wallets');
@@ -233,9 +218,6 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
       console.error('Failed to generate Bitcoin wallets:', bitcoinError);
       // Continue without Bitcoin wallets
     }
-    
-    // Add TRX wallet here if tronweb is installed
-    // This would be similar to generateEthWallet but using tronweb library
     
     return wallets;
   } catch (error) {

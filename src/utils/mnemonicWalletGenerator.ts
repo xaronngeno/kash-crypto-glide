@@ -11,9 +11,6 @@ const DERIVATION_PATHS = {
   ETHEREUM: "m/44'/60'/0'/0/0",
   SOLANA: "m/44'/501'/0'/0'",
   BITCOIN: "m/44'/0'/0'/0/0",
-  BNB_CHAIN: "m/44'/714'/0'/0/0",
-  POLYGON: "m/44'/60'/0'/0/0", // Uses Ethereum path
-  AVALANCHE: "m/44'/9000'/0'/0/0",
   SUI: "m/44'/784'/0'/0'/0'",
   MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
 };
@@ -145,10 +142,8 @@ export async function generateWalletsFromMnemonic(existingMnemonic?: string): Pr
     
     const wallets: MnemonicWalletData[] = [];
     
-    // Generate EVM-compatible wallets (Ethereum, BNB Chain, Polygon, Avalanche)
+    // Generate EVM-compatible wallets (Ethereum, Monad)
     wallets.push(generateEVMWallet(mnemonic, DERIVATION_PATHS.ETHEREUM, 'Ethereum'));
-    wallets.push(generateEVMWallet(mnemonic, DERIVATION_PATHS.BNB_CHAIN, 'Binance Smart Chain'));
-    wallets.push(generateEVMWallet(mnemonic, DERIVATION_PATHS.POLYGON, 'Polygon'));
     wallets.push(generateEVMWallet(mnemonic, DERIVATION_PATHS.MONAD, 'Monad'));
     
     // Generate Solana wallet
