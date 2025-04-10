@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -193,7 +194,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
             value: data.totalBalance * (prices?.[symbol]?.price || 0),
             change: prices?.[symbol]?.change_24h || 0,
             icon: symbol[0].toUpperCase(),
-            networks: data.networks || {}
+            networks: data.networks
           };
           
           processedAssets.push(asset);

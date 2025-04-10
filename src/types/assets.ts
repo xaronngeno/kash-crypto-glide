@@ -9,4 +9,5 @@ export interface Asset {
   change: number;
   icon: string;
   logo?: string;
+  networks?: Record<string, { address: string; balance: number }>;
 }
