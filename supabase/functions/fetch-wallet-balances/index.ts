@@ -17,8 +17,8 @@ function handleCors(req: Request) {
   return null;
 }
 
-// Main cryptocurrencies to focus on - updated to include only the ones we want
-const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'MONAD'];
+// Main cryptocurrencies to focus on - updated to include all supported chains
+const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'MONAD', 'TRX', 'SUI'];
 
 // Fetch real wallet balances for a user from the database
 async function fetchWalletBalances(supabase: any, userId: string) {
@@ -47,7 +47,7 @@ async function fetchWalletBalances(supabase: any, userId: string) {
     
     // Filter wallets to only include main cryptocurrencies (not tokens like USDT)
     const filteredWallets = wallets.filter(wallet => {
-      // Include wallets that are main cryptocurrencies
+      // Include wallets that are main cryptocurrencies or imported
       return MAIN_CURRENCIES.includes(wallet.currency) || wallet.wallet_type === 'imported';
     });
     
@@ -60,7 +60,6 @@ async function fetchWalletBalances(supabase: any, userId: string) {
         currency: wallet.currency,
         address: wallet.address,
         balance: wallet.balance || 0,
-        mnemonic: wallet.mnemonic, // Include the mnemonic phrase
         wallet_type: wallet.wallet_type
       }))
     };

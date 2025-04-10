@@ -115,26 +115,20 @@ export function generateTronWallet(mnemonic: string): MnemonicWalletData {
     // For compatibility with TronWeb, we extract the private key
     const privateKey = wallet.privateKey.slice(2); // Remove '0x' prefix
     
-    // In a full implementation, we would use TronWeb to convert from private key to address
-    // Since we can't directly use TronWeb in the browser, we'll simulate the address conversion
-    
     // Simplified address generation (actual TronWeb uses more complex algorithm)
-    // This is a SIMPLIFIED implementation - in production use TronWeb
     const publicKey = wallet.publicKey.slice(2); // Remove '0x' prefix
     
     // Simulate Tron address generation - in production, use TronWeb
-    // This uses the same elliptic curve but formats the address differently
     const keccak256Hash = CryptoJS.SHA3(
       CryptoJS.enc.Hex.parse(publicKey),
       { outputLength: 256 }
     );
     
     const addressHex = '41' + keccak256Hash.toString().slice(-40);
-    // In production, this would be properly base58 encoded with checksum by TronWeb
     
     return {
       blockchain: 'Tron',
-      address: `T${addressHex.slice(0, 33)}`, // Simplified Tron address format (not actual encoding)
+      address: `T${addressHex.slice(0, 33)}`, // Simplified Tron address format
       privateKey: privateKey,
       path: DERIVATION_PATHS.TRON,
     };
@@ -202,9 +196,6 @@ export async function generateWalletsFromMnemonic(existingMnemonic?: string): Pr
     
     // Generate Sui wallet
     wallets.push(generateSuiWallet(mnemonic));
-    
-    // Bitcoin will be implemented separately due to its complexity
-    // Will need bitcoinjs-lib and proper setup
     
     return wallets;
   } catch (error) {

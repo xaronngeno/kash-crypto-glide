@@ -1,10 +1,18 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
-import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
-import * as ecc from "https://esm.sh/tiny-secp256k1@2.2.3";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
 import { corsHeaders } from "../_shared/cors.ts";
+
+// Define the derivation paths for different blockchains
+const DERIVATION_PATHS = {
+  ETHEREUM: "m/44'/60'/0'/0/0",
+  SOLANA: "m/44'/501'/0'/0'",
+  BITCOIN: "m/44'/0'/0'/0/0",
+  TRON: "m/44'/195'/0'/0/0",
+  SUI: "m/44'/784'/0'/0'/0'",
+  MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
+};
 
 // Buffer polyfill for Deno
 const Buffer = {
@@ -48,15 +56,6 @@ function getOrCreateMnemonic(existingMnemonic?: string): string {
   // Generate a new random mnemonic (12 words = 128-bits of entropy)
   return bip39.generateMnemonic(128);
 }
-
-// Define the derivation paths for different blockchains
-const DERIVATION_PATHS = {
-  ETHEREUM: "m/44'/60'/0'/0/0",
-  SOLANA: "m/44'/501'/0'/0'",
-  BITCOIN: "m/44'/0'/0'/0/0",
-  TRON: "m/44'/195'/0'/0/0",
-  MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
-};
 
 // Generate Solana wallet from mnemonic using ed25519-hd-key derivation
 async function generateSolanaWallet(mnemonic: string) {
@@ -107,66 +106,6 @@ async function generateEVMWallet(mnemonic: string, blockchain: string, currency:
   }
 }
 
-// Generate Bitcoin wallet from mnemonic with better error handling
-async function generateBitcoinWallet(mnemonic: string) {
-  try {
-    console.log("Attempting to generate Bitcoin wallet...");
-    
-    // Convert mnemonic to seed
-    const seed = await bip39.mnemonicToSeed(mnemonic);
-    const seedBuffer = new Uint8Array(seed);
-    
-    try {
-      // Initialize bitcoinjs with ecc
-      bitcoinjs.initEccLib(ecc);
-    } catch (initError) {
-      console.error("Error initializing Bitcoin library:", initError);
-      // Continue anyway, it might already be initialized
-    }
-    
-    // Create a bitcoin network (mainnet)
-    const network = bitcoinjs.networks.bitcoin;
-    
-    // Dynamically import bip32
-    try {
-      // Derive the key using BIP32
-      const bip32 = await import("https://esm.sh/bip32@4.0.0");
-      const root = bip32.BIP32Factory(ecc).fromSeed(seedBuffer, network);
-      
-      // Derive account using path
-      const child = root.derivePath(DERIVATION_PATHS.BITCOIN);
-      
-      // Generate payment objects with error handling
-      const payment = bitcoinjs.payments.p2wpkh({ 
-        pubkey: child.publicKey, 
-        network 
-      });
-      
-      const address = payment.address;
-      
-      if (!address) {
-        throw new Error('Failed to generate Bitcoin address');
-      }
-      
-      console.log("Successfully generated Bitcoin wallet with address:", address);
-      
-      return {
-        blockchain: 'Bitcoin',
-        currency: 'BTC',
-        address: address,
-        privateKey: child.privateKey ? Buffer.toString(child.privateKey, 'hex') : undefined,
-        wallet_type: 'derived',
-      };
-    } catch (bip32Error) {
-      console.error("Error in BIP32 derivation:", bip32Error);
-      throw new Error(`Bitcoin wallet generation failed at BIP32 step: ${bip32Error.message}`);
-    }
-  } catch (error) {
-    console.error('Error generating Bitcoin wallet:', error);
-    throw error;
-  }
-}
-
 // Generate Tron wallet from mnemonic
 async function generateTronWallet(mnemonic: string) {
   try {
@@ -178,43 +117,21 @@ async function generateTronWallet(mnemonic: string) {
     // Use the TRON derivation path
     const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.TRON);
     
-    // For Tron, we need to convert the Ethereum format address to Tron format
-    // Tron uses the same elliptic curve cryptography as Ethereum but with a different address format
-    
     // Get the raw public key from the derived wallet
     const publicKeyBytes = ethers.getBytes(wallet.publicKey);
     
-    // Import the TronWeb-compatible address generation code
-    const { default: CryptoUtils } = await import("https://esm.sh/@tronscan/client@0.5.0/src/utils/crypto");
+    // Import keccak256 for address generation
+    const { keccak_256 } = await import("https://esm.sh/js-sha3@0.9.2");
     
-    // Generate Tron address from public key
-    // This is a simplified version, real TronWeb would use:
-    // const tronAddress = TronWeb.address.fromPrivateKey(wallet.privateKey);
-    let addressBytes;
+    // Remove the '0x04' prefix if it exists (compression flag)
+    const pubKeyNoPrefix = publicKeyBytes.slice(0, 1)[0] === 4 ? publicKeyBytes.slice(1) : publicKeyBytes;
     
-    try {
-      // Try using the imported crypto utils if available
-      addressBytes = CryptoUtils.getAddressFromPubKey(publicKeyBytes);
-    } catch (cryptoError) {
-      console.error("Error using Tron crypto utils:", cryptoError);
-      
-      // Fallback implementation if the import fails
-      // Tron addresses start with 0x41 (ASCII 'A') followed by the keccak-256 hash of the public key
-      // This is a simplified version but works for our edge function
-      
-      // Import keccak256 for address generation
-      const { keccak_256 } = await import("https://esm.sh/js-sha3@0.9.2");
-      
-      // Remove the '0x04' prefix if it exists (compression flag)
-      const pubKeyNoPrefix = publicKeyBytes.slice(0, 1)[0] === 4 ? publicKeyBytes.slice(1) : publicKeyBytes;
-      
-      // Hash the public key with keccak256
-      const pubKeyHash = keccak_256(pubKeyNoPrefix);
-      
-      // Take the last 20 bytes and prefix with 0x41 (ASCII 'A')
-      const addressHex = '41' + pubKeyHash.substring(pubKeyHash.length - 40);
-      addressBytes = Buffer.from(addressHex, 'hex');
-    }
+    // Hash the public key with keccak256
+    const pubKeyHash = keccak_256(pubKeyNoPrefix);
+    
+    // Take the last 20 bytes and prefix with 0x41 (ASCII 'A')
+    const addressHex = '41' + pubKeyHash.substring(pubKeyHash.length - 40);
+    const addressBytes = Buffer.from(addressHex, 'hex');
     
     // Convert to base58 encoding (Tron's address format)
     const { encode } = await import("https://esm.sh/bs58@5.0.0");
@@ -231,6 +148,42 @@ async function generateTronWallet(mnemonic: string) {
     };
   } catch (error) {
     console.error('Error generating Tron wallet:', error);
+    throw error;
+  }
+}
+
+// Generate Sui wallet from mnemonic
+async function generateSuiWallet(mnemonic: string) {
+  try {
+    // Convert mnemonic to seed
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const seedHex = Array.from(new Uint8Array(seed))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
+    // Import dynamically
+    const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
+    
+    // Derive the keypair from the seed using the Sui path
+    const { key } = derivePath(DERIVATION_PATHS.SUI, seedHex);
+    
+    // Import Sui keypair
+    const { Ed25519Keypair } = await import("https://esm.sh/@mysten/sui.js/keypairs/ed25519");
+    
+    // Create a keypair with the derived key
+    const keyPair = new Ed25519Keypair({
+      secretKey: new Uint8Array([...key, ...new Uint8Array(32-key.length)].slice(0, 32))
+    });
+    
+    return {
+      blockchain: 'Sui',
+      currency: 'SUI',
+      address: keyPair.getPublicKey().toSuiAddress(),
+      privateKey: Buffer.toString(key, 'hex'),
+      wallet_type: 'derived',
+    };
+  } catch (error) {
+    console.error('Error generating Sui wallet:', error);
     throw error;
   }
 }
@@ -274,15 +227,6 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
       console.error("Failed to generate Solana wallet, but continuing:", solanaError);
     }
     
-    // Generate Bitcoin wallet with error handling
-    try {
-      const bitcoinWallet = await generateBitcoinWallet(mnemonic);
-      wallets.push(bitcoinWallet);
-      console.log("Successfully generated Bitcoin wallet");
-    } catch (bitcoinError) {
-      console.error("Failed to generate Bitcoin wallet, but continuing:", bitcoinError);
-    }
-    
     // Generate Tron wallet with error handling
     try {
       const tronWallet = await generateTronWallet(mnemonic);
@@ -290,6 +234,15 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
       console.log("Successfully generated Tron wallet");
     } catch (tronError) {
       console.error("Failed to generate Tron wallet, but continuing:", tronError);
+    }
+    
+    // Generate Sui wallet with error handling
+    try {
+      const suiWallet = await generateSuiWallet(mnemonic);
+      wallets.push(suiWallet);
+      console.log("Successfully generated Sui wallet");
+    } catch (suiError) {
+      console.error("Failed to generate Sui wallet, but continuing:", suiError);
     }
     
     // Generate Monad wallet (using Ethereum derivation path since it's EVM compatible)
