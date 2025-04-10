@@ -90,6 +90,7 @@ function createSolanaWalletFromMnemonic(mnemonic: string, userId: string) {
     return {
       address: keypair.publicKey.toString(),
       private_key: encryptPrivateKey(privateKeyHex, userId),
+      mnemonic: mnemonic, // Store the mnemonic
     };
   } catch (error) {
     console.error("Error creating Solana wallet:", error);
@@ -113,6 +114,7 @@ function createTronWalletFromMnemonic(mnemonic: string, userId: string) {
     return {
       address: tronAddress,
       private_key: encryptPrivateKey(wallet.privateKey, userId),
+      mnemonic: mnemonic, // Store the mnemonic
     };
   } catch (error) {
     console.error("Error creating Tron wallet:", error);
@@ -144,6 +146,7 @@ function createBitcoinWalletFromMnemonic(mnemonic: string, userId: string) {
     return {
       address: address,
       private_key: encryptPrivateKey(privateKey, userId),
+      mnemonic: mnemonic, // Store the mnemonic
     };
   } catch (error) {
     console.error("Error creating BTC wallet:", error);
@@ -160,6 +163,7 @@ function createEVMWalletFromMnemonic(mnemonic: string, path: string, blockchain:
       currency,
       address: wallet.address,
       private_key: encryptPrivateKey(wallet.privateKey, userId),
+      mnemonic: mnemonic, // Store the mnemonic
     };
   } catch (error) {
     console.error(`Error creating ${blockchain} wallet:`, error);
@@ -246,6 +250,22 @@ async function createUserWallets(supabase: any, userId: string) {
     const mnemonic = getOrCreateMnemonic();
     console.log("Generated BIP-39 mnemonic for HD wallet creation");
     
+    // Save the mnemonic to a user_mnemonics table for recovery purposes
+    const { error: mnemonicError } = await supabase
+      .from("user_mnemonics")
+      .upsert([
+        {
+          user_id: userId,
+          main_mnemonic: mnemonic,
+          created_at: new Date().toISOString(),
+        }
+      ]);
+    
+    if (mnemonicError) {
+      console.error("Error saving mnemonic:", mnemonicError);
+      // Continue anyway since this is just for recovery
+    }
+    
     // Create wallet objects to insert
     const wallets = [];
 
@@ -260,6 +280,7 @@ async function createUserWallets(supabase: any, userId: string) {
           currency: "BTC",
           address: btcWallet.address,
           private_key: btcWallet.private_key,
+          mnemonic: btcWallet.mnemonic, // Store the mnemonic
           wallet_type: "imported",
           balance: 0, // Start with zero balance
         });
@@ -287,6 +308,7 @@ async function createUserWallets(supabase: any, userId: string) {
           currency: ethWallet.currency,
           address: ethWallet.address,
           private_key: ethWallet.private_key,
+          mnemonic: ethWallet.mnemonic, // Store the mnemonic
           wallet_type: "imported",
           balance: 0,
         });
@@ -299,6 +321,7 @@ async function createUserWallets(supabase: any, userId: string) {
             currency: "USDT",
             address: ethWallet.address,
             private_key: ethWallet.private_key,
+            mnemonic: ethWallet.mnemonic, // Store the mnemonic
             wallet_type: "token",
             balance: 0,
           });
@@ -320,6 +343,7 @@ async function createUserWallets(supabase: any, userId: string) {
           currency: "SOL",
           address: solWallet.address,
           private_key: solWallet.private_key,
+          mnemonic: solWallet.mnemonic, // Store the mnemonic
           wallet_type: "imported",
           balance: 0,
         });
@@ -332,6 +356,7 @@ async function createUserWallets(supabase: any, userId: string) {
             currency: "USDT",
             address: solWallet.address,
             private_key: solWallet.private_key,
+            mnemonic: solWallet.mnemonic, // Store the mnemonic
             wallet_type: "token",
             balance: 0,
           });
@@ -353,6 +378,7 @@ async function createUserWallets(supabase: any, userId: string) {
           currency: "TRX",
           address: tronWallet.address,
           private_key: tronWallet.private_key,
+          mnemonic: tronWallet.mnemonic, // Store the mnemonic
           wallet_type: "imported",
           balance: 0,
         });
@@ -365,6 +391,7 @@ async function createUserWallets(supabase: any, userId: string) {
             currency: "USDT",
             address: tronWallet.address,
             private_key: tronWallet.private_key,
+            mnemonic: tronWallet.mnemonic, // Store the mnemonic
             wallet_type: "token",
             balance: 0,
           });
@@ -394,6 +421,7 @@ async function createUserWallets(supabase: any, userId: string) {
           currency: bscWallet.currency,
           address: bscWallet.address,
           private_key: bscWallet.private_key,
+          mnemonic: bscWallet.mnemonic, // Store the mnemonic
           wallet_type: "imported",
           balance: 0,
         });
@@ -406,6 +434,7 @@ async function createUserWallets(supabase: any, userId: string) {
             currency: "USDT",
             address: bscWallet.address,
             private_key: bscWallet.private_key,
+            mnemonic: bscWallet.mnemonic, // Store the mnemonic
             wallet_type: "token",
             balance: 0,
           });
@@ -429,6 +458,7 @@ async function createUserWallets(supabase: any, userId: string) {
           currency: polygonWallet.currency,
           address: polygonWallet.address,
           private_key: polygonWallet.private_key,
+          mnemonic: polygonWallet.mnemonic, // Store the mnemonic
           wallet_type: "imported",
           balance: 0,
         });
@@ -441,6 +471,7 @@ async function createUserWallets(supabase: any, userId: string) {
             currency: "USDT",
             address: polygonWallet.address,
             private_key: polygonWallet.private_key,
+            mnemonic: polygonWallet.mnemonic, // Store the mnemonic
             wallet_type: "token",
             balance: 0,
           });

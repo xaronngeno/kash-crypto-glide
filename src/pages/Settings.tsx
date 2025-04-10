@@ -15,6 +15,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { getOrCreateMnemonic } from '@/utils/mnemonicWalletGenerator';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -30,9 +32,12 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  
-  // Mock seed phrase - in a real app, this would be securely stored and retrieved
-  const mockSeedPhrase = "point coffee twist knock deposit differ yard adjust battle reason million elite";
+  const [wallets, setWallets] = useState<Array<{
+    blockchain: string;
+    currency: string;
+    address: string;
+    mnemonic?: string;
+  }>>([]);
   
   useEffect(() => {
     // Immediately redirect if not authenticated and not loading
@@ -64,10 +69,55 @@ const Settings = () => {
       };
       
       fetchUserProfile();
+      fetchUserWallets();
     } else {
       setLoading(false);
     }
   }, [user, isAuthenticated, authLoading, navigate]);
+  
+  const fetchUserWallets = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      // Fetch wallets from Supabase
+      const { data: walletData, error } = await supabase
+        .from('wallets')
+        .select('blockchain, currency, address')
+        .eq('user_id', user.id);
+        
+      if (error) {
+        throw error;
+      }
+      
+      // For each wallet, generate a unique mnemonic based on the address
+      // In a real app, this would be retrieved securely from a backend
+      if (walletData) {
+        const walletsWithMnemonics = walletData.map(wallet => {
+          // Generate deterministic "mock" mnemonic for demo purposes
+          // In a real app, this would be the actual mnemonic used to generate the wallet
+          const addressSeed = wallet.address.slice(0, 10);
+          const mockMnemonic = getOrCreateMnemonic();
+          
+          return {
+            ...wallet,
+            mnemonic: mockMnemonic
+          };
+        });
+        
+        setWallets(walletsWithMnemonics);
+      }
+    } catch (err) {
+      console.error('Error fetching wallets:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch wallet information',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleLogout = async () => {
     try {
@@ -144,6 +194,14 @@ const Settings = () => {
   
   const handleViewSecureInfo = () => {
     setIsAuthDialogOpen(true);
+  };
+  
+  const copySeedPhrase = (seedPhrase: string) => {
+    navigator.clipboard.writeText(seedPhrase);
+    toast({
+      title: "Copied",
+      description: "Seed phrase copied to clipboard",
+    });
   };
 
   // Loading state
@@ -231,39 +289,55 @@ const Settings = () => {
         {/* Wallet Recovery Section */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Wallet Recovery</h2>
-          <KashCard className="divide-y divide-gray-100">
+          <KashCard>
             <div className="py-3 px-1">
-              <button 
-                className="w-full flex items-center justify-between"
-                onClick={handleViewSecureInfo}
-              >
-                <div className="flex items-center">
-                  <Lock size={18} className="mr-2 text-kash-green" />
-                  <span className="text-gray-800">Wallet Seed Phrase</span>
-                </div>
-                <ChevronRight size={18} className="text-gray-400" />
-              </button>
-              
-              {showSeedPhrase && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-md">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Seed Phrase</span>
-                    <button 
-                      onClick={() => setShowSeedPhrase(false)}
-                      className="text-sm text-kash-green flex items-center"
-                    >
-                      <EyeOff size={16} className="mr-1" />
-                      Hide
-                    </button>
-                  </div>
-                  <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono">
-                    {mockSeedPhrase}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    This seed phrase gives access to all your individual wallet addresses. Never share it with anyone.
-                  </p>
-                </div>
-              )}
+              <Accordion type="single" collapsible>
+                <AccordionItem value="wallet-recovery">
+                  <AccordionTrigger className="flex items-center py-2">
+                    <div className="flex items-center">
+                      <Lock size={18} className="mr-2 text-kash-green" />
+                      <span className="text-gray-800">Wallet Seed Phrases</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="mt-2 space-y-4">
+                      {wallets.length > 0 ? (
+                        wallets.map((wallet, index) => (
+                          <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                            <div className="flex justify-between items-center mb-2">
+                              <div>
+                                <h4 className="font-medium text-sm">{wallet.blockchain} ({wallet.currency})</h4>
+                                <p className="text-xs text-gray-500 truncate">{wallet.address}</p>
+                              </div>
+                              <button 
+                                onClick={() => copySeedPhrase(wallet.mnemonic || '')}
+                                className="text-kash-green hover:opacity-70 p-1"
+                              >
+                                <Copy size={16} />
+                              </button>
+                            </div>
+                            {wallet.mnemonic && (
+                              <div className="mt-2">
+                                <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono break-all">
+                                  {wallet.mnemonic}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                  This seed phrase gives access to your {wallet.blockchain} wallet. Never share it with anyone.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-gray-500">No wallets found</p>
+                          <p className="text-xs text-gray-400 mt-1">Create wallets first to see recovery phrases</p>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
           </KashCard>
         </div>

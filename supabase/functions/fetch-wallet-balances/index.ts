@@ -1,75 +1,124 @@
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 
+// CORS headers
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-serve(async (req: Request) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+// Handle CORS preflight requests
+function handleCors(req: Request) {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders, status: 204 });
   }
+  return null;
+}
+
+// Fetch real wallet balances for a user from the database
+async function fetchWalletBalances(supabase: any, userId: string) {
+  try {
+    console.log(`Fetching wallet balances for user: ${userId}`);
+    
+    // Fetch all wallets for the user including mnemonic phrases
+    const { data: wallets, error } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("user_id", userId);
+    
+    if (error) {
+      throw new Error(`Error fetching wallets: ${error.message}`);
+    }
+    
+    if (!wallets || wallets.length === 0) {
+      return {
+        success: true,
+        message: "No wallets found for user",
+        wallets: []
+      };
+    }
+    
+    console.log(`Found ${wallets.length} wallets for user ${userId}`);
+    
+    // Return the actual wallet data with balance information
+    return {
+      success: true,
+      message: "Wallet balances retrieved successfully",
+      wallets: wallets.map(wallet => ({
+        blockchain: wallet.blockchain,
+        currency: wallet.currency,
+        address: wallet.address,
+        balance: wallet.balance || 0,
+        mnemonic: wallet.mnemonic, // Include the mnemonic phrase
+        wallet_type: wallet.wallet_type
+      }))
+    };
+    
+  } catch (error) {
+    console.error("Error fetching wallet balances:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+serve(async (req) => {
+  // Handle CORS
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Get environment variables
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-    const { userId } = await req.json();
+    // Create Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Parse the request body
+    let requestData;
+    try {
+      const text = await req.text();
+      if (text && text.trim()) {
+        requestData = JSON.parse(text);
+      } else {
+        requestData = {};
+      }
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
 
+    // Get user ID from request
+    const userId = requestData.userId;
+    
     if (!userId) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'User ID is required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+      return new Response(JSON.stringify({ error: "No userId provided" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
-    console.log(`Fetching wallets for user: ${userId}`);
+    // Fetch wallet balances for the user
+    const result = await fetchWalletBalances(supabase, userId);
+
+    // Return the result
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: result.success ? 200 : 400,
+    });
     
-    // Get wallets from database
-    const { data: wallets, error: walletsError } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('user_id', userId);
-
-    if (walletsError) {
-      console.error('Error fetching wallets:', walletsError);
-      return new Response(
-        JSON.stringify({ success: false, error: walletsError.message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-
-    if (!wallets || wallets.length === 0) {
-      console.log('No wallets found for user');
-      return new Response(
-        JSON.stringify({ success: false, error: 'No wallets found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-      );
-    }
-
-    // For a real application, we would query blockchain APIs here to get real-time balances
-    // For now, we're returning the actual balances stored in the database
-    // In production, you would implement blockchain API calls to get real balances
-    
-    console.log(`Successfully fetched ${wallets.length} wallets`);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Wallet balances fetched successfully',
-        wallets: wallets
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
   } catch (error) {
-    console.error('Unexpected error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message || 'Unknown error' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    console.error("Error in edge function:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });

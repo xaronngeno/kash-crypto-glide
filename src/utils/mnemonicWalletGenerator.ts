@@ -113,7 +113,8 @@ export function generateSuiWallet(mnemonic: string): MnemonicWalletData {
     const { key } = derivePath(DERIVATION_PATHS.SUI, seed.toString('hex'));
     
     // Create a Sui keypair from the derived key
-    const keypair = Ed25519Keypair.fromSeed(key.slice(0, 32));
+    // Fixed: Using proper method to create keypair from seed
+    const keypair = new Ed25519Keypair(key.slice(0, 32));
 
     return {
       blockchain: 'Sui',
