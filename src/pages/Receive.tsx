@@ -1,16 +1,15 @@
-
 import { useState, useEffect } from 'react';
-import { Copy, QrCode, Info, Wallet, ExternalLink, Search } from 'lucide-react';
+import { Copy, QrCode, Info, Search } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
-import { useCryptoPrices } from '@/hooks/useCryptoPrices';
+
+const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX'];
 
 interface WalletAddress {
   blockchain: string;
@@ -93,7 +92,6 @@ const NetworkBadge = ({ network }: { network: string }) => {
 const Receive = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { prices } = useCryptoPrices();
   const [walletAddresses, setWalletAddresses] = useState<WalletAddress[]>([]);
   const [selectedChain, setSelectedChain] = useState<WalletAddress | null>(null);
   const [showQR, setShowQR] = useState(false);
@@ -105,7 +103,6 @@ const Receive = () => {
   const [groupedWallets, setGroupedWallets] = useState<Record<string, WalletAddress[]>>({});
 
   useEffect(() => {
-    // Group wallets by currency for display purposes
     if (walletAddresses.length > 0) {
       const grouped: Record<string, WalletAddress[]> = {};
       
@@ -124,7 +121,6 @@ const Receive = () => {
   }, [walletAddresses]);
 
   useEffect(() => {
-    // Filter wallets based on search term
     if (searchTerm) {
       const filtered = walletAddresses.filter(wallet => 
         wallet.symbol.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -158,14 +154,16 @@ const Receive = () => {
         if (data && data.length > 0) {
           console.log("Fetched wallet addresses:", data);
           
-          // Use a Set to track unique combinations of blockchain+symbol
+          const filteredData = data.filter(wallet => 
+            MAIN_CURRENCIES.includes(wallet.currency) || wallet.wallet_type === 'imported'
+          );
+          
           const uniqueWalletKeys = new Set();
           const addresses: WalletAddress[] = [];
           
-          data.forEach(wallet => {
+          filteredData.forEach(wallet => {
             const walletKey = `${wallet.blockchain}-${wallet.currency}`;
             
-            // Only add if this combination doesn't already exist
             if (!uniqueWalletKeys.has(walletKey)) {
               uniqueWalletKeys.add(walletKey);
               addresses.push({
@@ -179,8 +177,10 @@ const Receive = () => {
           
           setWalletAddresses(addresses);
           setDisplayedWallets(addresses);
-          setSelectedChain(addresses[0]);
-          setNoWalletsFound(false);
+          if (addresses.length > 0) {
+            setSelectedChain(addresses[0]);
+          }
+          setNoWalletsFound(addresses.length === 0);
         } else {
           console.log("No wallets found for user, attempting to create wallets");
           await createWallets();
@@ -220,7 +220,6 @@ const Receive = () => {
       
       console.log("Wallets created successfully:", data);
       
-      // Fetch the newly created wallets
       const { data: wallets, error: fetchError } = await supabase
         .from('wallets')
         .select('blockchain, currency, address')
@@ -337,7 +336,6 @@ const Receive = () => {
           </p>
         </div>
         
-        {/* Search bar */}
         <div className="relative mb-4">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search size={16} className="text-gray-400" />
@@ -351,7 +349,6 @@ const Receive = () => {
           />
         </div>
         
-        {/* Phantom-style wallet list */}
         <div className="space-y-4">
           {Object.entries(groupedWallets).map(([symbol, wallets]) => (
             <div key={symbol} className="mb-3">
