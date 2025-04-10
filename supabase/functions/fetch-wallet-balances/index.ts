@@ -64,7 +64,8 @@ async function fetchWalletBalances(supabase: any, userId: string) {
       return {
         success: true,
         message: "No wallets found for user",
-        wallets: []
+        wallets: [],
+        shouldCreateWallets: true
       };
     }
     
@@ -101,26 +102,35 @@ async function fetchWalletBalances(supabase: any, userId: string) {
       };
     }
     
-    // Filter wallets to only include main cryptocurrencies and imported wallets
-    const filteredWallets = wallets.filter(wallet => {
-      const isMainCurrency = MAIN_CURRENCIES.includes(wallet.currency);
-      const isImported = wallet.wallet_type === 'imported';
+    // Filter wallets to include ALL main cryptocurrencies and imported wallets
+    const walletsByPriority = [...wallets].sort((a, b) => {
+      // Main currencies first, in their defined order
+      const aIndex = MAIN_CURRENCIES.indexOf(a.currency);
+      const bIndex = MAIN_CURRENCIES.indexOf(b.currency);
       
-      if (!isMainCurrency && !isImported) {
-        console.log(`Filtering out non-main currency: ${wallet.currency}`);
-      }
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
       
-      return isMainCurrency || isImported;
+      // Then imported wallets
+      const aIsImported = a.wallet_type === 'imported';
+      const bIsImported = b.wallet_type === 'imported';
+      
+      if (aIsImported && !bIsImported) return -1;
+      if (!aIsImported && bIsImported) return 1;
+      
+      // Alphabetical by currency as last priority
+      return a.currency.localeCompare(b.currency);
     });
     
-    console.log(`After filtering, returning ${filteredWallets.length} wallets`);
-    console.log("Filtered wallet currencies:", filteredWallets.map(w => w.currency));
+    console.log(`After sorting, returning ${walletsByPriority.length} wallets`);
+    console.log("Ordered wallet currencies:", walletsByPriority.map(w => w.currency));
     
-    // Return the filtered wallet data with balance information
+    // Return the wallet data with balance information
     return {
       success: true,
       message: "Wallet balances retrieved successfully",
-      wallets: filteredWallets.map(wallet => ({
+      wallets: walletsByPriority.map(wallet => ({
         blockchain: wallet.blockchain,
         currency: wallet.currency,
         address: wallet.address,

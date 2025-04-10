@@ -1,7 +1,8 @@
 
-import { Send, ArrowDownToLine, Repeat, RefreshCcw } from 'lucide-react';
+import { Send, ArrowDownToLine, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { KashButton } from '../ui/KashButton';
+import { toast } from '@/hooks/use-toast';
 
 interface ActionButtonsProps {
   onForceCreateWallets?: () => void;
@@ -9,6 +10,16 @@ interface ActionButtonsProps {
 
 export const ActionButtons = ({ onForceCreateWallets }: ActionButtonsProps) => {
   const navigate = useNavigate();
+  
+  const handleRecreateClick = () => {
+    if (onForceCreateWallets) {
+      toast({
+        title: 'Recreating wallets',
+        description: 'This may take a moment...',
+      });
+      onForceCreateWallets();
+    }
+  };
 
   return (
     <div className="flex space-x-3">
@@ -29,8 +40,8 @@ export const ActionButtons = ({ onForceCreateWallets }: ActionButtonsProps) => {
       {onForceCreateWallets && (
         <KashButton
           variant="outline"
-          icon={<RefreshCcw size={18} />}
-          onClick={onForceCreateWallets}
+          icon={<RefreshCw size={18} />}
+          onClick={handleRecreateClick}
         >
           Recreate
         </KashButton>
