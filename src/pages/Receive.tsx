@@ -15,6 +15,35 @@ interface WalletAddress {
   address: string;
 }
 
+// Demo wallet addresses for users who don't have real wallets yet
+const demoWallets: WalletAddress[] = [
+  {
+    blockchain: 'Bitcoin',
+    symbol: 'BTC',
+    address: '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'
+  },
+  {
+    blockchain: 'Ethereum',
+    symbol: 'ETH',
+    address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+  },
+  {
+    blockchain: 'Ethereum',
+    symbol: 'USDT',
+    address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+  },
+  {
+    blockchain: 'Solana',
+    symbol: 'SOL',
+    address: 'EXuiKFwQUd9VKCMsR3VnQpD1RAYmrQRLpxW8pnZWCtan'
+  },
+  {
+    blockchain: 'Tron',
+    symbol: 'TRX',
+    address: 'TH2Quo8DVXpKzBGBeCoRmsmfw7P6jfrzVN'
+  }
+];
+
 const Receive = () => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -23,6 +52,7 @@ const Receive = () => {
   const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAllDetails, setShowAllDetails] = useState(false);
+  const [usingDemoWallets, setUsingDemoWallets] = useState(false);
 
   useEffect(() => {
     const fetchWalletAddresses = async () => {
@@ -53,21 +83,28 @@ const Receive = () => {
           console.log("Fetched wallet addresses:", addresses);
           setWalletAddresses(addresses);
           setSelectedChain(addresses[0]);
+          setUsingDemoWallets(false);
         } else {
-          console.log("No wallets found for user");
+          console.log("No wallets found for user, using demo wallets");
+          setWalletAddresses(demoWallets);
+          setSelectedChain(demoWallets[0]);
+          setUsingDemoWallets(true);
           toast({
-            title: "No wallets found",
-            description: "You don't have any wallets yet.",
-            variant: "destructive"
+            title: "Demo Mode",
+            description: "Showing sample wallet addresses for demonstration.",
+            variant: "default"
           });
         }
       } catch (error) {
         console.error("Error fetching wallet addresses:", error);
         toast({
-          title: "Error fetching wallets",
-          description: "Could not load your wallet addresses.",
-          variant: "destructive"
+          title: "Demo Mode",
+          description: "Showing sample wallet addresses for demonstration.",
+          variant: "default"
         });
+        setWalletAddresses(demoWallets);
+        setSelectedChain(demoWallets[0]);
+        setUsingDemoWallets(true);
       } finally {
         setLoading(false);
       }
@@ -96,19 +133,6 @@ const Receive = () => {
     );
   }
 
-  if (walletAddresses.length === 0) {
-    return (
-      <MainLayout title="Receive" showBack>
-        <div className="text-center h-64 flex flex-col items-center justify-center">
-          <h3 className="text-lg font-medium mb-3">No Wallets Found</h3>
-          <p className="text-gray-600 mb-6">
-            You don't have any wallets configured yet.
-          </p>
-        </div>
-      </MainLayout>
-    );
-  }
-
   return (
     <MainLayout title="Receive" showBack>
       <div className="space-y-6">
@@ -117,6 +141,11 @@ const Receive = () => {
           <p className="text-gray-600">
             Select a blockchain and share your wallet address
           </p>
+          {usingDemoWallets && (
+            <p className="text-xs text-amber-600 mt-1">
+              Showing sample demo addresses
+            </p>
+          )}
         </div>
         
         {/* Wallet summary section */}
@@ -134,7 +163,7 @@ const Receive = () => {
           </div>
           
           <p className="text-sm text-gray-500 mt-1 mb-3">
-            {walletAddresses.length} wallets created at registration
+            {walletAddresses.length} wallets {usingDemoWallets ? "(demo)" : "created at registration"}
           </p>
           
           {showAllDetails && (
@@ -228,6 +257,9 @@ const Receive = () => {
             <li>Only send {selectedChain?.symbol} to this address</li>
             <li>Sending any other cryptocurrency may result in permanent loss</li>
             <li>Verify the entire address before sending any funds</li>
+            {usingDemoWallets && (
+              <li className="font-bold">These are demo addresses - do not send real funds!</li>
+            )}
           </ul>
         </div>
       </div>

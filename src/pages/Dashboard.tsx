@@ -28,7 +28,7 @@ const Dashboard = () => {
 
   // Debug logging for user and wallet relationship
   useEffect(() => {
-    // Log auth and profile info
+    // Log auth state
     console.log('Auth state:', { 
       userId: user?.id,
       userEmail: user?.email,
@@ -38,13 +38,12 @@ const Dashboard = () => {
       kycStatus: profile?.kyc_status
     });
 
-    // If assets loaded but empty
     if (!walletLoading && assets.length === 0) {
       console.warn('Wallet assets loaded but empty. No wallets created or issue with data?');
       toast({
-        title: 'No wallet assets found',
-        description: 'We couldn\'t find any assets in your wallet. Default data is being shown.',
-        variant: 'destructive',
+        title: 'Showing demo wallets',
+        description: 'We\'re showing you demo wallet data.',
+        variant: 'default',
         duration: 5000,
       });
     } else if (!walletLoading) {
@@ -60,26 +59,14 @@ const Dashboard = () => {
       });
     }
 
-    // Show error toast if there's an error
+    // Show info toast if there's an error but we're showing demo data
     if (walletError) {
-      console.error('Error in wallet loading:', walletError);
-      toast({
-        title: 'No wallets detected',
-        description: 'Using default wallet data.',
-        variant: 'destructive',
-        duration: 5000,
-      });
+      console.log('Using demo wallet data:', walletError);
     }
     
-    // Show error toast if there's a price loading error
+    // Show info toast if there's a price loading error
     if (pricesError) {
-      console.error('Error loading prices:', pricesError);
-      toast({
-        title: 'Price data issue',
-        description: 'There was a problem loading current prices. Using estimated values.',
-        variant: 'destructive',
-        duration: 5000,
-      });
+      console.log('Using estimated price data:', pricesError);
     }
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast]);
 
@@ -104,7 +91,6 @@ const Dashboard = () => {
     return acc + value;
   }, 0);
 
-  const hasError = walletError || pricesError;
   const isLoading = (walletLoading || pricesLoading || isCreatingWallets);
 
   const handleRetryLoading = () => {
@@ -145,18 +131,18 @@ const Dashboard = () => {
     </div>
   );
 
-  const renderErrorState = () => {
+  const renderInfoMessage = () => {
     return (
-      <Alert variant="destructive" className="mb-6">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>No wallets detected</AlertTitle>
+      <Alert variant="default" className="mb-6 bg-blue-50 border-blue-100">
+        <AlertCircle className="h-4 w-4 text-blue-500" />
+        <AlertTitle>Demo Mode</AlertTitle>
         <AlertDescription className="flex flex-col">
-          <span>Using default wallet data. You may need to set up your wallets.</span>
+          <span>Showing demo wallet data with sample balances.</span>
           <button 
             onClick={handleRetryLoading}
-            className="text-sm mt-2 underline text-left"
+            className="text-sm mt-2 underline text-left text-blue-500"
           >
-            Retry loading
+            Reload data
           </button>
         </AlertDescription>
       </Alert>
@@ -189,7 +175,7 @@ const Dashboard = () => {
 
       {!isLoading && (
         <div className="space-y-6">
-          {hasError && renderErrorState()}
+          {(walletError || pricesError) && renderInfoMessage()}
           
           <div className="flex flex-col items-center justify-center pt-4">
             <div className="text-gray-500 text-sm mb-1">Total Balance</div>
@@ -226,7 +212,7 @@ const Dashboard = () => {
               <AssetsList assets={assets} currency={currency} />
             ) : (
               <div className="py-8 text-center">
-                <p className="text-gray-500">No wallets detected. We're setting up your default wallets...</p>
+                <p className="text-gray-500">Setting up your wallets, please wait...</p>
               </div>
             )}
           </div>

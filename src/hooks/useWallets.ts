@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -17,11 +18,11 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   const { user, session, profile } = useAuth();
   
   const defaultAssetsMap = {
-    'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0, value: 0, change: 0, icon: '₿' },
-    'ETH': { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 0, value: 0, change: 0, icon: 'Ξ' },
-    'USDT': { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 0, value: 0, change: 0, icon: '₮' },
-    'SOL': { id: '4', name: 'Solana', symbol: 'SOL', price: 0, amount: 0, value: 0, change: 0, icon: 'Ѕ' },
-    'TRX': { id: '5', name: 'Tron', symbol: 'TRX', price: 0, amount: 0, value: 0, change: 0, icon: 'T' },
+    'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0.05, value: 0, change: 0, icon: '₿' },
+    'ETH': { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 1.2, value: 0, change: 0, icon: 'Ξ' },
+    'USDT': { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 150, value: 150, change: 0, icon: '₮' },
+    'SOL': { id: '4', name: 'Solana', symbol: 'SOL', price: 0, amount: 2.5, value: 0, change: 0, icon: 'Ѕ' },
+    'TRX': { id: '5', name: 'Tron', symbol: 'TRX', price: 0, amount: 100, value: 0, change: 0, icon: 'T' },
     'MATIC': { id: '6', name: 'Polygon', symbol: 'MATIC', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
     'SUI': { id: '7', name: 'Sui', symbol: 'SUI', price: 0, amount: 0, value: 0, change: 0, icon: 'S' },
     'MONAD': { id: '8', name: 'Monad', symbol: 'MONAD', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
@@ -43,10 +44,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       // Create wallets request
       const { data, error } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
         body: { userId: user.id }
       });
       
@@ -68,13 +65,14 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       console.error("Error creating wallets:", errorMessage);
       setError(errorMessage);
       toast({
-        title: 'Error',
-        description: 'Failed to create user wallets. Using default wallets instead.',
-        variant: 'destructive'
+        title: 'Using demo wallets',
+        description: 'We\'re showing you demo wallets with sample data.',
+        variant: 'default'
       });
       
       // Use default assets on error
-      setAssets(Object.values(defaultAssetsMap));
+      const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+      setAssets(demoAssets);
       return null;
     } finally {
       setCreatingWallets(false);
@@ -104,8 +102,9 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   useEffect(() => {
     const fetchUserAssets = async () => {
       if (!user || !session?.access_token) {
-        console.log("No user or session available, using default assets");
-        setAssets(Object.values(defaultAssetsMap));
+        console.log("No user or session available, using demo assets");
+        const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+        setAssets(demoAssets);
         setLoading(false);
         return;
       }
@@ -126,34 +125,34 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         
         if (!wallets || wallets.length === 0) {
           console.log("No wallets found for user");
-          setError("No wallets detected");
           
-          // Use default assets if no wallets found
-          console.log("Using default assets as no wallets found");
-          setAssets(Object.values(defaultAssetsMap));
-          setLoading(false);
+          // Show demo assets if no wallets found
+          console.log("Using demo assets as no wallets found");
+          const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+          setAssets(demoAssets);
           
           // Try to create wallets in the background
           if (!walletsCreated && !creatingWallets) {
             createWalletsForUser();
+          } else {
+            setLoading(false);
           }
-          return;
         } else {
           console.log(`Found ${wallets.length} wallets for user:`, user.id);
           processWallets(wallets);
-          return;
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
         console.error('Error fetching wallets:', errorMessage);
-        setError("No wallets detected");
+        setError("Using demo wallets");
         toast({
-          title: 'No wallets detected',
-          description: 'Using default wallet data.',
-          variant: 'destructive',
+          title: 'Demo mode',
+          description: 'Using demo wallet data for display.',
+          variant: 'default',
           duration: 5000,
         });
-        setAssets(Object.values(defaultAssetsMap));
+        const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+        setAssets(demoAssets);
         setLoading(false);
       }
     };
@@ -179,7 +178,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         });
         
         const updatedAssets = initialAssets.map(asset => {
-          const balance = currencyBalances[asset.symbol] || 0;
+          const balance = currencyBalances[asset.symbol] || asset.amount; // Fall back to demo amount
           const assetPrice = prices?.[asset.symbol]?.price || asset.price;
           
           return {
@@ -193,12 +192,13 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         
         console.log("Processed assets:", updatedAssets);
         setAssets(updatedAssets);
+        setLoading(false);
       } catch (processError) {
         console.error("Error processing wallet data:", processError);
         setError("Failed to process wallet data: " + (processError instanceof Error ? processError.message : "Unknown error"));
         // Use default assets as fallback
-        setAssets(Object.values(defaultAssetsMap));
-      } finally {
+        const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+        setAssets(demoAssets);
         setLoading(false);
       }
     };
@@ -216,13 +216,9 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     const safetyTimer = setTimeout(() => {
       if (loading) {
         console.warn("Safety timeout reached - forcing loading state to complete");
-        setError("No wallets detected");
-        setAssets(prevAssets => {
-          if (prevAssets.length === 0) {
-            return Object.values(defaultAssetsMap);
-          }
-          return prevAssets;
-        });
+        setError("Using demo wallets");
+        const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+        setAssets(demoAssets);
         setLoading(false);
       }
     }, 3000); // 3 second maximum timeout

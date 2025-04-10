@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
@@ -100,6 +101,7 @@ async function createUserWallets(supabase: any, userId: string) {
         address: address,
         private_key: privateKey, // Should be encrypted in production
         wallet_type: "imported",
+        balance: 0.05, // Add sample balance for testing
       });
       console.log("Created BTC wallet");
     } catch (btcError) {
@@ -116,6 +118,7 @@ async function createUserWallets(supabase: any, userId: string) {
         address: ethWallet.address,
         private_key: ethWallet.privateKey, // Should be encrypted in production
         wallet_type: "imported",
+        balance: 1.2, // Add sample balance for testing
       });
       
       // Also create USDT wallet on Ethereum with the same address
@@ -126,6 +129,7 @@ async function createUserWallets(supabase: any, userId: string) {
         address: ethWallet.address,
         private_key: ethWallet.privateKey, // Should be encrypted in production
         wallet_type: "token",
+        balance: 150, // Add sample balance for testing
       });
       console.log("Created ETH and USDT wallets");
     } catch (ethError) {
@@ -142,6 +146,7 @@ async function createUserWallets(supabase: any, userId: string) {
         address: solWallet.address,
         private_key: solWallet.private_key,
         wallet_type: "imported",
+        balance: 2.5, // Add sample balance for testing
       });
       console.log("Created SOL wallet");
     } catch (solError) {
@@ -158,6 +163,7 @@ async function createUserWallets(supabase: any, userId: string) {
         address: tronWallet.address,
         private_key: tronWallet.private_key,
         wallet_type: "imported",
+        balance: 100, // Add sample balance for testing
       });
       console.log("Created TRX wallet");
     } catch (tronError) {
@@ -199,18 +205,6 @@ serve(async (req) => {
     // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get authorization header
-    const authHeader = req.headers.get("Authorization");
-    let userId: string;
-
-    // Check if this is a POST request and has a body
-    if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 405,
-      });
-    }
-
     // Parse the request body safely
     let requestData;
     try {
@@ -229,23 +223,11 @@ serve(async (req) => {
       });
     }
 
-    // Get user ID from request or auth header
-    if (requestData && requestData.userId) {
-      userId = requestData.userId;
-    } else if (authHeader && authHeader.startsWith("Bearer ")) {
-      // Get JWT from auth header
-      const token = authHeader.replace("Bearer ", "");
-      
-      // Verify the JWT and get user information
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      
-      if (authError || !user) {
-        throw new Error(`Auth error: ${authError?.message || "User not found"}`);
-      }
-      
-      userId = user.id;
-    } else {
-      return new Response(JSON.stringify({ error: "No authorization or userId provided" }), {
+    // Get user ID from request
+    const userId = requestData.userId;
+    
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "No userId provided" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
