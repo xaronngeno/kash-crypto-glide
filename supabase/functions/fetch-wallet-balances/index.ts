@@ -17,7 +17,7 @@ function handleCors(req: Request) {
   return null;
 }
 
-// Main cryptocurrencies to focus on - including all supported chains
+// Include ALL supported cryptocurrencies - making sure TRX and SOL are included
 const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'MONAD', 'TRX', 'SUI'];
 
 // Fetch real wallet balances for a user from the database
@@ -36,6 +36,7 @@ async function fetchWalletBalances(supabase: any, userId: string) {
     }
     
     console.log(`Raw wallets data:`, wallets);
+    console.log(`Wallet currencies found:`, wallets.map(w => `${w.currency} on ${w.blockchain}`).join(', '));
     
     if (!wallets || wallets.length === 0) {
       console.log(`No wallets found for user ${userId}. Checking if we should create them.`);
@@ -77,7 +78,7 @@ async function fetchWalletBalances(supabase: any, userId: string) {
     console.log(`Found ${wallets.length} wallets for user ${userId}`);
     console.log("Wallet currencies:", wallets.map(w => w.currency));
     
-    // Filter wallets to only include main cryptocurrencies (not tokens like USDT)
+    // Filter wallets to only include main cryptocurrencies and imported wallets
     const filteredWallets = wallets.filter(wallet => {
       const isMainCurrency = MAIN_CURRENCIES.includes(wallet.currency);
       const isImported = wallet.wallet_type === 'imported';
@@ -102,7 +103,14 @@ async function fetchWalletBalances(supabase: any, userId: string) {
         address: wallet.address,
         balance: wallet.balance || 0,
         wallet_type: wallet.wallet_type
-      }))
+      })),
+      debug: {
+        allWallets: wallets.map(w => ({
+          blockchain: w.blockchain,
+          currency: w.currency
+        })),
+        mainCurrencies: MAIN_CURRENCIES
+      }
     };
     
   } catch (error) {

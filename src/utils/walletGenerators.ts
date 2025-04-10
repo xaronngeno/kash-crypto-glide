@@ -31,11 +31,15 @@ export const DERIVATION_PATHS = {
 // Generate a Solana wallet
 export const generateSolanaWallet = (): WalletData => {
   try {
+    console.log('Generating Solana wallet');
     const keypair = Keypair.generate();
+    const address = keypair.publicKey.toString();
+    console.log(`Generated Solana wallet with address: ${address}`);
+    
     return {
       blockchain: 'Solana',
       platform: 'Solana',
-      address: keypair.publicKey.toString(),
+      address: address,
       privateKey: Buffer.from(keypair.secretKey).toString('hex'),
       derivationPath: DERIVATION_PATHS.SOLANA,
     };
@@ -48,6 +52,7 @@ export const generateSolanaWallet = (): WalletData => {
 // Generate an Ethereum wallet or Ethereum-compatible wallet
 export const generateEthWallet = (blockchain: string, platform: string): WalletData => {
   try {
+    console.log(`Generating ${blockchain} wallet`);
     const wallet = ethers.Wallet.createRandom();
     let derivationPath = DERIVATION_PATHS.ETHEREUM;
     
@@ -56,6 +61,7 @@ export const generateEthWallet = (blockchain: string, platform: string): WalletD
       derivationPath = DERIVATION_PATHS.MONAD;
     }
     
+    console.log(`Generated ${blockchain} wallet with address: ${wallet.address}`);
     return {
       blockchain,
       platform,
@@ -72,12 +78,16 @@ export const generateEthWallet = (blockchain: string, platform: string): WalletD
 // Generate a Sui wallet
 export const generateSuiWallet = (): WalletData => {
   try {
+    console.log('Generating Sui wallet');
     // Use try/catch to handle any potential issues during Sui wallet creation
     const keypair = new Ed25519Keypair();
+    const address = keypair.getPublicKey().toSuiAddress();
+    console.log(`Generated Sui wallet with address: ${address}`);
+    
     return {
       blockchain: 'Sui',
       platform: 'Sui',
-      address: keypair.getPublicKey().toSuiAddress(),
+      address: address,
       privateKey: Buffer.from(keypair.export().privateKey, 'base64').toString('hex'),
       derivationPath: DERIVATION_PATHS.SUI,
     };
@@ -90,15 +100,18 @@ export const generateSuiWallet = (): WalletData => {
 // Generate Tron wallet
 export const generateTronWallet = (): WalletData => {
   try {
+    console.log('Generating Tron wallet');
     // Create a random wallet
     const wallet = ethers.Wallet.createRandom();
     
-    // For a real Tron wallet we'd derive it properly from the privateKey
-    // This is a simplified version
+    // For Tron address format, we create a simple mock
+    const address = `T${wallet.address.substring(2)}`;
+    console.log(`Generated Tron wallet with address: ${address}`);
+    
     return {
       blockchain: 'Tron',
       platform: 'Tron',
-      address: `T${wallet.address.substring(2)}`, // Simple mock for demo
+      address: address,
       privateKey: wallet.privateKey,
       derivationPath: DERIVATION_PATHS.TRON,
     };
@@ -111,7 +124,7 @@ export const generateTronWallet = (): WalletData => {
 // Generate Bitcoin wallets
 export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise<WalletData> => {
   try {
-    console.log('Initializing Bitcoin wallet generation');
+    console.log(`Initializing Bitcoin ${type} wallet generation`);
     
     // Check if Buffer exists and has necessary methods before proceeding
     if (typeof globalThis.Buffer === 'undefined') {
@@ -177,6 +190,8 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
       throw new Error('Failed to generate Bitcoin address');
     }
     
+    console.log(`Generated Bitcoin ${type} wallet with address: ${address}`);
+    
     return {
       blockchain: 'Bitcoin',
       platform: 'Bitcoin',
@@ -213,21 +228,52 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
     const mnemonic = getOrCreateMnemonic();
     console.log('Generated mnemonic for HD wallet generation');
     
-    // Add Solana wallet
-    wallets.push(generateSolanaWallet());
+    console.log('Starting to generate all wallets...');
     
     // Add Ethereum wallet
-    wallets.push(generateEthWallet('Ethereum', 'Ethereum'));
+    try {
+      const ethWallet = generateEthWallet('Ethereum', 'Ethereum');
+      wallets.push(ethWallet);
+      console.log('Added Ethereum wallet');
+    } catch (error) {
+      console.error('Failed to generate Ethereum wallet:', error);
+    }
+    
+    // Add Solana wallet
+    try {
+      const solanaWallet = generateSolanaWallet();
+      wallets.push(solanaWallet);
+      console.log('Added Solana wallet');
+    } catch (error) {
+      console.error('Failed to generate Solana wallet:', error);
+    }
     
     // Add other Ethereum-compatible wallets
-    wallets.push(generateEthWallet('Monad', 'Monad Testnet'));
-    wallets.push(generateEthWallet('Base', 'Base'));
-    
-    // Add Sui wallet
-    wallets.push(generateSuiWallet());
+    try {
+      const monadWallet = generateEthWallet('Monad', 'Monad Testnet');
+      wallets.push(monadWallet);
+      console.log('Added Monad wallet');
+    } catch (error) {
+      console.error('Failed to generate Monad wallet:', error);
+    }
     
     // Add Tron wallet
-    wallets.push(generateTronWallet());
+    try {
+      const tronWallet = generateTronWallet();
+      wallets.push(tronWallet);
+      console.log('Added Tron wallet');
+    } catch (error) {
+      console.error('Failed to generate Tron wallet:', error);
+    }
+    
+    // Add Sui wallet
+    try {
+      const suiWallet = generateSuiWallet();
+      wallets.push(suiWallet);
+      console.log('Added Sui wallet');
+    } catch (error) {
+      console.error('Failed to generate Sui wallet:', error);
+    }
     
     try {
       // Try to generate Bitcoin wallets, but don't fail the entire function if they fail
@@ -235,19 +281,20 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
       
       const taprootWallet = await generateBitcoinWallet('taproot');
       wallets.push(taprootWallet);
+      console.log('Added Bitcoin Taproot wallet');
       
       const segwitWallet = await generateBitcoinWallet('segwit');
       wallets.push(segwitWallet);
-      
-      console.log('Successfully generated Bitcoin wallets');
+      console.log('Added Bitcoin SegWit wallet');
     } catch (bitcoinError) {
       console.error('Failed to generate Bitcoin wallets:', bitcoinError);
       // Continue without Bitcoin wallets
     }
     
+    console.log(`Successfully generated ${wallets.length} wallets`);
     return wallets;
   } catch (error) {
-    console.error('Error generating wallets:', error);
+    console.error('Error in generateAllWallets:', error);
     // Return whatever wallets were successfully created
     return wallets.length > 0 ? wallets : [];
   }
