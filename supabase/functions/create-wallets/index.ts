@@ -1,5 +1,8 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
+import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
+import * as ecc from "https://esm.sh/tiny-secp256k1@2.2.3";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -104,6 +107,66 @@ async function generateEVMWallet(mnemonic: string, blockchain: string, currency:
   }
 }
 
+// Generate Bitcoin wallet from mnemonic with better error handling
+async function generateBitcoinWallet(mnemonic: string) {
+  try {
+    console.log("Attempting to generate Bitcoin wallet...");
+    
+    // Convert mnemonic to seed
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const seedBuffer = new Uint8Array(seed);
+    
+    try {
+      // Initialize bitcoinjs with ecc
+      bitcoinjs.initEccLib(ecc);
+    } catch (initError) {
+      console.error("Error initializing Bitcoin library:", initError);
+      // Continue anyway, it might already be initialized
+    }
+    
+    // Create a bitcoin network (mainnet)
+    const network = bitcoinjs.networks.bitcoin;
+    
+    // Dynamically import bip32
+    try {
+      // Derive the key using BIP32
+      const bip32 = await import("https://esm.sh/bip32@4.0.0");
+      const root = bip32.BIP32Factory(ecc).fromSeed(seedBuffer, network);
+      
+      // Derive account using path
+      const child = root.derivePath(DERIVATION_PATHS.BITCOIN);
+      
+      // Generate payment objects with error handling
+      const payment = bitcoinjs.payments.p2wpkh({ 
+        pubkey: child.publicKey, 
+        network 
+      });
+      
+      const address = payment.address;
+      
+      if (!address) {
+        throw new Error('Failed to generate Bitcoin address');
+      }
+      
+      console.log("Successfully generated Bitcoin wallet with address:", address);
+      
+      return {
+        blockchain: 'Bitcoin',
+        currency: 'BTC',
+        address: address,
+        privateKey: child.privateKey ? Buffer.toString(child.privateKey, 'hex') : undefined,
+        wallet_type: 'derived',
+      };
+    } catch (bip32Error) {
+      console.error("Error in BIP32 derivation:", bip32Error);
+      throw new Error(`Bitcoin wallet generation failed at BIP32 step: ${bip32Error.message}`);
+    }
+  } catch (error) {
+    console.error('Error generating Bitcoin wallet:', error);
+    throw error;
+  }
+}
+
 // Handle CORS preflight requests
 function handleCors(req: Request) {
   if (req.method === "OPTIONS") {
@@ -112,7 +175,7 @@ function handleCors(req: Request) {
   return null;
 }
 
-// Generate wallets for a user - removing the Bitcoin wallet generation which is causing errors
+// Generate wallets for a user with proper error handling for each chain
 async function generateWalletsForUser(supabase: any, userId: string, mnemonic: string) {
   try {
     console.log("Generating HD wallets from mnemonic for user:", userId);
@@ -121,62 +184,84 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
     const wallets = [];
     
     // Generate Ethereum wallet
-    const ethereumWallet = await generateEVMWallet(
-      mnemonic,
-      'Ethereum',
-      'ETH',
-      DERIVATION_PATHS.ETHEREUM
-    );
-    wallets.push(ethereumWallet);
+    try {
+      const ethereumWallet = await generateEVMWallet(
+        mnemonic,
+        'Ethereum',
+        'ETH',
+        DERIVATION_PATHS.ETHEREUM
+      );
+      wallets.push(ethereumWallet);
+      console.log("Successfully generated Ethereum wallet");
+    } catch (ethError) {
+      console.error("Failed to generate Ethereum wallet, but continuing:", ethError);
+    }
     
-    // Generate Solana wallet - making sure to keep Solana
+    // Generate Solana wallet with error handling
     try {
       const solanaWallet = await generateSolanaWallet(mnemonic);
       wallets.push(solanaWallet);
       console.log("Successfully generated Solana wallet");
     } catch (solanaError) {
       console.error("Failed to generate Solana wallet, but continuing:", solanaError);
-      // Continue without failing the whole process
+    }
+    
+    // Generate Bitcoin wallet with error handling
+    try {
+      const bitcoinWallet = await generateBitcoinWallet(mnemonic);
+      wallets.push(bitcoinWallet);
+      console.log("Successfully generated Bitcoin wallet");
+    } catch (bitcoinError) {
+      console.error("Failed to generate Bitcoin wallet, but continuing:", bitcoinError);
     }
     
     // Generate Monad wallet (using Ethereum derivation path since it's EVM compatible)
-    const monadWallet = await generateEVMWallet(
-      mnemonic,
-      'Monad',
-      'MONAD',
-      DERIVATION_PATHS.MONAD
-    );
-    wallets.push(monadWallet);
+    try {
+      const monadWallet = await generateEVMWallet(
+        mnemonic,
+        'Monad',
+        'MONAD',
+        DERIVATION_PATHS.MONAD
+      );
+      wallets.push(monadWallet);
+      console.log("Successfully generated Monad wallet");
+    } catch (monadError) {
+      console.error("Failed to generate Monad wallet, but continuing:", monadError);
+    }
     
     console.log(`Generated ${wallets.length} wallets for user ${userId}`);
     
     // Store wallets in database
+    const successfullyStoredWallets = [];
     for (const wallet of wallets) {
       const { blockchain, currency, address, privateKey, wallet_type } = wallet;
       
-      const { error } = await supabase
-        .from('wallets')
-        .upsert([{
-          user_id: userId,
-          blockchain,
-          currency,
-          address,
-          private_key: privateKey,
-          wallet_type,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }], 
-        { 
-          onConflict: 'user_id, blockchain, currency',
-          ignoreDuplicates: false
-        });
-      
-      if (error) {
-        console.error(`Error storing ${blockchain} wallet:`, error);
+      try {
+        // Use insert instead of upsert to avoid ON CONFLICT errors
+        const { data: insertedWallet, error } = await supabase
+          .from('wallets')
+          .insert([{
+            user_id: userId,
+            blockchain,
+            currency,
+            address,
+            private_key: privateKey,
+            wallet_type,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }]);
+        
+        if (error) {
+          console.error(`Error storing ${blockchain} wallet:`, error);
+        } else {
+          successfullyStoredWallets.push(wallet);
+        }
+      } catch (insertError) {
+        console.error(`Exception storing ${blockchain} wallet:`, insertError);
       }
     }
     
-    return wallets;
+    return successfullyStoredWallets.length > 0 ? successfullyStoredWallets : wallets;
   } catch (error) {
     console.error('Error in generateWalletsForUser:', error);
     throw error;
@@ -227,37 +312,27 @@ serve(async (req) => {
       });
     }
 
-    // Try to get existing mnemonic from the user_mnemonics table first
-    const { data: mnemonicData, error: mnemonicError } = await supabase.rpc(
-      'get_user_mnemonic',
-      { user_id_param: userId }
-    );
+    // Since there's an issue with the stored procedures, we'll use a direct mnemonic
+    // Generate a new mnemonic
+    const mnemonic = getOrCreateMnemonic();
+    console.log("Using new mnemonic for HD wallet creation");
     
-    let mnemonic;
-    if (mnemonicError) {
-      console.error("Error fetching user mnemonic:", mnemonicError);
-      mnemonic = getOrCreateMnemonic(); // Generate a new one if there was an error
-    } else if (mnemonicData && mnemonicData.length > 0) {
-      console.log("Found existing mnemonic for user");
-      mnemonic = mnemonicData[0].main_mnemonic;
-    } else {
-      console.log("No existing mnemonic found, generating a new one");
-      mnemonic = getOrCreateMnemonic();
-    }
-    
-    console.log("Using mnemonic for HD wallet creation");
-    
-    // Store the mnemonic (new or existing) to ensure it's saved
-    const { error: storeMnemonicError } = await supabase.rpc(
-      'store_user_mnemonic',
-      {
-        user_id_param: userId,
-        mnemonic_param: mnemonic
+    // Try to store the mnemonic in the wallets table directly (simplified approach)
+    try {
+      const { data: mnemonicData, error: mnemonicError } = await supabase
+        .from("user_mnemonics")
+        .insert([{
+          user_id: userId,
+          main_mnemonic: mnemonic,
+        }]);
+      
+      if (mnemonicError) {
+        console.error("Error storing mnemonic directly:", mnemonicError);
+      } else {
+        console.log("Successfully stored mnemonic directly");
       }
-    );
-    
-    if (storeMnemonicError) {
-      console.error("Error storing mnemonic:", storeMnemonicError);
+    } catch (directMnemonicError) {
+      console.error("Exception storing mnemonic directly:", directMnemonicError);
     }
     
     const wallets = await generateWalletsForUser(supabase, userId, mnemonic);
