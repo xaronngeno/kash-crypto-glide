@@ -74,11 +74,23 @@ const Receive = () => {
         }
 
         if (data && data.length > 0) {
-          const addresses = data.map(wallet => ({
-            blockchain: wallet.blockchain,
-            symbol: wallet.currency,
-            address: wallet.address
-          }));
+          // Use a Set to track unique combinations of blockchain+symbol
+          const uniqueWalletKeys = new Set();
+          const addresses: WalletAddress[] = [];
+          
+          data.forEach(wallet => {
+            const walletKey = `${wallet.blockchain}-${wallet.currency}`;
+            
+            // Only add if this combination doesn't already exist
+            if (!uniqueWalletKeys.has(walletKey)) {
+              uniqueWalletKeys.add(walletKey);
+              addresses.push({
+                blockchain: wallet.blockchain,
+                symbol: wallet.currency,
+                address: wallet.address
+              });
+            }
+          });
           
           console.log("Fetched wallet addresses:", addresses);
           setWalletAddresses(addresses);
@@ -194,9 +206,10 @@ const Receive = () => {
         </KashCard>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {walletAddresses.map(chain => (
+          {/* Use a unique key for each wallet button to prevent duplicates */}
+          {walletAddresses.map((chain, index) => (
             <KashButton
-              key={`${chain.blockchain}-${chain.symbol}`}
+              key={`${chain.blockchain}-${chain.symbol}-${index}`}
               variant={selectedChain?.blockchain === chain.blockchain && selectedChain?.symbol === chain.symbol ? "primary" : "outline"}
               className="py-3"
               onClick={() => setSelectedChain(chain)}
