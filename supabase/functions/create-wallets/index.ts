@@ -59,6 +59,44 @@ function createTronWallet() {
   }
 }
 
+// Function to create a Bitcoin wallet
+function createBitcoinWallet() {
+  try {
+    const network = bitcoinjs.networks.bitcoin;
+    const keyPair = bitcoinjs.ECPair.makeRandom({ network });
+    const { address } = bitcoinjs.payments.p2pkh({
+      pubkey: keyPair.publicKey,
+      network,
+    });
+    
+    const privateKey = keyPair.toWIF();
+    
+    return {
+      address: address,
+      private_key: privateKey,
+    };
+  } catch (error) {
+    console.error("Error creating BTC wallet:", error);
+    throw new Error(`Failed to create BTC wallet: ${error.message}`);
+  }
+}
+
+// Function to create a standard EVM wallet (Ethereum, BSC, etc.)
+function createEVMWallet(blockchain: string, currency: string) {
+  try {
+    const wallet = ethers.Wallet.createRandom();
+    return {
+      blockchain,
+      currency,
+      address: wallet.address,
+      private_key: wallet.privateKey,
+    };
+  } catch (error) {
+    console.error(`Error creating ${blockchain} wallet:`, error);
+    throw new Error(`Failed to create ${blockchain} wallet: ${error.message}`);
+  }
+}
+
 // Create wallet addresses for a user
 async function createUserWallets(supabase: any, userId: string) {
   try {
@@ -84,22 +122,13 @@ async function createUserWallets(supabase: any, userId: string) {
 
     // 1. Create Bitcoin wallet
     try {
-      const network = bitcoinjs.networks.bitcoin;
-      const keyPair = bitcoinjs.ECPair.makeRandom({ network });
-      const { address } = bitcoinjs.payments.p2pkh({
-        pubkey: keyPair.publicKey,
-        network,
-      });
-      
-      // Get WIF private key
-      const privateKey = keyPair.toWIF();
-      
+      const btcWallet = createBitcoinWallet();
       wallets.push({
         user_id: userId,
         blockchain: "Bitcoin",
         currency: "BTC",
-        address: address,
-        private_key: privateKey, // Should be encrypted in production
+        address: btcWallet.address,
+        private_key: btcWallet.private_key,
         wallet_type: "imported",
         balance: 0.05, // Add sample balance for testing
       });
@@ -110,13 +139,13 @@ async function createUserWallets(supabase: any, userId: string) {
 
     // 2. Create Ethereum wallet
     try {
-      const ethWallet = ethers.Wallet.createRandom();
+      const ethWallet = createEVMWallet("Ethereum", "ETH");
       wallets.push({
         user_id: userId,
-        blockchain: "Ethereum",
-        currency: "ETH",
+        blockchain: ethWallet.blockchain,
+        currency: ethWallet.currency,
         address: ethWallet.address,
-        private_key: ethWallet.privateKey, // Should be encrypted in production
+        private_key: ethWallet.private_key,
         wallet_type: "imported",
         balance: 1.2, // Add sample balance for testing
       });
@@ -127,7 +156,7 @@ async function createUserWallets(supabase: any, userId: string) {
         blockchain: "Ethereum",
         currency: "USDT",
         address: ethWallet.address,
-        private_key: ethWallet.privateKey, // Should be encrypted in production
+        private_key: ethWallet.private_key,
         wallet_type: "token",
         balance: 150, // Add sample balance for testing
       });
@@ -170,6 +199,37 @@ async function createUserWallets(supabase: any, userId: string) {
       console.error("Error creating TRX wallet:", tronError);
     }
 
+    // 5. Create additional EVM-compatible wallets
+    try {
+      // Binance Smart Chain (BSC)
+      const bscWallet = createEVMWallet("Binance Smart Chain", "BNB");
+      wallets.push({
+        user_id: userId,
+        blockchain: bscWallet.blockchain,
+        currency: bscWallet.currency,
+        address: bscWallet.address,
+        private_key: bscWallet.private_key,
+        wallet_type: "imported",
+        balance: 3.0, // Add sample balance for testing
+      });
+      
+      // Polygon
+      const polygonWallet = createEVMWallet("Polygon", "MATIC");
+      wallets.push({
+        user_id: userId,
+        blockchain: polygonWallet.blockchain,
+        currency: polygonWallet.currency,
+        address: polygonWallet.address,
+        private_key: polygonWallet.private_key,
+        wallet_type: "imported",
+        balance: 50.0, // Add sample balance for testing
+      });
+      
+      console.log("Created additional EVM wallets (BNB, MATIC)");
+    } catch (evmError) {
+      console.error("Error creating additional EVM wallets:", evmError);
+    }
+
     // Insert wallets into database
     if (wallets.length > 0) {
       const { data: insertedWallets, error: insertError } = await supabase
@@ -181,7 +241,7 @@ async function createUserWallets(supabase: any, userId: string) {
         throw new Error(`Error inserting wallets: ${insertError.message}`);
       }
 
-      return { success: true, message: "Wallets created successfully", wallets: insertedWallets };
+      return { success: true, message: "Wallets created successfully", count: wallets.length, wallets: insertedWallets };
     } else {
       throw new Error("No wallets were created");
     }
