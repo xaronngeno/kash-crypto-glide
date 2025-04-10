@@ -1,11 +1,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -27,60 +23,70 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log(`Fetching wallets for user: ${userId}`);
-    
-    // Get wallets from database
-    const { data: wallets, error: walletsError } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('user_id', userId);
+    // Get wallets from database - with a timeout to prevent hanging
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
 
-    if (walletsError) {
-      console.error('Error fetching wallets:', walletsError);
-      return new Response(
-        JSON.stringify({ success: false, error: walletsError.message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
+    try {
+      const { data: wallets, error: walletsError } = await supabase
+        .from('wallets')
+        .select('blockchain, currency, address, balance, wallet_type')
+        .eq('user_id', userId)
+        .abortSignal(controller.signal);
+      
+      clearTimeout(timeout);
+      
+      if (walletsError) {
+        throw walletsError;
+      }
 
-    if (!wallets || wallets.length === 0) {
-      console.log('No wallets found for user');
-      return new Response(
-        JSON.stringify({ success: false, error: 'No wallets found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-      );
-    }
+      if (!wallets || wallets.length === 0) {
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'No wallets found for user',
+            wallets: [],
+            shouldCreateWallets: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
 
-    // In a real application, you would fetch balances from blockchain APIs here
-    // For now, we'll return the wallets with their actual balances from the database
-    // This could be extended to call different blockchain providers APIs
-    
-    // For demonstration, we'll just return the wallets as is
-    // In production, you'd make API calls to fetch real balances
-    const walletsWithBalances = wallets.map(wallet => {
-      // Real implementation would get balance from blockchain APIs
-      // based on wallet.blockchain and wallet.address
-      return {
+      // Process wallets efficiently
+      const walletsWithBalances = wallets.map(wallet => ({
         ...wallet,
-        // Using the balance from the database for now
-        balance: parseFloat(wallet.balance) || 0
-      };
-    });
+        balance: parseFloat(wallet.balance as any) || 0
+      }));
 
-    console.log(`Successfully processed ${walletsWithBalances.length} wallets`);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Wallet balances fetched successfully',
-        wallets: walletsWithBalances
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Wallet balances fetched successfully',
+          wallets: walletsWithBalances
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    } catch (abortError) {
+      if (abortError.name === 'AbortError') {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Database query timed out',
+            message: 'Database query timed out, please try again'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 408 }
+        );
+      }
+      throw abortError;
+    }
   } catch (error) {
     console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message || 'Unknown error' }),
+      JSON.stringify({ 
+        success: false, 
+        error: error.message || 'Unknown error',
+        message: 'Failed to fetch wallet data'
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

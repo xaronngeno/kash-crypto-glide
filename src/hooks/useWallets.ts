@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
 import { useAuth } from '@/components/AuthProvider';
@@ -11,12 +11,17 @@ interface UseWalletsProps {
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [walletsCreated, setWalletsCreated] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user, session, profile } = useAuth();
+  const { user, session } = useAuth();
+
+  // Reference for tracking if wallets are already created
+  const walletsCreatedRef = useRef(false);
   
-  // We'll only use default assets as fallback if wallet fetch fails
+  // Abort controller for cancelling requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Default assets for fallback
   const defaultAssetsMap = {
     'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0.05, value: 0, change: 0, icon: '₿' },
     'ETH': { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 1.2, value: 0, change: 0, icon: 'Ξ' },
@@ -34,14 +39,34 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     'LINK': { id: '14', name: 'Chainlink', symbol: 'LINK', price: 0, amount: 0, value: 0, change: 0, icon: 'L' }
   };
 
-  const createWalletsForUser = async () => {
-    if (!user || !session?.access_token || creatingWallets) return;
+  // Update asset prices when prices change
+  useEffect(() => {
+    if (prices && Object.keys(prices).length > 0) {
+      setAssets(prevAssets => 
+        prevAssets.map(asset => {
+          const priceData = prices[asset.symbol];
+          if (priceData) {
+            return {
+              ...asset,
+              price: priceData.price,
+              change: priceData.change_24h,
+              value: asset.amount * priceData.price
+            };
+          }
+          return asset;
+        })
+      );
+    }
+  }, [prices]);
+
+  // Create wallets function
+  const createWalletsForUser = useCallback(async () => {
+    if (!user || !session?.access_token || creatingWallets || walletsCreatedRef.current) return;
     
     try {
       setCreatingWallets(true);
       console.log("Attempting to create wallets for user:", user.id);
       
-      // Create wallets request
       const { data, error } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
         body: { userId: user.id }
@@ -52,7 +77,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       }
       
       console.log("Wallets created successfully:", data);
-      setWalletsCreated(true);
+      walletsCreatedRef.current = true;
       toast({
         title: 'Success',
         description: 'Your wallets have been created!',
@@ -78,27 +103,89 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       setCreatingWallets(false);
       setLoading(false);
     }
-  };
+  }, [user, session?.access_token, creatingWallets, toast]);
 
-  useEffect(() => {
-    if (prices && Object.keys(prices).length > 0) {
-      setAssets(prevAssets => 
-        prevAssets.map(asset => {
-          const priceData = prices[asset.symbol];
-          if (priceData) {
-            return {
-              ...asset,
-              price: priceData.price,
-              change: priceData.change_24h,
-              value: asset.amount * priceData.price
+  // Process wallets function
+  const processWallets = useCallback((wallets: any[]) => {
+    try {
+      console.log("Processing wallets:", wallets);
+      // Start with an empty asset list
+      const processedAssets: Asset[] = [];
+      
+      // Group wallets by currency, keeping track of network
+      const currencyNetworkBalances: Record<string, { 
+        totalBalance: number, 
+        networks: Record<string, { address: string, balance: number }>
+      }> = {};
+
+      wallets.forEach(wallet => {
+        const { currency, blockchain, address, balance: walletBalance } = wallet;
+        const balance = typeof walletBalance === 'number' 
+          ? walletBalance 
+          : parseFloat(String(walletBalance)) || 0;
+        
+        if (!isNaN(balance)) {
+          // Initialize currency entry if it doesn't exist
+          if (!currencyNetworkBalances[currency]) {
+            currencyNetworkBalances[currency] = { 
+              totalBalance: 0, 
+              networks: {} 
             };
           }
-          return asset;
-        })
-      );
+          
+          // Add to total balance for this currency
+          currencyNetworkBalances[currency].totalBalance += balance;
+          
+          // Add network-specific data
+          currencyNetworkBalances[currency].networks[blockchain] = {
+            address,
+            balance
+          };
+        }
+      });
+      
+      // Convert to assets array
+      Object.entries(currencyNetworkBalances).forEach(([symbol, data]) => {
+        // Get default asset data if available
+        const defaultAsset = defaultAssetsMap[symbol] || {
+          id: symbol,
+          name: symbol,
+          symbol,
+          price: 0,
+          amount: 0,
+          value: 0,
+          change: 0,
+          icon: symbol[0]
+        };
+        
+        const assetPrice = prices?.[symbol]?.price || 0;
+        
+        processedAssets.push({
+          ...defaultAsset,
+          amount: data.totalBalance,
+          price: assetPrice,
+          value: data.totalBalance * assetPrice,
+          change: prices?.[symbol]?.change_24h || 0,
+          // Add networks info for use in transaction screens
+          networks: data.networks || {}
+        });
+      });
+      
+      console.log("Processed assets:", processedAssets);
+      
+      // Sort by value (highest first)
+      processedAssets.sort((a, b) => b.value - a.value);
+      
+      setAssets(processedAssets);
+      setLoading(false);
+    } catch (processError) {
+      console.error("Error processing wallet data:", processError);
+      setError("Failed to process wallet data: " + (processError instanceof Error ? processError.message : "Unknown error"));
+      setLoading(false);
     }
   }, [prices]);
 
+  // Fetch user assets
   useEffect(() => {
     const fetchUserAssets = async () => {
       if (!user || !session?.access_token) {
@@ -113,11 +200,27 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         setLoading(true);
         console.log("Fetching wallets for user:", user.id);
         
+        // Cancel any existing request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        
+        // Create new abort controller with timeout
+        abortControllerRef.current = new AbortController();
+        const timeoutId = setTimeout(() => {
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+          }
+        }, 5000);
+        
         // Get real wallet balances
         const { data: wallets, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
           method: 'POST',
-          body: { userId: user.id }
+          body: { userId: user.id },
+          signal: abortControllerRef.current.signal
         });
+        
+        clearTimeout(timeoutId);
             
         if (walletsError) {
           throw walletsError;
@@ -139,7 +242,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
             console.log("No wallets found for user");
             
             // Try to create wallets in the background
-            if (!walletsCreated && !creatingWallets) {
+            if (!walletsCreatedRef.current && !creatingWallets) {
               createWalletsForUser();
             } else {
               setLoading(false);
@@ -163,108 +266,39 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           variant: 'destructive',
           duration: 5000,
         });
+        
+        // Use default assets on error
+        const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+        setAssets(demoAssets);
         setLoading(false);
       }
     };
 
-    const processWallets = (wallets: any[]) => {
-      try {
-        console.log("Processing wallets:", wallets);
-        // Start with an empty asset list
-        const processedAssets: Asset[] = [];
-        
-        // Group wallets by currency, keeping track of network
-        const currencyNetworkBalances: Record<string, { 
-          totalBalance: number, 
-          networks: Record<string, { address: string, balance: number }>
-        }> = {};
-
-        wallets.forEach(wallet => {
-          const { currency, blockchain, address, balance: walletBalance } = wallet;
-          const balance = typeof walletBalance === 'number' 
-            ? walletBalance 
-            : parseFloat(String(walletBalance)) || 0;
-          
-          if (!isNaN(balance)) {
-            // Initialize currency entry if it doesn't exist
-            if (!currencyNetworkBalances[currency]) {
-              currencyNetworkBalances[currency] = { 
-                totalBalance: 0, 
-                networks: {} 
-              };
-            }
-            
-            // Add to total balance for this currency
-            currencyNetworkBalances[currency].totalBalance += balance;
-            
-            // Add network-specific data
-            currencyNetworkBalances[currency].networks[blockchain] = {
-              address,
-              balance
-            };
-          }
-        });
-        
-        // Convert to assets array
-        Object.entries(currencyNetworkBalances).forEach(([symbol, data]) => {
-          // Get default asset data if available
-          const defaultAsset = defaultAssetsMap[symbol] || {
-            id: symbol,
-            name: symbol,
-            symbol,
-            price: 0,
-            amount: 0,
-            value: 0,
-            change: 0,
-            icon: symbol[0]
-          };
-          
-          const assetPrice = prices?.[symbol]?.price || 0;
-          
-          processedAssets.push({
-            ...defaultAsset,
-            amount: data.totalBalance,
-            price: assetPrice,
-            value: data.totalBalance * assetPrice,
-            change: prices?.[symbol]?.change_24h || 0,
-            // Add networks info for use in transaction screens
-            networks: data.networks || {}
-          });
-        });
-        
-        console.log("Processed assets:", processedAssets);
-        
-        // Sort by value (highest first)
-        processedAssets.sort((a, b) => b.value - a.value);
-        
-        setAssets(processedAssets);
-        setLoading(false);
-      } catch (processError) {
-        console.error("Error processing wallet data:", processError);
-        setError("Failed to process wallet data: " + (processError instanceof Error ? processError.message : "Unknown error"));
-        setLoading(false);
-      }
-    };
-
-    // Start fetching
     fetchUserAssets();
     
-    // Ensure we never leave loading state on unmount
     return () => {
-      setLoading(false);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
-  }, [user, prices, session, walletsCreated, creatingWallets]);
+  }, [user, session, processWallets, createWalletsForUser]);
 
+  // Safety timeout to prevent endless loading
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
       if (loading) {
         console.warn("Safety timeout reached - forcing loading state to complete");
         setLoading(false);
+        
+        if (assets.length === 0) {
+          const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+          setAssets(demoAssets);
+        }
       }
     }, 3000); // 3 second maximum timeout
     
     return () => clearTimeout(safetyTimer);
-  }, [loading]);
+  }, [loading, assets]);
 
   return { 
     assets, 

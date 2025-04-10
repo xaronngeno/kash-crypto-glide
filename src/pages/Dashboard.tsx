@@ -19,7 +19,7 @@ const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const { prices, loading: pricesLoading, error: pricesError, refetch: refetchPrices } = useCryptoPrices();
+  const { prices, loading: pricesLoading } = useCryptoPrices();
   const { user, profile, isAuthenticated, loading: authLoading } = useAuth();
   const { 
     assets, 
@@ -35,84 +35,15 @@ const Dashboard = () => {
     }
   }, [navigate, isAuthenticated, authLoading]);
 
-  // Debug logging for user and wallet relationship
-  useEffect(() => {
-    // Log auth state
-    console.log('Auth state:', { 
-      userId: user?.id,
-      userEmail: user?.email,
-      profileId: profile?.numeric_id,
-      phoneNumbers: profile?.phone_numbers,
-      phone: profile?.phone,
-      kycStatus: profile?.kyc_status,
-      isAuthenticated
-    });
-
-    if (!walletLoading && assets.length === 0) {
-      console.warn('Wallet assets loaded but empty. No wallets created or issue with data?');
-      toast({
-        title: 'Showing demo wallets',
-        description: 'We\'re showing you demo wallet data.',
-        variant: 'default',
-        duration: 5000,
-      });
-    } else if (!walletLoading) {
-      console.log(`Loaded ${assets.length} assets for user`);
-    }
-
-    // Alert user if wallets are being created
-    if (isCreatingWallets) {
-      toast({
-        title: 'Setting up your wallet',
-        description: 'We\'re creating your wallets. This may take a moment...',
-        duration: 5000,
-      });
-    }
-
-    // Show info toast if there's an error but we're showing demo data
-    if (walletError) {
-      console.log('Using demo wallet data:', walletError);
-    }
-    
-    // Show info toast if there's a price loading error
-    if (pricesError) {
-      console.log('Using estimated price data:', pricesError);
-    }
-  }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
-
-  // If not authenticated or still loading auth, show loading state
-  if (authLoading) {
-    return (
-      <MainLayout title="Portfolio">
-        <div className="flex h-64 items-center justify-center flex-col">
-          <Loader2 className="h-12 w-12 animate-spin text-kash-green mb-4" />
-          <p className="text-gray-500">Verifying your account...</p>
-        </div>
-      </MainLayout>
-    );
-  }
-  
-  // Immediately redirect if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <MainLayout title="Portfolio">
-        <div className="flex flex-col items-center justify-center h-64">
-          <p className="text-gray-500 mb-4">Please log in to view your portfolio.</p>
-          <p className="text-gray-400 text-sm">Redirecting to login...</p>
-        </div>
-      </MainLayout>
-    );
-  }
-
   // Simple loading progress effect
   useEffect(() => {
     if (walletLoading || pricesLoading || isCreatingWallets) {
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
           if (prev >= 90) return 90;
-          return prev + 10; // Faster progress
+          return prev + 15;
         });
-      }, 300); // Shorter interval
+      }, 250);
       
       return () => clearInterval(interval);
     } else {
@@ -128,17 +59,7 @@ const Dashboard = () => {
   const isLoading = (walletLoading || pricesLoading || isCreatingWallets);
 
   const handleRetryLoading = () => {
-    // Try to refetch data
-    refetchPrices();
-    toast({
-      title: 'Refreshing data',
-      description: 'Attempting to reload your wallet data...',
-      duration: 3000,
-    });
-    // Force page reload if things are really stuck
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
+    window.location.reload();
   };
 
   const renderLoadingSkeleton = () => (
@@ -209,7 +130,7 @@ const Dashboard = () => {
 
       {!isLoading && (
         <div className="space-y-6">
-          {(walletError || pricesError) && renderInfoMessage()}
+          {(walletError) && renderInfoMessage()}
           
           <div className="flex flex-col items-center justify-center pt-4">
             <div className="text-gray-500 text-sm mb-1">Total Balance</div>
