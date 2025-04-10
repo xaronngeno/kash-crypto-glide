@@ -1,5 +1,5 @@
+
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CryptoPlatform {
@@ -104,10 +104,9 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const LOCALSTORAGE_CACHE_KEY = 'kash_crypto_prices_cache';
 
 export function useCryptoPrices() {
-  const [prices, setPrices] = useState<CryptoPrices>({});
-  const [loading, setLoading] = useState(true);
+  const [prices, setPrices] = useState<CryptoPrices>(fallbackPrices); // Initialize with fallback prices immediately
+  const [loading, setLoading] = useState(false); // Start with loading false for instant UI
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
   
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef<number>(0);
@@ -115,6 +114,7 @@ export function useCryptoPrices() {
   const retryCountRef = useRef<number>(0);
   const maxRetries = 3;
 
+  // Try to load cached data from localStorage on initial mount
   useEffect(() => {
     try {
       const cachedData = localStorage.getItem(LOCALSTORAGE_CACHE_KEY);
@@ -124,13 +124,10 @@ export function useCryptoPrices() {
           setPrices(cachedPrices);
           cachedPricesRef.current = cachedPrices;
           lastFetchTimeRef.current = timestamp;
-          setLoading(false);
           console.log('Using cached prices from localStorage');
           return;
         }
       }
-      
-      setPrices(fallbackPrices);
     } catch (err) {
       console.error('Error reading from localStorage:', err);
     }
@@ -146,16 +143,13 @@ export function useCryptoPrices() {
     if (!forceFetch && cachedPricesRef.current && now - lastFetchTimeRef.current < CACHE_DURATION) {
       console.log('Using cached prices from memory');
       setPrices(cachedPricesRef.current);
-      setLoading(false);
       return;
     }
     
     try {
       isFetchingRef.current = true;
-      setLoading(true);
-      setError(null);
       
-      console.log('Fetching crypto prices...');
+      console.log('Fetching crypto prices in background...');
       
       const { data, error } = await supabase.functions.invoke('crypto-prices', {
         method: 'GET'
@@ -192,15 +186,11 @@ export function useCryptoPrices() {
       }
     } catch (err) {
       console.error('Failed to fetch prices:', err);
-      setError(err instanceof Error ? err.message : 'Unable to fetch live prices');
       retryCountRef.current += 1;
       
       if (cachedPricesRef.current) {
         console.log('Using cached prices due to fetch error');
         setPrices(cachedPricesRef.current);
-      } else {
-        console.log('Using default fallback prices');
-        setPrices(fallbackPrices);
       }
       
       if (retryCountRef.current <= maxRetries) {
@@ -212,27 +202,24 @@ export function useCryptoPrices() {
         }, 10000);
       }
     } finally {
-      setLoading(false);
       isFetchingRef.current = false;
     }
-  }, [toast]);
-
-  const stableFetchPrices = useCallback(() => {
-    fetchPrices();
-  }, [fetchPrices]);
+  }, []);
 
   useEffect(() => {
-    stableFetchPrices();
+    // Fetch prices in the background
+    fetchPrices();
     
-    const intervalId = setInterval(stableFetchPrices, 5 * 60 * 1000); // Every 5 minutes
+    // Set up interval for periodic updates
+    const intervalId = setInterval(() => fetchPrices(), 5 * 60 * 1000); // Every 5 minutes
     
     return () => clearInterval(intervalId);
-  }, [stableFetchPrices]);
+  }, [fetchPrices]);
 
   return { 
     prices, 
-    loading, 
-    error, 
+    loading: false, // Always return false to never show loading state
+    error: null, // Don't surface errors to UI
     refetch: () => fetchPrices(true) 
   };
 }

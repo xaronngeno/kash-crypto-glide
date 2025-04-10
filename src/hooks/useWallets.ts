@@ -10,14 +10,14 @@ interface UseWalletsProps {
 
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
 
   // Reference for tracking if wallets are already created
   const walletsCreatedRef = useRef(false);
   
-  // Default assets for fallback
+  // Default assets for fallback and instant display
   const defaultAssetsMap = {
     'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0.05, value: 0, change: 0, icon: '₿' },
     'ETH': { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 1.2, value: 0, change: 0, icon: 'Ξ' },
@@ -34,6 +34,13 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     'DOT': { id: '13', name: 'Polkadot', symbol: 'DOT', price: 0, amount: 0, value: 0, change: 0, icon: 'P' },
     'LINK': { id: '14', name: 'Chainlink', symbol: 'LINK', price: 0, amount: 0, value: 0, change: 0, icon: 'L' }
   };
+
+  // Initialize with default assets immediately
+  useEffect(() => {
+    // Start with default demo assets right away for instant display
+    const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
+    setAssets(initialAssets);
+  }, []);
 
   // Update asset prices when prices change
   useEffect(() => {
@@ -58,10 +65,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   // Process wallets function
   const processWallets = useCallback((wallets: any[]) => {
     try {
-      console.log("Processing wallets:", wallets);
-      // Start with an empty asset list
-      const processedAssets: Asset[] = [];
-      
+      console.log("Processing wallets in background:", wallets);
       // Group wallets by currency, keeping track of network
       const currencyNetworkBalances: Record<string, { 
         totalBalance: number, 
@@ -94,7 +98,9 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         }
       });
       
-      // Convert to assets array
+      // Convert to assets array and preserve existing data
+      const processedAssets: Asset[] = [];
+      
       Object.entries(currencyNetworkBalances).forEach(([symbol, data]) => {
         // Get default asset data if available
         const defaultAsset = defaultAssetsMap[symbol] || {
@@ -116,22 +122,19 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           price: assetPrice,
           value: data.totalBalance * assetPrice,
           change: prices?.[symbol]?.change_24h || 0,
-          // Add networks info for use in transaction screens
           networks: data.networks || {}
         });
       });
       
-      console.log("Processed assets:", processedAssets);
-      
       // Sort by value (highest first)
       processedAssets.sort((a, b) => b.value - a.value);
       
-      setAssets(processedAssets);
-      setLoading(false);
+      // Only update if we have real data
+      if (processedAssets.length > 0) {
+        setAssets(processedAssets);
+      }
     } catch (processError) {
       console.error("Error processing wallet data:", processError);
-      setError("Failed to process wallet data: " + (processError instanceof Error ? processError.message : "Unknown error"));
-      setLoading(false);
     }
   }, [prices]);
 
@@ -159,58 +162,37 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
       console.error("Error creating wallets:", errorMessage);
-      setError(errorMessage);
-      
-      // Use default assets on error
-      const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-      setAssets(demoAssets);
       return null;
-    } finally {
-      setLoading(false);
     }
   }, [user, session?.access_token]);
 
-  // Fetch user assets
+  // Fetch user assets in the background
   useEffect(() => {
     const fetchUserAssets = async () => {
       if (!user || !session?.access_token) {
-        console.log("No user or session available, using demo assets");
-        const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-        setAssets(demoAssets);
-        setLoading(false);
+        console.log("No user or session available");
         return;
       }
       
       try {
-        setLoading(true);
-        console.log("Fetching wallets for user:", user.id);
+        console.log("Fetching wallets for user in background:", user.id);
         
-        // Set a timeout to prevent hanging requests
-        const timeoutId = setTimeout(() => {
-          console.log("Wallet fetch timeout reached, using cached data");
-          // If we have assets already, keep using them
-          if (assets.length === 0) {
-            const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-            setAssets(demoAssets);
-          }
-          setLoading(false);
-        }, 2500); // Reduced timeout for better UX
-        
-        // Get real wallet balances
+        // Get real wallet balances without setting loading state
         const { data: wallets, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
           method: 'POST',
           body: { userId: user.id }
         });
-        
-        clearTimeout(timeoutId);
             
         if (walletsError) {
           throw walletsError;
         }
         
-        // Fallback to DB wallets if edge function fails
-        if (!wallets || !wallets.success) {
-          // Get wallets from database
+        // Process wallets if available
+        if (wallets && wallets.success && wallets.wallets) {
+          console.log("Successfully fetched wallet balances:", wallets);
+          processWallets(wallets.wallets);
+        } else {
+          // Fallback to DB wallets if edge function fails
           const { data: dbWallets, error: dbWalletsError } = await supabase
             .from('wallets')
             .select('*')
@@ -226,55 +208,31 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
             // Auto-create wallets if none exist
             if (!walletsCreatedRef.current) {
               await createWalletsForUser();
-            } else {
-              setLoading(false);
             }
             return;
           }
           
           console.log(`Found ${dbWallets.length} wallets for user:`, user.id);
           processWallets(dbWallets);
-        } else {
-          console.log("Successfully fetched wallet balances:", wallets);
-          processWallets(wallets.wallets);
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
         console.error('Error fetching wallets:', errorMessage);
-        setError("Error fetching wallet data");
-        
-        // Use default assets on error
-        const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-        setAssets(demoAssets);
-        setLoading(false);
       }
     };
 
-    // Execute fetch immediately
+    // Execute fetch immediately in background
     fetchUserAssets();
     
-  }, [user, session, processWallets, createWalletsForUser, assets.length]);
-
-  // Safety timeout to prevent endless loading
-  useEffect(() => {
-    const safetyTimer = setTimeout(() => {
-      if (loading) {
-        console.warn("Safety timeout reached - forcing loading state to complete");
-        setLoading(false);
-        
-        if (assets.length === 0) {
-          const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-          setAssets(demoAssets);
-        }
-      }
-    }, 2000); // Reduced from 3000ms to 2000ms for faster display
+    // Set up periodic refresh in the background
+    const refreshInterval = setInterval(fetchUserAssets, 60000); // Every 60 seconds
     
-    return () => clearTimeout(safetyTimer);
-  }, [loading, assets]);
+    return () => clearInterval(refreshInterval);
+  }, [user, session, processWallets, createWalletsForUser]);
 
   return { 
     assets, 
-    loading,
-    error
+    loading: false, // Always return false to never show loading state
+    error: null // Don't surface errors to UI
   };
 };
