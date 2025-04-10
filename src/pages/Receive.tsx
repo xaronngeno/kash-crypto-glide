@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Copy, QrCode } from 'lucide-react';
+import { Copy, QrCode, Info } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
@@ -22,6 +22,7 @@ const Receive = () => {
   const [selectedChain, setSelectedChain] = useState<WalletAddress | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showAllDetails, setShowAllDetails] = useState(false);
 
   useEffect(() => {
     const fetchWalletAddresses = async () => {
@@ -111,12 +112,57 @@ const Receive = () => {
   return (
     <MainLayout title="Receive" showBack>
       <div className="space-y-6">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h2 className="text-xl font-semibold mb-1">Receive Crypto</h2>
           <p className="text-gray-600">
             Select a blockchain and share your wallet address
           </p>
         </div>
+        
+        {/* Wallet summary section */}
+        <KashCard className="p-4 mb-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">Your Wallets</h3>
+            <KashButton 
+              variant="ghost" 
+              className="text-sm flex items-center gap-1"
+              onClick={() => setShowAllDetails(!showAllDetails)}
+            >
+              <Info size={16} />
+              {showAllDetails ? "Hide Details" : "Show All Details"}
+            </KashButton>
+          </div>
+          
+          <p className="text-sm text-gray-500 mt-1 mb-3">
+            {walletAddresses.length} wallets created at registration
+          </p>
+          
+          {showAllDetails && (
+            <div className="space-y-4 mt-4 border-t pt-4">
+              {walletAddresses.map((wallet, index) => (
+                <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h4 className="font-medium">{wallet.symbol}</h4>
+                      <p className="text-xs text-gray-500">{wallet.blockchain}</p>
+                    </div>
+                    <KashButton 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => copyToClipboard(wallet.address)}
+                      className="h-8 px-2"
+                    >
+                      <Copy size={14} />
+                    </KashButton>
+                  </div>
+                  <p className="text-xs font-mono bg-white p-2 rounded border break-all">
+                    {wallet.address}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </KashCard>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {walletAddresses.map(chain => (
