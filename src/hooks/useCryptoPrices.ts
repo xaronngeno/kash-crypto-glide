@@ -62,6 +62,15 @@ const fallbackPrices: CryptoPrices = {
     symbol: "SOL",
     platform: { name: "Solana", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png" }
   },
+  TRX: { 
+    price: 0.12, 
+    change_24h: 1.1, 
+    updated_at: new Date().toISOString(),
+    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png",
+    name: "Tron",
+    symbol: "TRX",
+    platform: { name: "Tron", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png" }
+  },
   MATIC: { 
     price: 0.75, 
     change_24h: 1.2, 

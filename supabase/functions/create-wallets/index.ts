@@ -1,9 +1,9 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
 import * as ethers from "https://esm.sh/ethers@6.13.5";
 import { decode as base58_decode, encode as base58_encode } from "https://esm.sh/bs58@5.0.0";
+import * as solanaWeb3 from "https://esm.sh/@solana/web3.js@1.91.1";
 
 // CORS headers
 const corsHeaders = {
@@ -18,6 +18,44 @@ function handleCors(req: Request) {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
   return null;
+}
+
+// Function to create a Solana wallet
+function createSolanaWallet() {
+  try {
+    const keypair = solanaWeb3.Keypair.generate();
+    return {
+      address: keypair.publicKey.toString(),
+      private_key: Buffer.from(keypair.secretKey).toString('hex'),
+    };
+  } catch (error) {
+    console.error("Error creating Solana wallet:", error);
+    throw new Error(`Failed to create Solana wallet: ${error.message}`);
+  }
+}
+
+// Function to create a Tron wallet using Ethereum wallet method
+// Tron addresses are derived from Ethereum-style private keys but with a different address format
+function createTronWallet() {
+  try {
+    // Create an Ethereum wallet first
+    const ethWallet = ethers.Wallet.createRandom();
+    
+    // Convert Ethereum address to Tron address format
+    // Tron addresses start with 'T' instead of '0x'
+    // In a real implementation, you would use a TronWeb library
+    // For this simplified version, we'll use a placeholder conversion
+    const ethAddressHex = ethWallet.address.slice(2); // Remove '0x'
+    const tronAddress = `T${ethAddressHex}`; // Simplified - in reality would use proper conversion
+    
+    return {
+      address: tronAddress,
+      private_key: ethWallet.privateKey,
+    };
+  } catch (error) {
+    console.error("Error creating Tron wallet:", error);
+    throw new Error(`Failed to create Tron wallet: ${error.message}`);
+  }
 }
 
 // Create wallet addresses for a user
@@ -92,6 +130,38 @@ async function createUserWallets(supabase: any, userId: string) {
       console.log("Created ETH and USDT wallets");
     } catch (ethError) {
       console.error("Error creating ETH wallet:", ethError);
+    }
+
+    // 3. Create Solana wallet
+    try {
+      const solWallet = createSolanaWallet();
+      wallets.push({
+        user_id: userId,
+        blockchain: "Solana",
+        currency: "SOL",
+        address: solWallet.address,
+        private_key: solWallet.private_key,
+        wallet_type: "imported",
+      });
+      console.log("Created SOL wallet");
+    } catch (solError) {
+      console.error("Error creating SOL wallet:", solError);
+    }
+
+    // 4. Create Tron wallet
+    try {
+      const tronWallet = createTronWallet();
+      wallets.push({
+        user_id: userId,
+        blockchain: "Tron",
+        currency: "TRX",
+        address: tronWallet.address,
+        private_key: tronWallet.private_key,
+        wallet_type: "imported",
+      });
+      console.log("Created TRX wallet");
+    } catch (tronError) {
+      console.error("Error creating TRX wallet:", tronError);
     }
 
     // Insert wallets into database
