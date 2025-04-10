@@ -167,30 +167,39 @@ async function generateTronWallet(mnemonic: string) {
 // Generate Sui wallet from mnemonic
 async function generateSuiWallet(mnemonic: string) {
   try {
+    console.log("Starting Sui wallet generation");
     // Convert mnemonic to seed
     const seed = await bip39.mnemonicToSeed(mnemonic);
     const seedHex = Array.from(new Uint8Array(seed))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
+    console.log("Generated seed for Sui wallet");
     
     // Import dynamically
     const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
+    console.log("Imported ed25519-hd-key for Sui wallet");
     
     // Derive the keypair from the seed using the Sui path
     const { key } = derivePath(DERIVATION_PATHS.SUI, seedHex);
+    console.log("Derived key for Sui wallet");
     
     // Import Sui keypair
     const { Ed25519Keypair } = await import("https://esm.sh/@mysten/sui.js/keypairs/ed25519");
+    console.log("Imported Ed25519Keypair for Sui wallet");
     
     // Create a keypair with the derived key
     const keyPair = new Ed25519Keypair({
       secretKey: new Uint8Array([...key, ...new Uint8Array(32-key.length)].slice(0, 32))
     });
+    console.log("Created Sui keypair");
+    
+    const address = keyPair.getPublicKey().toSuiAddress();
+    console.log("Generated Sui wallet with address:", address);
     
     return {
       blockchain: 'Sui',
       currency: 'SUI',
-      address: keyPair.getPublicKey().toSuiAddress(),
+      address: address,
       privateKey: Buffer.toString(key, 'hex'),
       wallet_type: 'derived',
     };
@@ -324,6 +333,8 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
     
     // Store wallets in database
     const successfullyStoredWallets = [];
+    const results = [];
+    
     for (const wallet of wallets) {
       const { blockchain, currency, address, privateKey, wallet_type } = wallet;
       
@@ -339,6 +350,11 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
           
         if (checkError) {
           console.error(`Error checking for existing ${blockchain} wallet:`, checkError);
+          results.push({
+            blockchain,
+            status: 'error',
+            error: checkError.message
+          });
           continue;
         }
         
@@ -346,6 +362,10 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
           // Wallet already exists, just add it to the success list without overwriting
           console.log(`${blockchain} wallet already exists for user, skipping creation`);
           successfullyStoredWallets.push(wallet);
+          results.push({
+            blockchain,
+            status: 'existing'
+          });
           continue;
         }
         
@@ -365,16 +385,36 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
         
         if (error) {
           console.error(`Error storing ${blockchain} wallet:`, error);
+          results.push({
+            blockchain,
+            status: 'error',
+            error: error.message
+          });
         } else {
           console.log(`Successfully stored ${blockchain} wallet in database`);
           successfullyStoredWallets.push(wallet);
+          results.push({
+            blockchain,
+            status: 'created'
+          });
         }
       } catch (insertError) {
         console.error(`Exception storing ${blockchain} wallet:`, insertError);
+        results.push({
+          blockchain,
+          status: 'error',
+          error: insertError.message || String(insertError)
+        });
       }
     }
     
-    return successfullyStoredWallets.length > 0 ? successfullyStoredWallets : wallets;
+    console.log("Wallet creation results:", results);
+    
+    // Return successfully stored wallets
+    return {
+      wallets: successfullyStoredWallets,
+      results
+    };
   } catch (error) {
     console.error('Error in generateWalletsForUser:', error);
     throw error;
@@ -444,6 +484,8 @@ serve(async (req) => {
       });
     } 
     
+    console.log(`Found ${existingWallets?.length || 0} existing wallets for user`);
+    
     // Get existing mnemonic or create a new one
     let mnemonic = await getUserMnemonic(supabase, userId);
     console.log("Mnemonic check result:", mnemonic ? "Found existing" : "Not found");
@@ -473,12 +515,22 @@ serve(async (req) => {
     // or if some specific blockchains are missing
     let missingBlockchains: string[] = [];
     const expectedBlockchains = ['Ethereum', 'Solana', 'Tron', 'Sui', 'Monad'];
+    const walletsByCurrency: Record<string, boolean> = {};
     
     if (existingWallets && existingWallets.length > 0) {
       console.log(`User has ${existingWallets.length} existing wallets. Checking for missing chains.`);
       
       // Get list of existing blockchains
       const existingBlockchains = existingWallets.map(wallet => wallet.blockchain);
+      
+      // See what currencies we have
+      existingWallets.forEach(wallet => {
+        walletsByCurrency[wallet.currency] = true;
+      });
+      
+      console.log("Existing currencies:", Object.keys(walletsByCurrency));
+      console.log("Existing blockchains:", existingBlockchains);
+      
       missingBlockchains = expectedBlockchains.filter(
         blockchain => !existingBlockchains.includes(blockchain)
       );
@@ -490,7 +542,12 @@ serve(async (req) => {
         return new Response(JSON.stringify({
           success: true,
           message: "User already has all required wallets",
-          wallets: existingWallets
+          wallets: existingWallets.map(wallet => ({
+            blockchain: wallet.blockchain,
+            currency: wallet.currency,
+            address: wallet.address,
+            wallet_type: wallet.wallet_type
+          }))
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -500,13 +557,21 @@ serve(async (req) => {
     }
     
     // Generate wallets for the user
-    const wallets = await generateWalletsForUser(supabase, userId, mnemonic);
+    const result = await generateWalletsForUser(supabase, userId, mnemonic);
+    
+    // Check which currencies we have now
+    const missingCurrencies = ['ETH', 'SOL', 'TRX', 'SUI', 'MONAD'].filter(
+      curr => !walletsByCurrency[curr] && !result.wallets.some(w => w.currency === curr)
+    );
     
     // Return success message with wallets
     return new Response(JSON.stringify({
       success: true,
       message: "Wallets created successfully",
-      wallets: wallets
+      wallets: result.wallets,
+      missingCurrencies,
+      missingBlockchains,
+      results: result.results
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

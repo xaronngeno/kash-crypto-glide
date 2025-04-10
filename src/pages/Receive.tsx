@@ -11,6 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 
+// Make sure we include all supported currencies
 const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX', 'SUI', 'MONAD'];
 
 interface WalletAddress {
@@ -129,6 +130,7 @@ const Receive = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [displayedWallets, setDisplayedWallets] = useState<WalletAddress[]>([]);
   const [groupedWallets, setGroupedWallets] = useState<Record<string, WalletAddress[]>>({});
+  const [debugInfo, setDebugInfo] = useState<any>(null); // For debugging purposes
 
   useEffect(() => {
     if (walletAddresses.length > 0) {
@@ -145,6 +147,7 @@ const Receive = () => {
       });
       
       setGroupedWallets(grouped);
+      console.log("Grouped wallets:", grouped); // Debug log
     }
   }, [walletAddresses]);
 
@@ -172,39 +175,31 @@ const Receive = () => {
         setLoading(true);
         console.log("Fetching wallet addresses for user:", user.id);
         
-        const { data, error } = await supabase
-          .from('wallets')
-          .select('blockchain, currency, address, wallet_type')
-          .eq('user_id', user.id);
+        const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
+          method: 'POST',
+          body: { userId: user.id }
+        });
         
         if (error) {
           throw error;
         }
 
-        if (data && data.length > 0) {
-          console.log("Fetched wallet addresses:", data);
+        setDebugInfo(data); // Store raw response for debugging
+        
+        if (data && data.success && data.wallets && data.wallets.length > 0) {
+          console.log("Fetched wallet addresses from function:", data.wallets);
           
           // Include all supported currencies
-          const filteredData = data.filter(wallet => 
-            MAIN_CURRENCIES.includes(wallet.currency) || wallet.wallet_type === 'imported'
-          );
-          
-          const uniqueWalletKeys = new Set();
           const addresses: WalletAddress[] = [];
           
-          filteredData.forEach(wallet => {
-            const walletKey = `${wallet.blockchain}-${wallet.currency}`;
-            
-            if (!uniqueWalletKeys.has(walletKey)) {
-              uniqueWalletKeys.add(walletKey);
-              addresses.push({
-                blockchain: wallet.blockchain,
-                symbol: wallet.currency,
-                address: wallet.address,
-                logo: getCurrencyLogo(wallet.currency),
-                wallet_type: wallet.wallet_type
-              });
-            }
+          data.wallets.forEach((wallet: any) => {
+            addresses.push({
+              blockchain: wallet.blockchain,
+              symbol: wallet.currency,
+              address: wallet.address,
+              logo: getCurrencyLogo(wallet.currency),
+              wallet_type: wallet.wallet_type
+            });
           });
           
           setWalletAddresses(addresses);
@@ -213,6 +208,9 @@ const Receive = () => {
             setSelectedChain(addresses[0]);
           }
           setNoWalletsFound(addresses.length === 0);
+        } else if (data && data.shouldCreateWallets) {
+          console.log("No wallets found for user, but mnemonic exists. Creating wallets.");
+          await createWallets();
         } else {
           console.log("No wallets found for user, attempting to create wallets");
           await createWallets();
@@ -246,38 +244,37 @@ const Receive = () => {
         body: { userId: user.id }
       });
       
+      console.log("Wallet creation response:", data); // Debug log
+      
       if (error) {
         throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
       }
       
       console.log("Wallets created successfully:", data);
       
-      const { data: wallets, error: fetchError } = await supabase
-        .from('wallets')
-        .select('blockchain, currency, address, wallet_type')
-        .eq('user_id', user.id);
+      // Fetch the updated wallets after creation
+      const { data: wallets, error: fetchError } = await supabase.functions.invoke('fetch-wallet-balances', {
+        method: 'POST',
+        body: { userId: user.id }
+      });
       
       if (fetchError) {
         throw fetchError;
       }
       
-      if (wallets && wallets.length > 0) {
-        const uniqueWalletKeys = new Set();
+      if (wallets && wallets.success && wallets.wallets && wallets.wallets.length > 0) {
+        console.log("Fetched updated wallet list:", wallets.wallets);
+        
         const addresses: WalletAddress[] = [];
         
-        wallets.forEach(wallet => {
-          const walletKey = `${wallet.blockchain}-${wallet.currency}`;
-          
-          if (!uniqueWalletKeys.has(walletKey)) {
-            uniqueWalletKeys.add(walletKey);
-            addresses.push({
-              blockchain: wallet.blockchain,
-              symbol: wallet.currency,
-              address: wallet.address,
-              logo: getCurrencyLogo(wallet.currency),
-              wallet_type: wallet.wallet_type
-            });
-          }
+        wallets.wallets.forEach((wallet: any) => {
+          addresses.push({
+            blockchain: wallet.blockchain,
+            symbol: wallet.currency,
+            address: wallet.address,
+            logo: getCurrencyLogo(wallet.currency),
+            wallet_type: wallet.wallet_type
+          });
         });
         
         setWalletAddresses(addresses);
@@ -353,6 +350,35 @@ const Receive = () => {
             >
               Create My Wallets
             </KashButton>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // For debugging - show debug info if we have no wallets but have debug data
+  if (walletAddresses.length === 0 && debugInfo) {
+    return (
+      <MainLayout title="Receive" showBack>
+        <div className="flex flex-col items-center justify-center text-center">
+          <div className="bg-amber-50 p-4 rounded-lg border border-amber-100 w-full mb-4">
+            <h3 className="font-medium text-amber-700 mb-2">No Wallets Found</h3>
+            <p className="text-amber-700 text-sm mb-4">
+              We received data from the server but couldn't find any wallets.
+            </p>
+            <KashButton 
+              onClick={createWallets} 
+              disabled={creatingWallets}
+            >
+              Create My Wallets
+            </KashButton>
+          </div>
+          
+          <div className="mt-4 p-4 border border-gray-200 rounded-lg w-full">
+            <h4 className="font-medium mb-2">Debug Information</h4>
+            <div className="text-xs text-left overflow-auto max-h-48 bg-gray-50 p-2 rounded">
+              <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
           </div>
         </div>
       </MainLayout>
