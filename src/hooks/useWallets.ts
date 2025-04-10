@@ -15,24 +15,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   const [creatingWallets, setCreatingWallets] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, session, profile } = useAuth();
-  
-  // We'll only use default assets as fallback if wallet fetch fails
-  const defaultAssetsMap = {
-    'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0.05, value: 0, change: 0, icon: '₿' },
-    'ETH': { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 1.2, value: 0, change: 0, icon: 'Ξ' },
-    'USDT': { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 150, value: 150, change: 0, icon: '₮' },
-    'SOL': { id: '4', name: 'Solana', symbol: 'SOL', price: 0, amount: 2.5, value: 0, change: 0, icon: 'Ѕ' },
-    'TRX': { id: '5', name: 'Tron', symbol: 'TRX', price: 0, amount: 100, value: 0, change: 0, icon: 'T' },
-    'MATIC': { id: '6', name: 'Polygon', symbol: 'MATIC', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
-    'SUI': { id: '7', name: 'Sui', symbol: 'SUI', price: 0, amount: 0, value: 0, change: 0, icon: 'S' },
-    'MONAD': { id: '8', name: 'Monad', symbol: 'MONAD', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
-    'BNB': { id: '9', name: 'Binance Coin', symbol: 'BNB', price: 0, amount: 0, value: 0, change: 0, icon: 'B' },
-    'XRP': { id: '10', name: 'XRP', symbol: 'XRP', price: 0, amount: 0, value: 0, change: 0, icon: 'X' },
-    'ADA': { id: '11', name: 'Cardano', symbol: 'ADA', price: 0, amount: 0, value: 0, change: 0, icon: 'A' },
-    'DOGE': { id: '12', name: 'Dogecoin', symbol: 'DOGE', price: 0, amount: 0, value: 0, change: 0, icon: 'D' },
-    'DOT': { id: '13', name: 'Polkadot', symbol: 'DOT', price: 0, amount: 0, value: 0, change: 0, icon: 'P' },
-    'LINK': { id: '14', name: 'Chainlink', symbol: 'LINK', price: 0, amount: 0, value: 0, change: 0, icon: 'L' }
-  };
 
   const createWalletsForUser = async () => {
     if (!user || !session?.access_token || creatingWallets) return;
@@ -65,18 +47,15 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       console.error("Error creating wallets:", errorMessage);
       setError(errorMessage);
       toast({
-        title: 'Using demo wallets',
-        description: 'We\'re showing you demo wallets with sample data.',
-        variant: 'default'
+        title: 'Error creating wallets',
+        description: 'We could not create your wallets. Please try again later.',
+        variant: 'destructive',
+        duration: 5000,
       });
-      
-      // Use default assets on error
-      const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-      setAssets(demoAssets);
+      setLoading(false);
       return null;
     } finally {
       setCreatingWallets(false);
-      setLoading(false);
     }
   };
 
@@ -102,9 +81,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   useEffect(() => {
     const fetchUserAssets = async () => {
       if (!user || !session?.access_token) {
-        console.log("No user or session available, using demo assets");
-        const demoAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-        setAssets(demoAssets);
+        console.log("No user or session available");
         setLoading(false);
         return;
       }
@@ -114,49 +91,48 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         console.log("Fetching wallets for user:", user.id);
         
         // Get real wallet balances
-        const { data: wallets, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
+        const { data: walletsResponse, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
           method: 'POST',
           body: { userId: user.id }
         });
-            
+        
         if (walletsError) {
-          throw walletsError;
+          throw new Error(`Error fetching wallet balances: ${walletsError.message}`);
         }
         
-        // Fallback to DB wallets if edge function fails
-        if (!wallets || !wallets.success) {
-          // Get wallets from database
-          const { data: dbWallets, error: dbWalletsError } = await supabase
-            .from('wallets')
-            .select('*')
-            .eq('user_id', user.id);
-            
-          if (dbWalletsError) {
-            throw dbWalletsError;
-          }
+        if (!walletsResponse || !walletsResponse.success || !walletsResponse.wallets || walletsResponse.wallets.length === 0) {
+          console.log("No wallets found, attempting to create wallets");
           
-          if (!dbWallets || dbWallets.length === 0) {
-            console.log("No wallets found for user");
+          // Try to create wallets
+          if (!walletsCreated && !creatingWallets) {
+            await createWalletsForUser();
             
-            // Try to create wallets in the background
-            if (!walletsCreated && !creatingWallets) {
-              createWalletsForUser();
-            } else {
-              setLoading(false);
+            // After creating, try to fetch again
+            const { data: newWalletsResponse, error: newWalletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
+              method: 'POST',
+              body: { userId: user.id }
+            });
+            
+            if (newWalletsError) {
+              throw new Error(`Error fetching newly created wallets: ${newWalletsError.message}`);
             }
-            return;
+            
+            if (!newWalletsResponse || !newWalletsResponse.success) {
+              throw new Error("Failed to retrieve newly created wallets");
+            }
+            
+            processWallets(newWalletsResponse.wallets);
+          } else {
+            setLoading(false);
           }
-          
-          console.log(`Found ${dbWallets.length} wallets for user:`, user.id);
-          processWallets(dbWallets);
-        } else {
-          console.log("Successfully fetched wallet balances:", wallets);
-          processWallets(wallets.wallets);
+          return;
         }
+        
+        processWallets(walletsResponse.wallets);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
         console.error('Error fetching wallets:', errorMessage);
-        setError("Error fetching wallet data");
+        setError("Error fetching wallet data: " + errorMessage);
         toast({
           title: 'Error loading wallets',
           description: 'Could not load your wallet data. Please try again later.',
@@ -207,29 +183,20 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         
         // Convert to assets array
         Object.entries(currencyNetworkBalances).forEach(([symbol, data]) => {
-          // Get default asset data if available
-          const defaultAsset = defaultAssetsMap[symbol] || {
+          // Create asset without relying on demo data
+          const asset: Asset = {
             id: symbol,
-            name: symbol,
+            name: getAssetName(symbol),
             symbol,
-            price: 0,
-            amount: 0,
-            value: 0,
-            change: 0,
-            icon: symbol[0]
+            price: prices?.[symbol]?.price || 0,
+            amount: data.totalBalance,
+            value: data.totalBalance * (prices?.[symbol]?.price || 0),
+            change: prices?.[symbol]?.change_24h || 0,
+            icon: symbol[0].toUpperCase(),
+            networks: data.networks || {}
           };
           
-          const assetPrice = prices?.[symbol]?.price || 0;
-          
-          processedAssets.push({
-            ...defaultAsset,
-            amount: data.totalBalance,
-            price: assetPrice,
-            value: data.totalBalance * assetPrice,
-            change: prices?.[symbol]?.change_24h || 0,
-            // Add networks info for use in transaction screens
-            networks: data.networks || {}
-          });
+          processedAssets.push(asset);
         });
         
         console.log("Processed assets:", processedAssets);
@@ -243,6 +210,27 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         console.error("Error processing wallet data:", processError);
         setError("Failed to process wallet data: " + (processError instanceof Error ? processError.message : "Unknown error"));
         setLoading(false);
+      }
+    };
+    
+    // Helper function to get proper asset names
+    const getAssetName = (symbol: string): string => {
+      switch(symbol.toUpperCase()) {
+        case 'BTC': return 'Bitcoin';
+        case 'ETH': return 'Ethereum';
+        case 'SOL': return 'Solana';
+        case 'USDT': return 'Tether';
+        case 'TRX': return 'Tron';
+        case 'BNB': return 'Binance Coin';
+        case 'MATIC': return 'Polygon';
+        case 'MONAD': return 'Monad';
+        case 'SUI': return 'Sui';
+        case 'XRP': return 'XRP';
+        case 'ADA': return 'Cardano';
+        case 'DOT': return 'Polkadot';
+        case 'DOGE': return 'Dogecoin';
+        case 'LINK': return 'Chainlink';
+        default: return symbol;
       }
     };
 

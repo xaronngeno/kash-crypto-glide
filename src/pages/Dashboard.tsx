@@ -13,6 +13,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { toast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { KashButton } from '@/components/ui/KashButton';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -25,7 +26,8 @@ const Dashboard = () => {
     assets, 
     loading: walletLoading, 
     isCreatingWallets, 
-    error: walletError 
+    error: walletError,
+    createWallets
   } = useWallets({ prices });
 
   // Redirect to auth if not authenticated
@@ -50,12 +52,6 @@ const Dashboard = () => {
 
     if (!walletLoading && assets.length === 0) {
       console.warn('Wallet assets loaded but empty. No wallets created or issue with data?');
-      toast({
-        title: 'Showing demo wallets',
-        description: 'We\'re showing you demo wallet data.',
-        variant: 'default',
-        duration: 5000,
-      });
     } else if (!walletLoading) {
       console.log(`Loaded ${assets.length} assets for user`);
     }
@@ -69,14 +65,14 @@ const Dashboard = () => {
       });
     }
 
-    // Show info toast if there's an error but we're showing demo data
+    // Show error toast if there's a wallet loading error
     if (walletError) {
-      console.log('Using demo wallet data:', walletError);
+      console.error('Wallet loading error:', walletError);
     }
     
     // Show info toast if there's a price loading error
     if (pricesError) {
-      console.log('Using estimated price data:', pricesError);
+      console.error('Price loading error:', pricesError);
     }
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
 
@@ -135,10 +131,16 @@ const Dashboard = () => {
       description: 'Attempting to reload your wallet data...',
       duration: 3000,
     });
-    // Force page reload if things are really stuck
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
+    
+    // Force reload of wallet data
+    if (createWallets) {
+      createWallets();
+    } else {
+      // Force page reload as fallback
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
   };
 
   const renderLoadingSkeleton = () => (
@@ -165,22 +167,56 @@ const Dashboard = () => {
     </div>
   );
 
-  const renderInfoMessage = () => {
+  const renderErrorMessage = () => {
     return (
-      <Alert variant="default" className="mb-6 bg-blue-50 border-blue-100">
-        <AlertCircle className="h-4 w-4 text-blue-500" />
-        <AlertTitle>Demo Mode</AlertTitle>
+      <Alert variant="destructive" className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error Loading Wallet Data</AlertTitle>
         <AlertDescription className="flex flex-col">
-          <span>Showing demo wallet data with sample balances.</span>
-          <button 
-            onClick={handleRetryLoading}
-            className="text-sm mt-2 underline text-left text-blue-500"
-          >
-            Reload data
-          </button>
+          <span>{walletError || "Failed to load your wallet data"}</span>
+          <div className="flex space-x-2 mt-4">
+            <KashButton 
+              onClick={handleRetryLoading}
+              size="sm"
+            >
+              Retry Loading
+            </KashButton>
+            {!assets.length && (
+              <KashButton 
+                onClick={createWallets}
+                size="sm"
+                variant="outline"
+                disabled={isCreatingWallets}
+              >
+                {isCreatingWallets ? 'Creating...' : 'Create Wallets'}
+              </KashButton>
+            )}
+          </div>
         </AlertDescription>
       </Alert>
     );
+  };
+
+  const renderNoWalletsMessage = () => {
+    if (assets.length === 0 && !isLoading && !isCreatingWallets) {
+      return (
+        <Alert variant="default" className="mb-6 bg-blue-50 border-blue-100">
+          <AlertCircle className="h-4 w-4 text-blue-500" />
+          <AlertTitle>No Wallets Found</AlertTitle>
+          <AlertDescription className="flex flex-col">
+            <span>You don't have any wallets yet. Create wallets to get started.</span>
+            <KashButton 
+              onClick={createWallets}
+              className="mt-4"
+              disabled={isCreatingWallets}
+            >
+              {isCreatingWallets ? 'Creating Wallets...' : 'Create My Wallets'}
+            </KashButton>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    return null;
   };
 
   return (
@@ -209,49 +245,48 @@ const Dashboard = () => {
 
       {!isLoading && (
         <div className="space-y-6">
-          {(walletError || pricesError) && renderInfoMessage()}
+          {walletError && renderErrorMessage()}
+          {renderNoWalletsMessage()}
           
-          <div className="flex flex-col items-center justify-center pt-4">
-            <div className="text-gray-500 text-sm mb-1">Total Balance</div>
-            <div className="flex items-center">
-              <h1 className="text-3xl font-bold">
-                {currency === 'USD' ? '$' : 'KES '}
-                {hideBalance ? '•••••' : totalBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-              </h1>
-              <button 
-                onClick={() => setHideBalance(!hideBalance)}
-                className="ml-2 text-gray-400 hover:text-gray-600"
-              >
-                {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-            
-            <div className="mt-4">
-              <ActionButtons />
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-xl font-semibold">Your Assets</h2>
-              <button 
-                onClick={() => setCurrency(currency === 'USD' ? 'KES' : 'USD')}
-                className="text-sm text-kash-green"
-              >
-                Show in {currency === 'USD' ? 'KES' : 'USD'}
-              </button>
-            </div>
-            
-            {assets.length > 0 ? (
-              <AssetsList assets={assets} currency={currency} />
-            ) : (
-              <div className="py-8 text-center">
-                <p className="text-gray-500">Setting up your wallets, please wait...</p>
+          {assets.length > 0 && (
+            <>
+              <div className="flex flex-col items-center justify-center pt-4">
+                <div className="text-gray-500 text-sm mb-1">Total Balance</div>
+                <div className="flex items-center">
+                  <h1 className="text-3xl font-bold">
+                    {currency === 'USD' ? '$' : 'KES '}
+                    {hideBalance ? '•••••' : totalBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                  </h1>
+                  <button 
+                    onClick={() => setHideBalance(!hideBalance)}
+                    className="ml-2 text-gray-400 hover:text-gray-600"
+                  >
+                    {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                
+                <div className="mt-4">
+                  <ActionButtons />
+                </div>
               </div>
-            )}
-          </div>
-          
-          <PromoCard />
+
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="text-xl font-semibold">Your Assets</h2>
+                  <button 
+                    onClick={() => setCurrency(currency === 'USD' ? 'KES' : 'USD')}
+                    className="text-sm text-kash-green"
+                  >
+                    Show in {currency === 'USD' ? 'KES' : 'USD'}
+                  </button>
+                </div>
+                
+                <AssetsList assets={assets} currency={currency} />
+              </div>
+              
+              <PromoCard />
+            </>
+          )}
         </div>
       )}
     </MainLayout>

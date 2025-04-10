@@ -51,29 +51,17 @@ serve(async (req: Request) => {
       );
     }
 
-    // In a real application, you would fetch balances from blockchain APIs here
-    // For now, we'll return the wallets with their actual balances from the database
-    // This could be extended to call different blockchain providers APIs
+    // For a real application, we would query blockchain APIs here to get real-time balances
+    // For now, we're returning the actual balances stored in the database
+    // In production, you would implement blockchain API calls to get real balances
     
-    // For demonstration, we'll just return the wallets as is
-    // In production, you'd make API calls to fetch real balances
-    const walletsWithBalances = wallets.map(wallet => {
-      // Real implementation would get balance from blockchain APIs
-      // based on wallet.blockchain and wallet.address
-      return {
-        ...wallet,
-        // Using the balance from the database for now
-        balance: parseFloat(wallet.balance) || 0
-      };
-    });
-
-    console.log(`Successfully processed ${walletsWithBalances.length} wallets`);
+    console.log(`Successfully fetched ${wallets.length} wallets`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Wallet balances fetched successfully',
-        wallets: walletsWithBalances
+        wallets: wallets
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
