@@ -1,1 +1,22 @@
+
 project_id = "onojviswlkxuyfsksuhp"
+[api]
+enabled = true
+[api.serve]
+port = 54321
+hostname = "127.0.0.1"
+
+[functions.create-wallets]
+verify_jwt = true
+
+[functions.crypto-prices]
+verify_jwt = false
+
+[functions.assign-user-ids]
+verify_jwt = true
+
+[functions.mpesa-stk-push]
+verify_jwt = true
+
+[functions.fetch-wallet-balances]
+verify_jwt = true
