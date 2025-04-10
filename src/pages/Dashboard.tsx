@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { ActionButtons } from '@/components/dashboard/ActionButtons';
@@ -11,7 +11,6 @@ import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/components/AuthProvider';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -20,7 +19,7 @@ const Dashboard = () => {
   const [loadingProgress, setLoadingProgress] = useState(40); // Start at 40% to feel faster
   const { prices, loading: pricesLoading } = useCryptoPrices();
   const { user, profile, isAuthenticated, loading: authLoading } = useAuth();
-  const { assets, loading: walletLoading, error: walletError } = useWallets({ prices });
+  const { assets, loading: walletLoading } = useWallets({ prices });
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -51,28 +50,6 @@ const Dashboard = () => {
   }, 0);
 
   const isLoading = (walletLoading || pricesLoading);
-
-  const handleRetryLoading = () => {
-    window.location.reload();
-  };
-
-  const renderInfoMessage = () => {
-    return (
-      <Alert variant="default" className="mb-6 bg-blue-50 border-blue-100">
-        <AlertCircle className="h-4 w-4 text-blue-500" />
-        <AlertTitle>Demo Mode</AlertTitle>
-        <AlertDescription className="flex flex-col">
-          <span>Showing demo wallet data with sample balances.</span>
-          <button 
-            onClick={handleRetryLoading}
-            className="text-sm mt-2 underline text-left text-blue-500"
-          >
-            Reload data
-          </button>
-        </AlertDescription>
-      </Alert>
-    );
-  };
 
   return (
     <MainLayout title="Portfolio">
@@ -116,8 +93,6 @@ const Dashboard = () => {
 
       {!isLoading && (
         <div className="space-y-6">
-          {(walletError) && renderInfoMessage()}
-          
           <div className="flex flex-col items-center justify-center pt-4">
             <div className="text-gray-500 text-sm mb-1">Total Balance</div>
             <div className="flex items-center">
