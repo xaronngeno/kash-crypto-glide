@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
@@ -29,14 +30,13 @@ const Settings = () => {
     numeric_id?: number | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [wallets, setWallets] = useState<Array<{
     blockchain: string;
     currency: string;
     address: string;
-    mnemonic?: string;
   }>>([]);
+  const [userMnemonic, setUserMnemonic] = useState<string | null>(null);
   
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -77,6 +77,21 @@ const Settings = () => {
     
     try {
       setLoading(true);
+      
+      // First, try to fetch the user's mnemonic
+      const { data: mnemonicData, error: mnemonicError } = await supabase
+        .from("user_mnemonics")
+        .select("main_mnemonic")
+        .eq("user_id", user.id)
+        .maybeSingle();
+        
+      if (mnemonicError) {
+        console.error("Error fetching mnemonic:", mnemonicError);
+      } else if (mnemonicData?.main_mnemonic) {
+        setUserMnemonic(mnemonicData.main_mnemonic);
+      }
+      
+      // Now fetch wallet data
       const { data: walletData, error } = await supabase
         .from('wallets')
         .select('blockchain, currency, address')
@@ -86,6 +101,7 @@ const Settings = () => {
         throw error;
       }
       
+      // Filter to show only main chain wallets (BTC, ETH, SOL, TRX)
       const mainChains = ['Bitcoin', 'Ethereum', 'Solana', 'Tron'];
       const mainCurrencies = ['BTC', 'ETH', 'SOL', 'TRX'];
       
@@ -94,16 +110,13 @@ const Settings = () => {
         mainCurrencies.includes(wallet.currency)
       );
       
-      const walletsWithMnemonics = filteredWallets.map(wallet => {
-        const mockMnemonic = getOrCreateMnemonic();
-        
-        return {
-          ...wallet,
-          mnemonic: mockMnemonic
-        };
-      });
+      setWallets(filteredWallets);
       
-      setWallets(walletsWithMnemonics);
+      // If no mnemonic was found in the database, generate a mock one for display
+      if (!mnemonicData?.main_mnemonic) {
+        const mockMnemonic = getOrCreateMnemonic();
+        setUserMnemonic(mockMnemonic);
+      }
     } catch (err) {
       console.error('Error fetching wallets:', err);
       toast({
@@ -170,7 +183,6 @@ const Settings = () => {
     try {
       setTimeout(() => {
         setIsAuthDialogOpen(false);
-        setShowSeedPhrase(true);
         
         toast({
           title: "Authentication successful",
@@ -284,44 +296,51 @@ const Settings = () => {
                   <AccordionTrigger className="flex items-center py-2">
                     <div className="flex items-center">
                       <Lock size={18} className="mr-2 text-kash-green" />
-                      <span className="text-gray-800">Wallet Seed Phrases</span>
+                      <span className="text-gray-800">Wallet Seed Phrase</span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
-                    <div className="mt-2 space-y-4">
-                      {wallets.length > 0 ? (
-                        wallets.map((wallet, index) => (
-                          <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                            <div className="flex justify-between items-center mb-2">
-                              <div>
-                                <h4 className="font-medium text-sm">{wallet.blockchain} ({wallet.currency})</h4>
-                                <p className="text-xs text-gray-500 truncate">{wallet.address}</p>
-                              </div>
-                              <button 
-                                onClick={() => copySeedPhrase(wallet.mnemonic || '')}
-                                className="text-kash-green hover:opacity-70 p-1"
-                              >
-                                <Copy size={16} />
-                              </button>
-                            </div>
-                            {wallet.mnemonic && (
-                              <div className="mt-2">
-                                <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono break-all">
-                                  {wallet.mnemonic}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                  This seed phrase gives access to your {wallet.blockchain} wallet. Never share it with anyone.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-4">
-                          <p className="text-gray-500">No wallets found</p>
-                          <p className="text-xs text-gray-400 mt-1">Create wallets first to see recovery phrases</p>
+                    {/* Show a single seed phrase for all wallets */}
+                    <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="font-medium">Universal Recovery Seed</h4>
+                        <button 
+                          onClick={() => userMnemonic && copySeedPhrase(userMnemonic)}
+                          className="text-kash-green hover:opacity-70 p-1"
+                        >
+                          <Copy size={16} />
+                        </button>
+                      </div>
+                      
+                      {userMnemonic && (
+                        <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono break-all">
+                          {userMnemonic}
                         </div>
                       )}
+                      
+                      <p className="text-xs text-gray-500 mt-3">
+                        This is your master seed phrase that can restore all your wallets. Never share it with anyone.
+                      </p>
+                      
+                      {/* Display the list of wallets derived from this seed */}
+                      <div className="mt-4">
+                        <h5 className="font-medium text-sm mb-2">Your Wallets</h5>
+                        <div className="space-y-2">
+                          {wallets.map((wallet, index) => (
+                            <div key={index} className="p-2 border border-gray-100 rounded bg-white">
+                              <div className="flex justify-between">
+                                <div>
+                                  <p className="text-sm font-medium">{wallet.blockchain}</p>
+                                  <p className="text-xs text-gray-500 truncate">{wallet.address}</p>
+                                </div>
+                                <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded-full">
+                                  {wallet.currency}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>

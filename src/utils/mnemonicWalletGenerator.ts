@@ -56,8 +56,8 @@ export function generateEVMWallet(
   blockchain: string
 ): MnemonicWalletData {
   try {
-    // Fix: Pass the derivation path directly as the second parameter instead of inside an object
-    const wallet = ethers.Wallet.fromPhrase(mnemonic, path);
+    // Fixed: Create wallet properly from mnemonic with derivation path
+    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, path);
 
     return {
       blockchain,
