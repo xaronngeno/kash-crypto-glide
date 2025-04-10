@@ -17,7 +17,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAuthenticated) {
-    // When redirecting to auth, store the current location
+    // Always redirect to auth if not authenticated, with state for redirect back after login
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 

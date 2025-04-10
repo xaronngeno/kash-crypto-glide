@@ -12,7 +12,7 @@ const Index = () => {
     // If already loading auth state, wait for it
     if (loading) return;
     
-    // Redirect based on auth state
+    // Always redirect to auth page by default
     const timer = setTimeout(() => {
       if (isAuthenticated) {
         navigate('/dashboard');

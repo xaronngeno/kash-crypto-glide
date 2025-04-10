@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { ActionButtons } from '@/components/dashboard/ActionButtons';
 import { AssetsList } from '@/components/dashboard/AssetsList';
@@ -14,17 +15,25 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const { prices, loading: pricesLoading, error: pricesError, refetch: refetchPrices } = useCryptoPrices();
-  const { user, profile, isAuthenticated } = useAuth();
+  const { user, profile, isAuthenticated, loading: authLoading } = useAuth();
   const { 
     assets, 
     loading: walletLoading, 
     isCreatingWallets, 
     error: walletError 
   } = useWallets({ prices });
+
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/auth');
+    }
+  }, [navigate, isAuthenticated, authLoading]);
 
   // Debug logging for user and wallet relationship
   useEffect(() => {
@@ -70,6 +79,30 @@ const Dashboard = () => {
       console.log('Using estimated price data:', pricesError);
     }
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
+
+  // If not authenticated or still loading auth, show loading state
+  if (authLoading) {
+    return (
+      <MainLayout title="Portfolio">
+        <div className="flex h-64 items-center justify-center flex-col">
+          <Loader2 className="h-12 w-12 animate-spin text-kash-green mb-4" />
+          <p className="text-gray-500">Verifying your account...</p>
+        </div>
+      </MainLayout>
+    );
+  }
+  
+  // Immediately redirect if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <MainLayout title="Portfolio">
+        <div className="flex flex-col items-center justify-center h-64">
+          <p className="text-gray-500 mb-4">Please log in to view your portfolio.</p>
+          <p className="text-gray-400 text-sm">Redirecting to login...</p>
+        </div>
+      </MainLayout>
+    );
+  }
 
   // Simple loading progress effect
   useEffect(() => {
