@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, X, User, Phone } from 'lucide-react';
+import { Mail, Lock, X, User, Phone, AlertCircle } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-// Define different authentication stages
 enum AuthStage {
   EMAIL_INPUT = 'email_input',
   PASSWORD_INPUT = 'password_input',
@@ -24,13 +24,23 @@ const Auth = () => {
   const [phone, setPhone] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [authStage, setAuthStage] = useState<AuthStage>(AuthStage.EMAIL_INPUT);
+  const [error, setError] = useState<string | null>(null);
   
-  // Check if user is already logged in
+  useEffect(() => {
+    setError(null);
+  }, [authStage]);
+  
   useEffect(() => {
     const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error("Session check error:", error);
+        return;
+      }
+      
       if (data.session) {
-        // Get the redirect path from location state or default to dashboard
+        console.log("User already authenticated, redirecting");
         const from = location.state?.from?.pathname || '/dashboard';
         navigate(from, { replace: true });
       }
@@ -39,23 +49,18 @@ const Auth = () => {
     checkUser();
   }, [navigate, location]);
 
-  // Handler for checking email and proceeding to next stage
   const handleEmailCheck = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (!email) {
-      toast({
-        title: "Email required",
-        description: "Please enter your email address",
-        variant: "destructive"
-      });
+      setError("Please enter your email address");
       return;
     }
     
     setLoading(true);
     
     try {
-      // Try to sign in with OTP without creating a user to check if email exists
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -64,34 +69,26 @@ const Auth = () => {
       });
       
       if (error && error.message.includes("Email not found")) {
-        // Email doesn't exist, move to signup stage
         setAuthStage(AuthStage.SIGNUP);
-      } else if (error && error.message.includes("Email not confirmed")) {
-        // Email exists but is not confirmed
-        setAuthStage(AuthStage.EMAIL_VERIFICATION);
       } else {
-        // Email exists and is confirmed, or some other response - proceed to password input
         setAuthStage(AuthStage.PASSWORD_INPUT);
       }
     } catch (error: any) {
       console.error("Authentication error:", error);
-      
-      // Default to password stage if we can't determine - better UX than showing an error
-      setAuthStage(AuthStage.PASSWORD_INPUT);
-      
-      toast({
-        title: "Email check failed",
-        description: "We'll proceed with login. If you don't have an account, you can go back and create one.",
-        variant: "destructive"
-      });
+      setError(error?.message || "Failed to check email. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handler for password-based login
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    
+    if (!password) {
+      setError("Please enter your password");
+      return;
+    }
     
     setLoading(true);
     
@@ -105,11 +102,11 @@ const Auth = () => {
         throw error;
       }
       
-      // Get the redirect path from location state or default to dashboard
+      console.log("Login successful:", data.session ? "Session created" : "No session");
+      
       const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
       
-      // Show toast after navigation has started
       setTimeout(() => {
         toast({
           title: "Login successful",
@@ -118,41 +115,28 @@ const Auth = () => {
       }, 100);
     } catch (error: any) {
       console.error("Authentication error:", error);
-      toast({
-        title: "Authentication failed",
-        description: error.message || "Failed to authenticate. Please try again.",
-        variant: "destructive"
-      });
+      setError(error?.message || "Failed to sign in. Please check your credentials.");
     } finally {
       setLoading(false);
     }
   };
   
-  // Handler for user signup
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (!fullName || !email || !password) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
-      });
+      setError("Please fill in all required fields.");
       return;
     }
     
     if (password.length < 6) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive"
-      });
+      setError("Password must be at least 6 characters long.");
       return;
     }
     
     setLoading(true);
     
-    // Split name into first and last name
     const nameParts = fullName.trim().split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
@@ -166,7 +150,8 @@ const Auth = () => {
             first_name: firstName,
             last_name: lastName,
             phone: phone
-          }
+          },
+          emailRedirectTo: window.location.origin + '/dashboard'
         }
       });
       
@@ -174,23 +159,25 @@ const Auth = () => {
         throw error;
       }
       
-      // Check if email confirmation is required
+      console.log("Signup response:", {
+        user: data?.user?.id || "none",
+        session: data?.session ? "created" : "none",
+        emailConfirm: data?.user?.identities?.[0]?.identity_data?.email_verified || false
+      });
+      
       if (data?.user?.identities?.length === 0) {
-        // Email already exists but not confirmed
         setAuthStage(AuthStage.EMAIL_VERIFICATION);
         toast({
           title: "Email already registered",
           description: "This email is already registered but not confirmed. Please check your email for verification.",
         });
       } else if (data?.user && !data.session) {
-        // User created but needs email verification
         setAuthStage(AuthStage.EMAIL_VERIFICATION);
         toast({
           title: "Verification email sent",
           description: "Please check your email to verify your account.",
         });
       } else if (data?.session) {
-        // User is signed in, redirect to dashboard
         navigate('/dashboard');
         toast({
           title: "Account created",
@@ -199,26 +186,21 @@ const Auth = () => {
       }
     } catch (error: any) {
       console.error("Signup error:", error);
-      toast({
-        title: "Signup failed",
-        description: error.message || "Failed to create account. Please try again.",
-        variant: "destructive"
-      });
+      setError(error?.message || "Failed to create account. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Clears email and returns to email input stage
   const handleReset = () => {
     setEmail('');
     setPassword('');
     setFullName('');
     setPhone('');
     setAuthStage(AuthStage.EMAIL_INPUT);
+    setError(null);
   };
   
-  // Renders the stage-specific form
   const renderAuthForm = () => {
     switch (authStage) {
       case AuthStage.EMAIL_INPUT:
@@ -239,6 +221,14 @@ const Auth = () => {
                 required
               />
             </div>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
             <KashButton 
               type="submit" 
@@ -291,6 +281,14 @@ const Auth = () => {
                   />
                 </div>
 
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
                 <KashButton 
                   type="submit" 
                   fullWidth 
@@ -301,6 +299,24 @@ const Auth = () => {
                 </KashButton>
               </div>
             </form>
+            
+            <div className="flex justify-between text-sm">
+              <button 
+                onClick={() => setAuthStage(AuthStage.SIGNUP)} 
+                className="text-kash-green hover:underline"
+              >
+                Create account
+              </button>
+              <button 
+                onClick={() => toast({
+                  title: "Password Reset",
+                  description: "This feature is coming soon.",
+                })} 
+                className="text-kash-green hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
           </div>
         );
         
@@ -374,6 +390,14 @@ const Auth = () => {
                 </p>
               </div>
               
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              
               <div className="pt-2">
                 <p className="text-xs text-gray-500">
                   By continuing you agree to the <a href="#" className="text-blue-600 hover:underline">Terms</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
@@ -389,6 +413,15 @@ const Auth = () => {
                 {loading ? 'Creating account...' : 'Sign up'}
               </KashButton>
             </form>
+            
+            <div className="text-center">
+              <button 
+                onClick={() => setAuthStage(AuthStage.PASSWORD_INPUT)} 
+                className="text-sm text-kash-green hover:underline"
+              >
+                I already have an account
+              </button>
+            </div>
           </div>
         );
         
@@ -417,6 +450,18 @@ const Auth = () => {
               >
                 Use a different email
               </KashButton>
+              
+              <button 
+                onClick={() => {
+                  toast({
+                    title: "Verification email",
+                    description: "If you didn't receive the email, please check your spam folder or try again later.",
+                  });
+                }}
+                className="text-sm text-kash-green hover:underline"
+              >
+                Didn't receive an email?
+              </button>
             </div>
           </div>
         );
@@ -448,7 +493,13 @@ const Auth = () => {
       
       <footer className="py-6 px-6 flex flex-col items-center">
         <div className="mb-4">
-          <button className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-full bg-gray-50">
+          <button 
+            onClick={() => toast({
+              title: "Help",
+              description: "Need assistance? Contact us at support@kash.app",
+            })}
+            className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-full bg-gray-50"
+          >
             Help
           </button>
         </div>

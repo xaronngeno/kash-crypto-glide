@@ -18,7 +18,7 @@ const Dashboard = () => {
   const [currency, setCurrency] = useState('USD');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const { prices, loading: pricesLoading, error: pricesError, refetch: refetchPrices } = useCryptoPrices();
-  const { user, profile } = useAuth();
+  const { user, profile, isAuthenticated } = useAuth();
   const { 
     assets, 
     loading: walletLoading, 
@@ -35,7 +35,8 @@ const Dashboard = () => {
       profileId: profile?.numeric_id,
       phoneNumbers: profile?.phone_numbers,
       phone: profile?.phone,
-      kycStatus: profile?.kyc_status
+      kycStatus: profile?.kyc_status,
+      isAuthenticated
     });
 
     if (!walletLoading && assets.length === 0) {
@@ -68,7 +69,7 @@ const Dashboard = () => {
     if (pricesError) {
       console.log('Using estimated price data:', pricesError);
     }
-  }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast]);
+  }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
 
   // Simple loading progress effect
   useEffect(() => {
@@ -199,7 +200,7 @@ const Dashboard = () => {
 
           <div className="mt-6">
             <div className="flex justify-between items-center mb-2">
-              <div className="flex-grow"></div>
+              <h2 className="text-xl font-semibold">Your Assets</h2>
               <button 
                 onClick={() => setCurrency(currency === 'USD' ? 'KES' : 'USD')}
                 className="text-sm text-kash-green"

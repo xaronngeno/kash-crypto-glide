@@ -2,18 +2,27 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Wallet } from 'lucide-react';
+import { useAuth } from '@/components/AuthProvider';
 
 const Index = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    // Increase timeout to give more time to see the splash screen
+    // If already loading auth state, wait for it
+    if (loading) return;
+    
+    // Redirect based on auth state
     const timer = setTimeout(() => {
-      navigate('/auth');
-    }, 5000); // Changed from 2000ms to 5000ms (5 seconds)
+      if (isAuthenticated) {
+        navigate('/dashboard');
+      } else {
+        navigate('/auth');
+      }
+    }, 2000); // 2 second splash screen
 
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [navigate, isAuthenticated, loading]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-4">
@@ -23,7 +32,11 @@ const Index = () => {
         </div>
         <h1 className="text-4xl font-bold mb-2">Kash</h1>
         <p className="text-gray-600 text-lg">Your minimalist crypto wallet</p>
-        <p className="text-gray-500 text-sm mt-4">Redirecting to sign in...</p>
+        <p className="text-gray-500 text-sm mt-4">
+          {loading ? "Checking your session..." : 
+           isAuthenticated ? "Redirecting to dashboard..." : 
+           "Redirecting to sign in..."}
+        </p>
       </div>
     </div>
   );

@@ -68,6 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (!isMounted) return;
         
+        // Always update basic session state immediately
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -77,7 +78,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (isMounted) {
               const profileData = await fetchProfile(session.user.id);
               setProfile(profileData);
+              
+              // Only mark as not loading after profile is fetched
               setLoading(false);
+              
+              // Log the full auth state for debugging
+              console.log('Auth state after profile fetch:', {
+                userId: session.user.id,
+                sessionActive: !!session,
+                profile: profileData ? 'found' : 'not found',
+                token: session.access_token ? 'exists' : 'missing'
+              });
             }
           }, 0);
         } else {
@@ -87,10 +98,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // THEN check for existing session - optimize by setting a short timeout
+    // THEN check for existing session with a timeout to ensure we don't wait forever
     const checkExistingSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session check error:", error);
+          if (isMounted) setLoading(false);
+          return;
+        }
         
         if (!isMounted) return;
         
@@ -99,9 +116,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         // Fetch profile when user is available
         if (session?.user) {
-          const profileData = await fetchProfile(session.user.id);
-          if (isMounted) {
-            setProfile(profileData);
+          try {
+            const profileData = await fetchProfile(session.user.id);
+            if (isMounted) {
+              setProfile(profileData);
+              console.log('Existing session found:', {
+                userId: session.user.id,
+                profile: profileData ? 'loaded' : 'not found'
+              });
+            }
+          } catch (profileError) {
+            console.error("Profile fetch error:", profileError);
           }
         }
         
@@ -122,8 +147,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log("Auth session check timed out");
         setLoading(false);
       }
-    }, 2000); // 2 second maximum wait time
+    }, 3000); // 3 second maximum wait time
     
+    // Run session check
     checkExistingSession();
 
     return () => {
@@ -134,8 +160,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
+    try {
+      await supabase.auth.signOut();
+      setProfile(null);
+      console.log("User signed out successfully");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   // Compute isAuthenticated based on session

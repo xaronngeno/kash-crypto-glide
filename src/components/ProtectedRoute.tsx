@@ -1,6 +1,7 @@
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
+import { Loader2 } from 'lucide-react';
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -8,13 +9,15 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-kash-green"></div>
+      <div className="flex h-screen items-center justify-center flex-col">
+        <Loader2 className="h-12 w-12 animate-spin text-kash-green mb-4" />
+        <p className="text-gray-500">Loading your account...</p>
       </div>
     );
   }
 
   if (!isAuthenticated) {
+    // When redirecting to auth, store the current location
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
