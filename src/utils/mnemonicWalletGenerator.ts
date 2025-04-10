@@ -57,7 +57,9 @@ export function generateEVMWallet(
 ): MnemonicWalletData {
   try {
     // Create a wallet from the mnemonic using the specified path
-    const wallet = ethers.Wallet.fromPhrase(mnemonic, path);
+    const wallet = ethers.Wallet.fromPhrase(mnemonic, {
+      path: path
+    });
 
     return {
       blockchain,
@@ -112,13 +114,18 @@ export function generateSuiWallet(mnemonic: string): MnemonicWalletData {
     // Derive the keypair from the seed using the Sui path
     const { key } = derivePath(DERIVATION_PATHS.SUI, seed.toString('hex'));
     
-    // Fixed: Using correct method to create keypair from seed
-    const keypair = new Ed25519Keypair(key.slice(0, 32));
+    // Create keypair from the derived key with correct type handling
+    const keyData = {
+      publicKey: new Uint8Array(32),
+      secretKey: key.slice(0, 32)
+    };
+    
+    const keypair = new Ed25519Keypair(keyData);
 
     return {
       blockchain: 'Sui',
       address: keypair.getPublicKey().toSuiAddress(),
-      privateKey: Buffer.from(keypair.export().privateKey, 'base64').toString('hex'),
+      privateKey: Buffer.from(keyData.secretKey).toString('hex'),
       path: DERIVATION_PATHS.SUI,
     };
   } catch (error) {

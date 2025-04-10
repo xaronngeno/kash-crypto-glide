@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Copy, QrCode, Info, Search } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -8,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
+import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 
 const MAIN_CURRENCIES = ['BTC', 'ETH', 'SOL', 'TRX'];
 
@@ -16,6 +18,7 @@ interface WalletAddress {
   symbol: string;
   address: string;
   logo?: string;
+  wallet_type?: string;
 }
 
 const getNetworkLogo = (blockchain: string) => {
@@ -92,6 +95,7 @@ const NetworkBadge = ({ network }: { network: string }) => {
 const Receive = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { prices } = useCryptoPrices();
   const [walletAddresses, setWalletAddresses] = useState<WalletAddress[]>([]);
   const [selectedChain, setSelectedChain] = useState<WalletAddress | null>(null);
   const [showQR, setShowQR] = useState(false);
@@ -144,7 +148,7 @@ const Receive = () => {
         setLoading(true);
         const { data, error } = await supabase
           .from('wallets')
-          .select('blockchain, currency, address')
+          .select('blockchain, currency, address, wallet_type')
           .eq('user_id', user.id);
         
         if (error) {
@@ -170,7 +174,8 @@ const Receive = () => {
                 blockchain: wallet.blockchain,
                 symbol: wallet.currency,
                 address: wallet.address,
-                logo: getCurrencyLogo(wallet.currency)
+                logo: getCurrencyLogo(wallet.currency),
+                wallet_type: wallet.wallet_type
               });
             }
           });
@@ -222,7 +227,7 @@ const Receive = () => {
       
       const { data: wallets, error: fetchError } = await supabase
         .from('wallets')
-        .select('blockchain, currency, address')
+        .select('blockchain, currency, address, wallet_type')
         .eq('user_id', user.id);
       
       if (fetchError) {
@@ -242,7 +247,8 @@ const Receive = () => {
               blockchain: wallet.blockchain,
               symbol: wallet.currency,
               address: wallet.address,
-              logo: getCurrencyLogo(wallet.currency)
+              logo: getCurrencyLogo(wallet.currency),
+              wallet_type: wallet.wallet_type
             });
           }
         });
@@ -358,7 +364,7 @@ const Receive = () => {
                   <AvatarFallback>{symbol[0]}</AvatarFallback>
                 </Avatar>
                 <h3 className="font-medium">{symbol}</h3>
-                {prices[symbol] && (
+                {prices && prices[symbol] && (
                   <span className="ml-2 text-xs text-gray-500">
                     ${prices[symbol].price.toLocaleString()}
                   </span>
