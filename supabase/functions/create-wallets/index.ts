@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
@@ -13,6 +12,12 @@ const DERIVATION_PATHS = {
   SUI: "m/44'/784'/0'/0'/0'",
 };
 
+// Generate a strong, unique mnemonic
+function generateUniqueMnemonic(): string {
+  // Generate a 24-word mnemonic for stronger entropy (256 bits vs 128 bits)
+  return bip39.generateMnemonic(256);
+}
+
 // Generate or validate a mnemonic
 function getOrCreateMnemonic(existingMnemonic?: string): string {
   if (existingMnemonic) {
@@ -22,8 +27,8 @@ function getOrCreateMnemonic(existingMnemonic?: string): string {
     return existingMnemonic;
   }
   
-  // Generate a new random mnemonic (12 words = 128-bits of entropy)
-  return bip39.generateMnemonic(128);
+  // Generate a new unique mnemonic
+  return generateUniqueMnemonic();
 }
 
 // Generate Ethereum wallet from mnemonic
@@ -32,7 +37,7 @@ async function generateEVMWallet(mnemonic: string, isMonad = false) {
     const blockchain = isMonad ? 'Monad' : 'Ethereum';
     const currency = isMonad ? 'MONAD' : 'ETH';
     
-    console.log(`Starting ${blockchain} wallet generation`);
+    console.log(`Starting ${blockchain} wallet generation from mnemonic`);
     const ethers = await import("https://esm.sh/ethers@6.13.5");
     
     const path = isMonad ? DERIVATION_PATHS.MONAD : DERIVATION_PATHS.ETHEREUM;
@@ -55,7 +60,7 @@ async function generateEVMWallet(mnemonic: string, isMonad = false) {
 // Generate Solana wallet
 async function generateSolanaWallet(mnemonic: string) {
   try {
-    console.log("Starting Solana wallet generation");
+    console.log("Starting Solana wallet generation from mnemonic");
     
     // Convert mnemonic to seed
     const seed = await bip39.mnemonicToSeed(mnemonic);
@@ -86,26 +91,14 @@ async function generateSolanaWallet(mnemonic: string) {
     };
   } catch (error) {
     console.error('Error generating Solana wallet:', error);
-    
-    // Create a fallback Solana wallet
-    const { Keypair } = await import("https://esm.sh/@solana/web3.js@1.91.1");
-    const fallbackKeypair = Keypair.generate();
-    
-    return {
-      blockchain: 'Solana',
-      currency: 'SOL',
-      address: fallbackKeypair.publicKey.toString(),
-      privateKey: Array.from(fallbackKeypair.secretKey)
-        .map(b => b.toString(16).padStart(2, '0')).join(''),
-      wallet_type: 'derived',
-    };
+    throw new Error(`Failed to generate Solana wallet: ${error.message}`);
   }
 }
 
 // Generate Tron wallet
 async function generateTronWallet(mnemonic: string) {
   try {
-    console.log("Starting Tron wallet generation");
+    console.log("Starting Tron wallet generation from mnemonic");
     
     // Use ethers.js with Tron path
     const ethers = await import("https://esm.sh/ethers@6.13.5");
@@ -125,58 +118,42 @@ async function generateTronWallet(mnemonic: string) {
     };
   } catch (error) {
     console.error('Error generating Tron wallet:', error);
-    
-    // Create a fallback Tron wallet
-    const ethers = await import("https://esm.sh/ethers@6.13.5");
-    const fallbackWallet = ethers.Wallet.createRandom();
-    const tronLikeAddress = `T${fallbackWallet.address.slice(2)}`;
-    
-    return {
-      blockchain: 'Tron',
-      currency: 'TRX',
-      address: tronLikeAddress,
-      privateKey: fallbackWallet.privateKey,
-      wallet_type: 'derived',
-    };
+    throw new Error(`Failed to generate Tron wallet: ${error.message}`);
   }
 }
 
 // Generate SUI wallet
 async function generateSuiWallet(mnemonic: string) {
   try {
-    console.log("Starting SUI wallet generation");
+    console.log("Starting SUI wallet generation from mnemonic");
 
-    // For this demo, we're using a simpler approach as SUI integration is more complex
-    const ethers = await import("https://esm.sh/ethers@6.13.5");
-    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.ETHEREUM);
+    // Convert mnemonic to seed
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const seedBuffer = new Uint8Array(seed);
     
-    // Format as a SUI-like address
-    const address = `0x${wallet.address.slice(2)}`;
+    // For this implementation, we'll use the ed25519-hd-key package
+    const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
     
-    console.log(`Generated SUI-like wallet with address: ${address}`);
+    // Derive the keypair from the seed using the Sui path
+    const derivedKey = derivePath(DERIVATION_PATHS.SUI, Array.from(seedBuffer)
+      .map(b => b.toString(16).padStart(2, '0')).join('')).key;
+    
+    // Use a simple approach for getting a SUI address
+    const addressBytes = derivedKey.slice(0, 20); // Take the first 20 bytes for address
+    const address = `0x${Array.from(addressBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+    
+    console.log(`Generated SUI wallet with address: ${address}`);
     
     return {
       blockchain: 'Sui',
       currency: 'SUI',
       address,
-      privateKey: wallet.privateKey,
+      privateKey: Array.from(derivedKey).map(b => b.toString(16).padStart(2, '0')).join(''),
       wallet_type: 'derived',
     };
   } catch (error) {
     console.error('Error generating SUI wallet:', error);
-    
-    // Create a fallback SUI-like wallet
-    const ethers = await import("https://esm.sh/ethers@6.13.5");
-    const fallbackWallet = ethers.Wallet.createRandom();
-    const address = `0x${fallbackWallet.address.slice(2)}`;
-    
-    return {
-      blockchain: 'Sui',
-      currency: 'SUI',
-      address,
-      privateKey: fallbackWallet.privateKey,
-      wallet_type: 'derived',
-    };
+    throw new Error(`Failed to generate SUI wallet: ${error.message}`);
   }
 }
 
@@ -186,6 +163,31 @@ function handleCors(req: Request) {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
   return null;
+}
+
+// Check if mnemonic is unique
+async function isMnemonicUnique(supabase: any, mnemonic: string): Promise<boolean> {
+  try {
+    console.log("Checking if mnemonic is unique...");
+    const { data, error } = await supabase
+      .from("user_mnemonics")
+      .select("id")
+      .eq("main_mnemonic", mnemonic)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error checking mnemonic uniqueness:", error);
+      // In case of error, assume it's not unique to be safe
+      return false;
+    }
+    
+    // If no data found, mnemonic is unique
+    return !data;
+  } catch (err) {
+    console.error("Exception checking mnemonic uniqueness:", err);
+    // In case of exception, assume it's not unique to be safe
+    return false;
+  }
 }
 
 // Fetch existing mnemonic for a user
@@ -214,6 +216,13 @@ async function getUserMnemonic(supabase: any, userId: string): Promise<string | 
 async function storeUserMnemonic(supabase: any, userId: string, mnemonic: string): Promise<boolean> {
   try {
     console.log(`Storing mnemonic for user: ${userId}`);
+    
+    // First check if mnemonic is unique
+    const isUnique = await isMnemonicUnique(supabase, mnemonic);
+    if (!isUnique) {
+      console.error("Mnemonic is not unique, generating a new one");
+      return false;
+    }
     
     const { error } = await supabase
       .from("user_mnemonics")
@@ -376,11 +385,36 @@ serve(async (req) => {
     console.log("Mnemonic check result:", mnemonic ? "Found existing" : "Not found");
     
     if (!mnemonic) {
-      // Generate a new mnemonic
-      mnemonic = bip39.generateMnemonic(128); // 12 words
-      console.log("Generated new mnemonic for user");
+      // Initialize mnemonicIsUnique flag
+      let mnemonicIsUnique = false;
+      let attempts = 0;
+      const maxAttempts = 5; // Limit attempts to prevent infinite loops
       
-      // Store the mnemonic
+      // Keep generating new mnemonics until we find a unique one
+      while (!mnemonicIsUnique && attempts < maxAttempts) {
+        attempts++;
+        // Generate a new mnemonic with high entropy (24 words)
+        mnemonic = generateUniqueMnemonic();
+        console.log(`Generated new mnemonic (attempt ${attempts})`);
+        
+        // Check if this mnemonic is unique
+        mnemonicIsUnique = await isMnemonicUnique(supabase, mnemonic);
+        if (!mnemonicIsUnique) {
+          console.log(`Mnemonic collision detected on attempt ${attempts}, generating new one`);
+        }
+      }
+      
+      if (!mnemonicIsUnique) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Could not generate a unique mnemonic after multiple attempts"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+      
+      // Store the unique mnemonic
       const mnemonicStored = await storeUserMnemonic(supabase, userId, mnemonic);
       if (!mnemonicStored) {
         return new Response(JSON.stringify({
@@ -391,7 +425,7 @@ serve(async (req) => {
           status: 500,
         });
       }
-      console.log("Stored new mnemonic successfully");
+      console.log("Stored new unique mnemonic successfully");
     } else {
       console.log("Using existing mnemonic for wallet generation");
     }

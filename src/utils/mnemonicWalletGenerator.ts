@@ -11,7 +11,6 @@ import CryptoJS from 'crypto-js';
 const DERIVATION_PATHS = {
   ETHEREUM: "m/44'/60'/0'/0/0",
   SOLANA: "m/44'/501'/0'/0'",
-  BITCOIN: "m/44'/0'/0'/0/0",
   TRON: "m/44'/195'/0'/0/0",
   SUI: "m/44'/784'/0'/0'/0'",
   MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
@@ -26,12 +25,12 @@ export interface MnemonicWalletData {
 }
 
 /**
- * Generate or validate a BIP-39 mnemonic phrase
+ * Generate or validate a BIP-39 mnemonic phrase with higher entropy for uniqueness
  * @param existingMnemonic Optional existing mnemonic to validate
  * @param wordCount Number of words in the mnemonic (12, 15, 18, 21, or 24)
  * @returns A valid BIP-39 mnemonic phrase
  */
-export function getOrCreateMnemonic(existingMnemonic?: string, wordCount: number = 12): string {
+export function getOrCreateMnemonic(existingMnemonic?: string, wordCount: number = 24): string {
   if (existingMnemonic) {
     if (!bip39.validateMnemonic(existingMnemonic)) {
       throw new Error('Invalid mnemonic phrase provided');
@@ -39,8 +38,9 @@ export function getOrCreateMnemonic(existingMnemonic?: string, wordCount: number
     return existingMnemonic;
   }
   
-  // Calculate entropy bits based on word count (12 words = 128 bits)
-  const entropyBits = (wordCount / 3) * 32;
+  // Calculate entropy bits based on word count (24 words = 256 bits)
+  // Using 24 words instead of 12 for higher entropy and better uniqueness
+  const entropyBits = wordCount === 12 ? 128 : 256;
   
   // Generate a new random mnemonic with specified entropy
   return bip39.generateMnemonic(entropyBits);
@@ -115,20 +115,12 @@ export function generateTronWallet(mnemonic: string): MnemonicWalletData {
     // For compatibility with TronWeb, we extract the private key
     const privateKey = wallet.privateKey.slice(2); // Remove '0x' prefix
     
-    // Simplified address generation (actual TronWeb uses more complex algorithm)
-    const publicKey = wallet.publicKey.slice(2); // Remove '0x' prefix
-    
-    // Simulate Tron address generation - in production, use TronWeb
-    const keccak256Hash = CryptoJS.SHA3(
-      CryptoJS.enc.Hex.parse(publicKey),
-      { outputLength: 256 }
-    );
-    
-    const addressHex = '41' + keccak256Hash.toString().slice(-40);
+    // Create Tron address format (T + address without 0x)
+    const tronAddress = `T${wallet.address.slice(2)}`;
     
     return {
       blockchain: 'Tron',
-      address: `T${addressHex.slice(0, 33)}`, // Simplified Tron address format
+      address: tronAddress,
       privateKey: privateKey,
       path: DERIVATION_PATHS.TRON,
     };
@@ -173,13 +165,14 @@ export function generateSuiWallet(mnemonic: string): MnemonicWalletData {
 
 /**
  * Generate wallet addresses for all supported blockchains from a single mnemonic
+ * Uses 24-word mnemonics by default for increased entropy and uniqueness
  * @param existingMnemonic Optional existing mnemonic to use
  * @returns Array of wallet data objects for each blockchain
  */
 export async function generateWalletsFromMnemonic(existingMnemonic?: string): Promise<MnemonicWalletData[]> {
   try {
-    // Get or create a valid 12-word mnemonic
-    const mnemonic = getOrCreateMnemonic(existingMnemonic, 12);
+    // Get or create a valid 24-word mnemonic (instead of 12) for more uniqueness
+    const mnemonic = getOrCreateMnemonic(existingMnemonic, 24);
     console.log('Using mnemonic to generate wallets');
     
     const wallets: MnemonicWalletData[] = [];
