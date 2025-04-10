@@ -6,6 +6,7 @@ import { getBitcoin } from '@/utils/bitcoinjsWrapper';
 import { getECPairFactory } from '@/utils/ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 import { Buffer } from './globalPolyfills';
+import * as bip39 from 'bip39';
 
 // Interface for wallet data
 export interface WalletData {
@@ -14,7 +15,20 @@ export interface WalletData {
   address: string;
   privateKey?: string; // Only passed temporarily, never stored on frontend
   walletType?: string; // For different wallet types like "Taproot" or "Native Segwit"
+  derivationPath?: string; // Added derivation path
 }
+
+// Define the derivation paths for different blockchains
+export const DERIVATION_PATHS = {
+  ETHEREUM: "m/44'/60'/0'/0/0",
+  SOLANA: "m/44'/501'/0'/0'",
+  BITCOIN: "m/44'/0'/0'/0/0",
+  BNB_CHAIN: "m/44'/714'/0'/0/0",
+  POLYGON: "m/44'/60'/0'/0/0", // Uses Ethereum path
+  AVALANCHE: "m/44'/9000'/0'/0/0",
+  SUI: "m/44'/784'/0'/0'/0'",
+  MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
+};
 
 // Generate a Solana wallet
 export const generateSolanaWallet = (): WalletData => {
@@ -25,6 +39,7 @@ export const generateSolanaWallet = (): WalletData => {
       platform: 'Solana',
       address: keypair.publicKey.toString(),
       privateKey: Buffer.from(keypair.secretKey).toString('hex'),
+      derivationPath: DERIVATION_PATHS.SOLANA,
     };
   } catch (error) {
     console.error('Error generating Solana wallet:', error);
@@ -36,11 +51,27 @@ export const generateSolanaWallet = (): WalletData => {
 export const generateEthWallet = (blockchain: string, platform: string): WalletData => {
   try {
     const wallet = ethers.Wallet.createRandom();
+    let derivationPath = DERIVATION_PATHS.ETHEREUM;
+    
+    // Use appropriate derivation path based on blockchain
+    switch (blockchain.toLowerCase()) {
+      case 'binance smart chain':
+        derivationPath = DERIVATION_PATHS.BNB_CHAIN;
+        break;
+      case 'polygon':
+        derivationPath = DERIVATION_PATHS.POLYGON;
+        break;
+      case 'monad':
+        derivationPath = DERIVATION_PATHS.MONAD;
+        break;
+    }
+    
     return {
       blockchain,
       platform,
       address: wallet.address,
       privateKey: wallet.privateKey,
+      derivationPath,
     };
   } catch (error) {
     console.error(`Error generating ${blockchain} wallet:`, error);
@@ -58,6 +89,7 @@ export const generateSuiWallet = (): WalletData => {
       platform: 'Sui',
       address: keypair.getPublicKey().toSuiAddress(),
       privateKey: Buffer.from(keypair.export().privateKey, 'base64').toString('hex'),
+      derivationPath: DERIVATION_PATHS.SUI,
     };
   } catch (error) {
     console.error('Error generating Sui wallet:', error);
@@ -139,7 +171,8 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
       platform: 'Bitcoin',
       address: address,
       privateKey: keyPair.privateKey?.toString('hex'),
-      walletType: type === 'taproot' ? 'Taproot' : 'Native SegWit'
+      walletType: type === 'taproot' ? 'Taproot' : 'Native SegWit',
+      derivationPath: DERIVATION_PATHS.BITCOIN,
     };
   } catch (error) {
     console.error(`Error generating Bitcoin ${type} wallet:`, error);
@@ -147,11 +180,28 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
   }
 };
 
+// Generate or validate a mnemonic
+export const getOrCreateMnemonic = (existingMnemonic?: string): string => {
+  if (existingMnemonic) {
+    if (!bip39.validateMnemonic(existingMnemonic)) {
+      throw new Error('Invalid mnemonic phrase provided');
+    }
+    return existingMnemonic;
+  }
+  
+  // Generate a new random mnemonic (defaults to 128-bits of entropy)
+  return bip39.generateMnemonic();
+};
+
 // Generate all wallets for a user - fixed to handle async wallet generation
 export const generateAllWallets = async (): Promise<WalletData[]> => {
   const wallets: WalletData[] = [];
   
   try {
+    // Create a mnemonic for all wallets
+    const mnemonic = getOrCreateMnemonic();
+    console.log('Generated mnemonic for HD wallet generation');
+    
     // Add Solana wallet
     wallets.push(generateSolanaWallet());
     

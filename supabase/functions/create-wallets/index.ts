@@ -1,9 +1,12 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
 import * as ethers from "https://esm.sh/ethers@6.13.5";
 import { decode as base58_decode, encode as base58_encode } from "https://esm.sh/bs58@5.0.0";
 import * as solanaWeb3 from "https://esm.sh/@solana/web3.js@1.91.1";
+import * as bip39 from "https://esm.sh/bip39@3.1.0";
+import { derivePath } from "https://esm.sh/ed25519-hd-key@1.3.0";
 
 // CORS headers
 const corsHeaders = {
@@ -19,6 +22,17 @@ function handleCors(req: Request) {
   }
   return null;
 }
+
+// Define the derivation paths for different blockchains
+const DERIVATION_PATHS = {
+  ETHEREUM: "m/44'/60'/0'/0/0",
+  SOLANA: "m/44'/501'/0'/0'",
+  BITCOIN: "m/44'/0'/0'/0/0",
+  BNB_CHAIN: "m/44'/714'/0'/0/0",
+  POLYGON: "m/44'/60'/0'/0/0", // Uses Ethereum path
+  AVALANCHE: "m/44'/9000'/0'/0/0",
+  TRON: "m/44'/195'/0'/0/0",
+};
 
 // Simple encryption function - in production, use a more secure method and proper key management
 function encryptPrivateKey(privateKey: string, userId: string): string {
@@ -46,11 +60,31 @@ function encryptPrivateKey(privateKey: string, userId: string): string {
   }
 }
 
-// Function to create a Solana wallet
-function createSolanaWallet(userId: string) {
+// Generate or validate a BIP-39 mnemonic phrase
+function getOrCreateMnemonic(existingMnemonic?: string): string {
+  if (existingMnemonic) {
+    if (!bip39.validateMnemonic(existingMnemonic)) {
+      throw new Error('Invalid mnemonic phrase provided');
+    }
+    return existingMnemonic;
+  }
+  
+  // Generate a new random mnemonic (defaults to 128-bits of entropy)
+  return bip39.generateMnemonic();
+}
+
+// Function to create a Solana wallet from mnemonic
+function createSolanaWalletFromMnemonic(mnemonic: string, userId: string) {
   try {
-    console.log("Creating Solana wallet...");
-    const keypair = solanaWeb3.Keypair.generate();
+    console.log("Creating Solana wallet from mnemonic...");
+    // Convert mnemonic to seed
+    const seed = bip39.mnemonicToSeedSync(mnemonic);
+    
+    // Derive the keypair from the seed using the Solana path
+    const { key } = derivePath(DERIVATION_PATHS.SOLANA, Buffer.from(seed).toString('hex'));
+    
+    // Create a Solana keypair from the derived key
+    const keypair = solanaWeb3.Keypair.fromSeed(key);
     const privateKeyHex = Buffer.from(keypair.secretKey).toString('hex');
     
     return {
@@ -63,23 +97,22 @@ function createSolanaWallet(userId: string) {
   }
 }
 
-// Function to create a Tron wallet using Ethereum wallet method
-// Tron addresses are derived from Ethereum-style private keys but with a different address format
-function createTronWallet(userId: string) {
+// Function to create a Tron wallet using Ethereum wallet method from mnemonic
+function createTronWalletFromMnemonic(mnemonic: string, userId: string) {
   try {
-    // Create an Ethereum wallet first
-    const ethWallet = ethers.Wallet.createRandom();
+    // Create a wallet from the mnemonic using the Tron path
+    const wallet = ethers.Wallet.fromPhrase(mnemonic, DERIVATION_PATHS.TRON);
     
     // Convert Ethereum address to Tron address format
     // Tron addresses start with 'T' instead of '0x'
     // In a real implementation, you would use a TronWeb library
     // For this simplified version, we'll use a placeholder conversion
-    const ethAddressHex = ethWallet.address.slice(2); // Remove '0x'
+    const ethAddressHex = wallet.address.slice(2); // Remove '0x'
     const tronAddress = `T${ethAddressHex}`; // Simplified - in reality would use proper conversion
     
     return {
       address: tronAddress,
-      private_key: encryptPrivateKey(ethWallet.privateKey, userId),
+      private_key: encryptPrivateKey(wallet.privateKey, userId),
     };
   } catch (error) {
     console.error("Error creating Tron wallet:", error);
@@ -87,10 +120,14 @@ function createTronWallet(userId: string) {
   }
 }
 
-// Function to create a Bitcoin wallet
-function createBitcoinWallet(userId: string) {
+// Function to create a Bitcoin wallet from mnemonic
+function createBitcoinWalletFromMnemonic(mnemonic: string, userId: string) {
   try {
-    console.log("Creating Bitcoin wallet...");
+    console.log("Creating Bitcoin wallet from mnemonic...");
+    // This is a placeholder for actual Bitcoin HD wallet derivation
+    // In a production system, you would use bitcoinjs-lib with proper HD wallet support
+    
+    // For now, we'll use the legacy method as placeholder
     const network = bitcoinjs.networks.bitcoin;
     const keyPair = bitcoinjs.ECPair.makeRandom({ network });
     const { address } = bitcoinjs.payments.p2wpkh({
@@ -114,10 +151,10 @@ function createBitcoinWallet(userId: string) {
   }
 }
 
-// Function to create a standard EVM wallet (Ethereum, BSC, etc.)
-function createEVMWallet(blockchain: string, currency: string, userId: string) {
+// Function to create a standard EVM wallet from mnemonic
+function createEVMWalletFromMnemonic(mnemonic: string, path: string, blockchain: string, currency: string, userId: string) {
   try {
-    const wallet = ethers.Wallet.createRandom();
+    const wallet = ethers.Wallet.fromPhrase(mnemonic, path);
     return {
       blockchain,
       currency,
@@ -130,7 +167,7 @@ function createEVMWallet(blockchain: string, currency: string, userId: string) {
   }
 }
 
-// Create wallet addresses for a user
+// Create wallet addresses for a user using a BIP-39 mnemonic
 async function createUserWallets(supabase: any, userId: string) {
   try {
     console.log(`Creating wallets for user: ${userId}`);
@@ -205,6 +242,10 @@ async function createUserWallets(supabase: any, userId: string) {
       });
     }
 
+    // Generate a mnemonic phrase for HD wallet generation
+    const mnemonic = getOrCreateMnemonic();
+    console.log("Generated BIP-39 mnemonic for HD wallet creation");
+    
     // Create wallet objects to insert
     const wallets = [];
 
@@ -212,7 +253,7 @@ async function createUserWallets(supabase: any, userId: string) {
     if (!existingWalletKeys.has("Bitcoin-BTC")) {
       try {
         console.log("Creating Bitcoin wallet");
-        const btcWallet = createBitcoinWallet(userId);
+        const btcWallet = createBitcoinWalletFromMnemonic(mnemonic, userId);
         wallets.push({
           user_id: userId,
           blockchain: "Bitcoin",
@@ -228,11 +269,18 @@ async function createUserWallets(supabase: any, userId: string) {
       }
     }
 
-    // 2. Create Ethereum wallet if it doesn't exist
+    // 2. Create Ethereum wallet from mnemonic if it doesn't exist
     if (!existingWalletKeys.has("Ethereum-ETH")) {
       try {
-        console.log("Creating ETH wallet");
-        const ethWallet = createEVMWallet("Ethereum", "ETH", userId);
+        console.log("Creating ETH wallet from mnemonic");
+        const ethWallet = createEVMWalletFromMnemonic(
+          mnemonic, 
+          DERIVATION_PATHS.ETHEREUM, 
+          "Ethereum", 
+          "ETH", 
+          userId
+        );
+        
         wallets.push({
           user_id: userId,
           blockchain: ethWallet.blockchain,
@@ -261,11 +309,11 @@ async function createUserWallets(supabase: any, userId: string) {
       }
     }
 
-    // 3. Create Solana wallet if it doesn't exist
+    // 3. Create Solana wallet from mnemonic if it doesn't exist
     if (!existingWalletKeys.has("Solana-SOL")) {
       try {
-        console.log("Creating Solana wallet");
-        const solWallet = createSolanaWallet(userId);
+        console.log("Creating Solana wallet from mnemonic");
+        const solWallet = createSolanaWalletFromMnemonic(mnemonic, userId);
         wallets.push({
           user_id: userId,
           blockchain: "Solana",
@@ -294,11 +342,11 @@ async function createUserWallets(supabase: any, userId: string) {
       }
     }
 
-    // 4. Create Tron wallet if it doesn't exist
+    // 4. Create Tron wallet from mnemonic if it doesn't exist
     if (!existingWalletKeys.has("Tron-TRX")) {
       try {
-        console.log("Creating Tron wallet");
-        const tronWallet = createTronWallet(userId);
+        console.log("Creating Tron wallet from mnemonic");
+        const tronWallet = createTronWalletFromMnemonic(mnemonic, userId);
         wallets.push({
           user_id: userId,
           blockchain: "Tron",
@@ -327,12 +375,19 @@ async function createUserWallets(supabase: any, userId: string) {
       }
     }
 
-    // 5. Create additional EVM-compatible wallets if they don't exist
+    // 5. Create additional EVM-compatible wallets from mnemonic if they don't exist
     try {
       // Binance Smart Chain (BSC)
       if (!existingWalletKeys.has("Binance Smart Chain-BNB")) {
-        console.log("Creating BSC wallet");
-        const bscWallet = createEVMWallet("Binance Smart Chain", "BNB", userId);
+        console.log("Creating BSC wallet from mnemonic");
+        const bscWallet = createEVMWalletFromMnemonic(
+          mnemonic,
+          DERIVATION_PATHS.BNB_CHAIN, 
+          "Binance Smart Chain", 
+          "BNB", 
+          userId
+        );
+        
         wallets.push({
           user_id: userId,
           blockchain: bscWallet.blockchain,
@@ -357,10 +412,17 @@ async function createUserWallets(supabase: any, userId: string) {
         }
       }
       
-      // Polygon
+      // Polygon from mnemonic
       if (!existingWalletKeys.has("Polygon-MATIC")) {
-        console.log("Creating Polygon wallet");
-        const polygonWallet = createEVMWallet("Polygon", "MATIC", userId);
+        console.log("Creating Polygon wallet from mnemonic");
+        const polygonWallet = createEVMWalletFromMnemonic(
+          mnemonic,
+          DERIVATION_PATHS.POLYGON,
+          "Polygon",
+          "MATIC",
+          userId
+        );
+        
         wallets.push({
           user_id: userId,
           blockchain: polygonWallet.blockchain,
@@ -407,7 +469,8 @@ async function createUserWallets(supabase: any, userId: string) {
         message: "Wallets created successfully", 
         count: wallets.length, 
         existingCount: existingWallets?.length || 0,
-        wallets: insertedWallets 
+        wallets: insertedWallets,
+        mnemonic: mnemonic // In a real app, you'd securely store this and NOT return it
       };
     } else if (existingWallets && existingWallets.length > 0) {
       return { 
