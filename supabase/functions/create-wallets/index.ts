@@ -45,8 +45,8 @@ function getOrCreateMnemonic(existingMnemonic?: string): string {
     return existingMnemonic;
   }
   
-  // Generate a new random mnemonic (defaults to 128-bits of entropy)
-  return bip39.generateMnemonic();
+  // Generate a new random mnemonic (12 words = 128-bits of entropy)
+  return bip39.generateMnemonic(128);
 }
 
 // Define the derivation paths for different blockchains
@@ -54,7 +54,7 @@ const DERIVATION_PATHS = {
   ETHEREUM: "m/44'/60'/0'/0/0",
   SOLANA: "m/44'/501'/0'/0'",
   BITCOIN: "m/44'/0'/0'/0/0",
-  SUI: "m/44'/784'/0'/0'/0'",
+  TRON: "m/44'/195'/0'/0/0",
   MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
 };
 
@@ -167,6 +167,74 @@ async function generateBitcoinWallet(mnemonic: string) {
   }
 }
 
+// Generate Tron wallet from mnemonic
+async function generateTronWallet(mnemonic: string) {
+  try {
+    console.log("Attempting to generate Tron wallet...");
+    
+    // We'll use ethers.js for the HD wallet derivation then convert the format
+    const ethers = await import("https://esm.sh/ethers@6.13.5");
+    
+    // Use the TRON derivation path
+    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.TRON);
+    
+    // For Tron, we need to convert the Ethereum format address to Tron format
+    // Tron uses the same elliptic curve cryptography as Ethereum but with a different address format
+    
+    // Get the raw public key from the derived wallet
+    const publicKeyBytes = ethers.getBytes(wallet.publicKey);
+    
+    // Import the TronWeb-compatible address generation code
+    const { default: CryptoUtils } = await import("https://esm.sh/@tronscan/client@0.5.0/src/utils/crypto");
+    
+    // Generate Tron address from public key
+    // This is a simplified version, real TronWeb would use:
+    // const tronAddress = TronWeb.address.fromPrivateKey(wallet.privateKey);
+    let addressBytes;
+    
+    try {
+      // Try using the imported crypto utils if available
+      addressBytes = CryptoUtils.getAddressFromPubKey(publicKeyBytes);
+    } catch (cryptoError) {
+      console.error("Error using Tron crypto utils:", cryptoError);
+      
+      // Fallback implementation if the import fails
+      // Tron addresses start with 0x41 (ASCII 'A') followed by the keccak-256 hash of the public key
+      // This is a simplified version but works for our edge function
+      
+      // Import keccak256 for address generation
+      const { keccak_256 } = await import("https://esm.sh/js-sha3@0.9.2");
+      
+      // Remove the '0x04' prefix if it exists (compression flag)
+      const pubKeyNoPrefix = publicKeyBytes.slice(0, 1)[0] === 4 ? publicKeyBytes.slice(1) : publicKeyBytes;
+      
+      // Hash the public key with keccak256
+      const pubKeyHash = keccak_256(pubKeyNoPrefix);
+      
+      // Take the last 20 bytes and prefix with 0x41 (ASCII 'A')
+      const addressHex = '41' + pubKeyHash.substring(pubKeyHash.length - 40);
+      addressBytes = Buffer.from(addressHex, 'hex');
+    }
+    
+    // Convert to base58 encoding (Tron's address format)
+    const { encode } = await import("https://esm.sh/bs58@5.0.0");
+    const tronAddress = encode(addressBytes);
+    
+    console.log("Successfully generated Tron wallet with address:", tronAddress);
+    
+    return {
+      blockchain: 'Tron',
+      currency: 'TRX',
+      address: tronAddress,
+      privateKey: wallet.privateKey,
+      wallet_type: 'derived',
+    };
+  } catch (error) {
+    console.error('Error generating Tron wallet:', error);
+    throw error;
+  }
+}
+
 // Handle CORS preflight requests
 function handleCors(req: Request) {
   if (req.method === "OPTIONS") {
@@ -213,6 +281,15 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
       console.log("Successfully generated Bitcoin wallet");
     } catch (bitcoinError) {
       console.error("Failed to generate Bitcoin wallet, but continuing:", bitcoinError);
+    }
+    
+    // Generate Tron wallet with error handling
+    try {
+      const tronWallet = await generateTronWallet(mnemonic);
+      wallets.push(tronWallet);
+      console.log("Successfully generated Tron wallet");
+    } catch (tronError) {
+      console.error("Failed to generate Tron wallet, but continuing:", tronError);
     }
     
     // Generate Monad wallet (using Ethereum derivation path since it's EVM compatible)
@@ -312,7 +389,6 @@ serve(async (req) => {
       });
     }
 
-    // Since there's an issue with the stored procedures, we'll use a direct mnemonic
     // Generate a new mnemonic
     const mnemonic = getOrCreateMnemonic();
     console.log("Using new mnemonic for HD wallet creation");

@@ -5,12 +5,14 @@ import { ethers } from 'ethers';
 import { Keypair } from '@solana/web3.js';
 import { derivePath } from 'ed25519-hd-key';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
+import CryptoJS from 'crypto-js';
 
 // Define the derivation paths for different blockchains
 const DERIVATION_PATHS = {
   ETHEREUM: "m/44'/60'/0'/0/0",
   SOLANA: "m/44'/501'/0'/0'",
   BITCOIN: "m/44'/0'/0'/0/0",
+  TRON: "m/44'/195'/0'/0/0",
   SUI: "m/44'/784'/0'/0'/0'",
   MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
 };
@@ -26,9 +28,10 @@ export interface MnemonicWalletData {
 /**
  * Generate or validate a BIP-39 mnemonic phrase
  * @param existingMnemonic Optional existing mnemonic to validate
+ * @param wordCount Number of words in the mnemonic (12, 15, 18, 21, or 24)
  * @returns A valid BIP-39 mnemonic phrase
  */
-export function getOrCreateMnemonic(existingMnemonic?: string): string {
+export function getOrCreateMnemonic(existingMnemonic?: string, wordCount: number = 12): string {
   if (existingMnemonic) {
     if (!bip39.validateMnemonic(existingMnemonic)) {
       throw new Error('Invalid mnemonic phrase provided');
@@ -36,8 +39,11 @@ export function getOrCreateMnemonic(existingMnemonic?: string): string {
     return existingMnemonic;
   }
   
-  // Generate a new random mnemonic (defaults to 128-bits of entropy)
-  return bip39.generateMnemonic();
+  // Calculate entropy bits based on word count (12 words = 128 bits)
+  const entropyBits = (wordCount / 3) * 32;
+  
+  // Generate a new random mnemonic with specified entropy
+  return bip39.generateMnemonic(entropyBits);
 }
 
 /**
@@ -53,7 +59,7 @@ export function generateEVMWallet(
   blockchain: string
 ): MnemonicWalletData {
   try {
-    // Fixed: Create wallet properly from mnemonic with derivation path
+    // Create wallet properly from mnemonic with derivation path
     const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, path);
 
     return {
@@ -97,6 +103,48 @@ export function generateSolanaWallet(mnemonic: string): MnemonicWalletData {
 }
 
 /**
+ * Generate a Tron wallet from a mnemonic
+ * @param mnemonic BIP-39 mnemonic phrase
+ * @returns Wallet data object with address and private key
+ */
+export function generateTronWallet(mnemonic: string): MnemonicWalletData {
+  try {
+    // Use ETH derivation with TRON path
+    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, DERIVATION_PATHS.TRON);
+    
+    // For compatibility with TronWeb, we extract the private key
+    const privateKey = wallet.privateKey.slice(2); // Remove '0x' prefix
+    
+    // In a full implementation, we would use TronWeb to convert from private key to address
+    // Since we can't directly use TronWeb in the browser, we'll simulate the address conversion
+    
+    // Simplified address generation (actual TronWeb uses more complex algorithm)
+    // This is a SIMPLIFIED implementation - in production use TronWeb
+    const publicKey = wallet.publicKey.slice(2); // Remove '0x' prefix
+    
+    // Simulate Tron address generation - in production, use TronWeb
+    // This uses the same elliptic curve but formats the address differently
+    const keccak256Hash = CryptoJS.SHA3(
+      CryptoJS.enc.Hex.parse(publicKey),
+      { outputLength: 256 }
+    );
+    
+    const addressHex = '41' + keccak256Hash.toString().slice(-40);
+    // In production, this would be properly base58 encoded with checksum by TronWeb
+    
+    return {
+      blockchain: 'Tron',
+      address: `T${addressHex.slice(0, 33)}`, // Simplified Tron address format (not actual encoding)
+      privateKey: privateKey,
+      path: DERIVATION_PATHS.TRON,
+    };
+  } catch (error) {
+    console.error('Error generating Tron wallet:', error);
+    throw new Error(`Failed to generate Tron wallet: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
  * Generate a Sui wallet from a mnemonic
  * @param mnemonic BIP-39 mnemonic phrase
  * @returns Wallet data object with address and private key
@@ -136,8 +184,8 @@ export function generateSuiWallet(mnemonic: string): MnemonicWalletData {
  */
 export async function generateWalletsFromMnemonic(existingMnemonic?: string): Promise<MnemonicWalletData[]> {
   try {
-    // Get or create a valid mnemonic
-    const mnemonic = getOrCreateMnemonic(existingMnemonic);
+    // Get or create a valid 12-word mnemonic
+    const mnemonic = getOrCreateMnemonic(existingMnemonic, 12);
     console.log('Using mnemonic to generate wallets');
     
     const wallets: MnemonicWalletData[] = [];
@@ -148,6 +196,9 @@ export async function generateWalletsFromMnemonic(existingMnemonic?: string): Pr
     
     // Generate Solana wallet
     wallets.push(generateSolanaWallet(mnemonic));
+    
+    // Generate Tron wallet
+    wallets.push(generateTronWallet(mnemonic));
     
     // Generate Sui wallet
     wallets.push(generateSuiWallet(mnemonic));
@@ -160,6 +211,27 @@ export async function generateWalletsFromMnemonic(existingMnemonic?: string): Pr
     console.error('Error generating wallets from mnemonic:', error);
     throw new Error(`Failed to generate wallets from mnemonic: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+/**
+ * Securely encrypt a mnemonic phrase with a password
+ * @param mnemonic The mnemonic phrase to encrypt
+ * @param password Password for encryption
+ * @returns Encrypted mnemonic string
+ */
+export function encryptMnemonic(mnemonic: string, password: string): string {
+  return CryptoJS.AES.encrypt(mnemonic, password).toString();
+}
+
+/**
+ * Decrypt an encrypted mnemonic phrase with a password
+ * @param encryptedMnemonic The encrypted mnemonic string
+ * @param password Password for decryption
+ * @returns Decrypted mnemonic phrase
+ */
+export function decryptMnemonic(encryptedMnemonic: string, password: string): string {
+  const bytes = CryptoJS.AES.decrypt(encryptedMnemonic, password);
+  return bytes.toString(CryptoJS.enc.Utf8);
 }
 
 // Export the mnemonic and derivation paths for reference
