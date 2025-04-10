@@ -76,6 +76,14 @@ const Dashboard = () => {
     }
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
 
+  // Force create wallets if none exist
+  useEffect(() => {
+    if (!walletLoading && assets.length === 0 && user?.id && !isCreatingWallets) {
+      console.log('No wallets found, attempting to create them automatically');
+      createWallets();
+    }
+  }, [walletLoading, assets.length, user?.id, isCreatingWallets, createWallets]);
+
   // If not authenticated or still loading auth, show loading state
   if (authLoading) {
     return (
@@ -143,6 +151,17 @@ const Dashboard = () => {
     }
   };
 
+  const handleForceCreate = () => {
+    if (createWallets && !isCreatingWallets) {
+      toast({
+        title: 'Creating new wallets',
+        description: 'Generating new wallets for your account...',
+        duration: 3000,
+      });
+      createWallets();
+    }
+  };
+
   const renderLoadingSkeleton = () => (
     <div className="space-y-6">
       <div className="flex flex-col items-center justify-center pt-4">
@@ -206,7 +225,7 @@ const Dashboard = () => {
           <AlertDescription className="flex flex-col">
             <span>You don't have any wallets yet. Create wallets to get started.</span>
             <KashButton 
-              onClick={createWallets}
+              onClick={handleForceCreate}
               className="mt-4"
               disabled={isCreatingWallets}
             >
@@ -245,7 +264,32 @@ const Dashboard = () => {
 
       {!isLoading && (
         <div className="space-y-6">
-          {walletError && renderErrorMessage()}
+          {walletError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error Loading Wallet Data</AlertTitle>
+              <AlertDescription className="flex flex-col">
+                <span>{walletError || "Failed to load your wallet data"}</span>
+                <div className="flex space-x-2 mt-4">
+                  <KashButton 
+                    onClick={handleRetryLoading}
+                    size="sm"
+                  >
+                    Retry Loading
+                  </KashButton>
+                  <KashButton 
+                    onClick={handleForceCreate}
+                    size="sm"
+                    variant="outline"
+                    disabled={isCreatingWallets}
+                  >
+                    {isCreatingWallets ? 'Creating...' : 'Create New Wallets'}
+                  </KashButton>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {renderNoWalletsMessage()}
           
           {assets.length > 0 && (

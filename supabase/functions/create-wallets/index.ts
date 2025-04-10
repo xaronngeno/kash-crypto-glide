@@ -2,30 +2,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
-import * as ethers from "https://esm.sh/ethers@6.13.5";
-import { decode as base58_decode, encode as base58_encode } from "https://esm.sh/bs58@5.0.0";
-import * as solanaWeb3 from "https://esm.sh/@solana/web3.js@1.91.1";
+import * as ecc from "https://esm.sh/tiny-secp256k1@2.2.3";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
-import { derivePath } from "https://esm.sh/ed25519-hd-key@1.3.0";
+import { corsHeaders } from "../_shared/cors.ts";
 
-const BufferPolyfill = {
-  from: (data, encoding) => {
-    if (typeof data === 'string') {
+// Buffer polyfill for Deno
+const Buffer = {
+  from: (input: string | number[] | ArrayBuffer, encoding?: string) => {
+    if (typeof input === 'string') {
       if (encoding === 'hex') {
-        const bytes = new Uint8Array(data.length / 2);
-        for (let i = 0; i < data.length; i += 2) {
-          bytes[i / 2] = parseInt(data.substring(i, i + 2), 16);
-        }
-        return bytes;
+        return new Uint8Array(input.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
       }
-      return new TextEncoder().encode(data);
+      return new TextEncoder().encode(input);
+    } else if (Array.isArray(input)) {
+      return new Uint8Array(input);
     }
-    if (Array.isArray(data)) {
-      return new Uint8Array(data);
-    }
-    return data;
+    return new Uint8Array(input);
   },
-  toString: (buffer, encoding) => {
+  alloc: (size: number, fill?: number) => {
+    const buffer = new Uint8Array(size);
+    if (fill !== undefined) {
+      buffer.fill(fill);
+    }
+    return buffer;
+  },
+  toString: (buffer: Uint8Array, encoding?: string) => {
     if (encoding === 'hex') {
       return Array.from(buffer)
         .map(b => b.toString(16).padStart(2, '0'))
@@ -35,47 +36,7 @@ const BufferPolyfill = {
   }
 };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function handleCors(req: Request) {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders, status: 204 });
-  }
-  return null;
-}
-
-const DERIVATION_PATHS = {
-  ETHEREUM: "m/44'/60'/0'/0/0",
-  SOLANA: "m/44'/501'/0'/0'",
-  BITCOIN: "m/44'/0'/0'/0/0",
-  BNB_CHAIN: "m/44'/714'/0'/0/0",
-  POLYGON: "m/44'/60'/0'/0/0", // Uses Ethereum path
-  AVALANCHE: "m/44'/9000'/0'/0/0",
-  TRON: "m/44'/195'/0'/0/0",
-};
-
-function encryptPrivateKey(privateKey: string, userId: string): string {
-  try {
-    const encryptionKey = `KASH_SECRET_KEY_${userId}_SECURE`;
-    let encrypted = "";
-    
-    for (let i = 0; i < privateKey.length; i++) {
-      const keyChar = encryptionKey[i % encryptionKey.length].charCodeAt(0);
-      const plainChar = privateKey[i].charCodeAt(0);
-      encrypted += String.fromCharCode(plainChar ^ keyChar);
-    }
-    
-    return btoa(encrypted);
-  } catch (error) {
-    console.error("Encryption error:", error);
-    throw new Error("Failed to encrypt private key");
-  }
-}
-
+// Generate a random mnemonic or validate an existing one
 function getOrCreateMnemonic(existingMnemonic?: string): string {
   if (existingMnemonic) {
     if (!bip39.validateMnemonic(existingMnemonic)) {
@@ -84,150 +45,250 @@ function getOrCreateMnemonic(existingMnemonic?: string): string {
     return existingMnemonic;
   }
   
+  // Generate a new random mnemonic (defaults to 128-bits of entropy)
   return bip39.generateMnemonic();
 }
 
-function createSolanaWalletFromMnemonic(mnemonic: string, userId: string) {
+// Define the derivation paths for different blockchains
+const DERIVATION_PATHS = {
+  ETHEREUM: "m/44'/60'/0'/0/0",
+  SOLANA: "m/44'/501'/0'/0'",
+  BITCOIN: "m/44'/0'/0'/0/0",
+  BNB_CHAIN: "m/44'/714'/0'/0/0",
+  POLYGON: "m/44'/60'/0'/0/0", // Uses Ethereum path
+  AVALANCHE: "m/44'/9000'/0'/0/0",
+  SUI: "m/44'/784'/0'/0'/0'",
+  MONAD: "m/44'/60'/0'/0/0", // Uses Ethereum path as Monad is EVM-compatible
+};
+
+// Generate Solana wallet from mnemonic using ed25519-hd-key derivation
+async function generateSolanaWallet(mnemonic: string) {
   try {
-    console.log("Creating Solana wallet from mnemonic...");
-    const seed = bip39.mnemonicToSeedSync(mnemonic);
-    const seedHex = Array.from(new Uint8Array(seed))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+    // Convert mnemonic to seed
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const seedBuffer = new Uint8Array(seed);
     
-    const { key } = derivePath(DERIVATION_PATHS.SOLANA, seedHex);
+    // Import dynamically
+    const { derivePath } = await import("https://esm.sh/ed25519-hd-key@1.3.0");
+    const { Keypair } = await import("https://esm.sh/@solana/web3.js@1.91.1");
     
-    const keypair = solanaWeb3.Keypair.fromSeed(key);
-    const privateKeyHex = Array.from(keypair.secretKey)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+    // Derive the keypair from the seed using the Solana path
+    const derivedKey = derivePath(DERIVATION_PATHS.SOLANA, Buffer.toString(seedBuffer, 'hex')).key;
+    
+    // Create a Solana keypair from the derived key
+    const keypair = Keypair.fromSeed(new Uint8Array(derivedKey));
     
     return {
+      blockchain: 'Solana',
+      currency: 'SOL',
       address: keypair.publicKey.toString(),
-      private_key: encryptPrivateKey(privateKeyHex, userId),
+      privateKey: Buffer.toString(keypair.secretKey, 'hex'),
+      wallet_type: 'derived',
     };
   } catch (error) {
-    console.error("Error creating Solana wallet:", error);
-    throw new Error(`Failed to create Solana wallet: ${error.message}`);
+    console.error('Error generating Solana wallet:', error);
+    throw error;
   }
 }
 
-function createTronWalletFromMnemonic(mnemonic: string, userId: string) {
+// Generate Ethereum wallet from mnemonic
+async function generateEVMWallet(mnemonic: string, blockchain: string, currency: string, path: string) {
   try {
-    const wallet = ethers.Wallet.fromPhrase(mnemonic, DERIVATION_PATHS.TRON);
-    const ethAddressHex = wallet.address.slice(2);
-    const tronAddress = `T${ethAddressHex}`;
-    return {
-      address: tronAddress,
-      private_key: encryptPrivateKey(wallet.privateKey, userId),
-    };
-  } catch (error) {
-    console.error("Error creating Tron wallet:", error);
-    throw new Error(`Failed to create Tron wallet: ${error.message}`);
-  }
-}
-
-function createBitcoinWalletFromMnemonic(mnemonic: string, userId: string) {
-  try {
-    console.log("Creating Bitcoin wallet from mnemonic...");
-    const seed = bip39.mnemonicToSeedSync(mnemonic);
-    const dummyAddress = "bc1" + Array.from(seed.slice(0, 20))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-      .substring(0, 38);
-    const privateKey = Array.from(seed.slice(0, 32))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-    return {
-      address: dummyAddress,
-      private_key: encryptPrivateKey(privateKey, userId),
-    };
-  } catch (error) {
-    console.error("Error creating BTC wallet:", error);
-    throw new Error(`Failed to create BTC wallet: ${error.message}`);
-  }
-}
-
-function createEVMWalletFromMnemonic(mnemonic: string, path: string, blockchain: string, currency: string, userId: string) {
-  try {
-    const wallet = ethers.Wallet.fromPhrase(mnemonic, path);
+    const ethers = await import("https://esm.sh/ethers@6.13.5");
+    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, path);
+    
     return {
       blockchain,
       currency,
       address: wallet.address,
-      private_key: encryptPrivateKey(wallet.privateKey, userId),
+      privateKey: wallet.privateKey,
+      wallet_type: 'derived',
     };
   } catch (error) {
-    console.error(`Error creating ${blockchain} wallet:`, error);
-    throw new Error(`Failed to create ${blockchain} wallet: ${error.message}`);
+    console.error(`Error generating ${blockchain} wallet:`, error);
+    throw error;
   }
 }
 
-async function createUserWallets(supabase: any, userId: string) {
+// Generate Bitcoin wallet from mnemonic
+async function generateBitcoinWallet(mnemonic: string) {
   try {
-    console.log(`Creating wallets for user: ${userId}`);
+    // Convert mnemonic to seed
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const seedBuffer = new Uint8Array(seed);
+
+    // Initialize bitcoinjs with ecc
+    bitcoinjs.initEccLib(ecc);
     
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("numeric_id")
-      .eq("id", userId)
-      .maybeSingle();
-      
-    if (profileError) {
-      throw new Error(`Error fetching user profile: ${profileError.message}`);
+    // Create a bitcoin network (mainnet)
+    const network = bitcoinjs.networks.bitcoin;
+    
+    // Derive the key using BIP32
+    const bip32 = await import("https://esm.sh/bip32@4.0.0");
+    const root = bip32.BIP32Factory(ecc).fromSeed(seedBuffer, network);
+    
+    // Derive account using path
+    const child = root.derivePath(DERIVATION_PATHS.BITCOIN);
+    
+    // Generate payment objects
+    const { address } = bitcoinjs.payments.p2wpkh({ 
+      pubkey: child.publicKey, 
+      network 
+    });
+    
+    if (!address) {
+      throw new Error('Failed to generate Bitcoin address');
     }
     
-    let numeric_id = profile?.numeric_id;
+    return {
+      blockchain: 'Bitcoin',
+      currency: 'BTC',
+      address: address,
+      privateKey: child.privateKey ? Buffer.toString(child.privateKey, 'hex') : undefined,
+      wallet_type: 'derived',
+    };
+  } catch (error) {
+    console.error('Error generating Bitcoin wallet:', error);
+    throw error;
+  }
+}
+
+// Handle CORS preflight requests
+function handleCors(req: Request) {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders, status: 204 });
+  }
+  return null;
+}
+
+// Generate wallets for a user
+async function generateWalletsForUser(supabase: any, userId: string, mnemonic: string) {
+  try {
+    console.log("Generating HD wallets from mnemonic for user:", userId);
     
-    if (!profile || !numeric_id) {
-      console.log("User doesn't have a numeric ID yet, generating one");
-      numeric_id = null;
-      let idUnique = false;
+    // Generate wallets from the same mnemonic for different chains
+    const wallets = [];
+    
+    // Generate Ethereum wallet
+    const ethereumWallet = await generateEVMWallet(
+      mnemonic,
+      'Ethereum',
+      'ETH',
+      DERIVATION_PATHS.ETHEREUM
+    );
+    wallets.push(ethereumWallet);
+    
+    // Generate Bitcoin wallet
+    const bitcoinWallet = await generateBitcoinWallet(mnemonic);
+    wallets.push(bitcoinWallet);
+    
+    // Generate Solana wallet
+    const solanaWallet = await generateSolanaWallet(mnemonic);
+    wallets.push(solanaWallet);
+    
+    // Generate BNB Chain wallet (using same derivation as Ethereum but different path)
+    const bnbWallet = await generateEVMWallet(
+      mnemonic,
+      'Binance Smart Chain',
+      'BNB',
+      DERIVATION_PATHS.BNB_CHAIN
+    );
+    wallets.push(bnbWallet);
+    
+    // Generate Polygon wallet
+    const polygonWallet = await generateEVMWallet(
+      mnemonic,
+      'Polygon',
+      'MATIC',
+      DERIVATION_PATHS.POLYGON
+    );
+    wallets.push(polygonWallet);
+    
+    // Generate Monad wallet (using Ethereum derivation path since it's EVM compatible)
+    const monadWallet = await generateEVMWallet(
+      mnemonic,
+      'Monad',
+      'MONAD',
+      DERIVATION_PATHS.MONAD
+    );
+    wallets.push(monadWallet);
+    
+    console.log(`Generated ${wallets.length} wallets for user ${userId}`);
+    
+    // Store wallets in database
+    for (const wallet of wallets) {
+      const { blockchain, currency, address, privateKey, wallet_type } = wallet;
       
-      for (let attempts = 0; attempts < 10 && !idUnique; attempts++) {
-        numeric_id = Math.floor(Math.random() * (99999999 - 10000000 + 1)) + 10000000;
-        
-        const { count, error: countError } = await supabase
-          .from('profiles')
-          .select('id', { count: 'exact', head: true })
-          .eq('numeric_id', numeric_id);
-        
-        if (!countError && count === 0) {
-          idUnique = true;
-        }
+      const { error } = await supabase
+        .from('wallets')
+        .upsert([{
+          user_id: userId,
+          blockchain,
+          currency,
+          address,
+          private_key: privateKey,
+          wallet_type,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }], 
+        { 
+          onConflict: 'user_id, blockchain, currency',
+          ignoreDuplicates: false
+        });
+      
+      if (error) {
+        console.error(`Error storing ${blockchain} wallet:`, error);
       }
-      
-      if (!idUnique) {
-        throw new Error("Could not generate a unique numeric ID");
-      }
-      
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ numeric_id })
-        .eq('id', userId);
-        
-      if (updateError) {
-        throw new Error(`Error updating user's numeric ID: ${updateError.message}`);
-      }
-      
-      console.log(`Assigned numeric ID ${numeric_id} to user ${userId}`);
     }
     
-    const { data: existingWallets, error: checkError } = await supabase
+    return wallets;
+  } catch (error) {
+    console.error('Error in generateWalletsForUser:', error);
+    throw error;
+  }
+}
+
+// Main handler for the function
+serve(async (req) => {
+  // Handle CORS
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  try {
+    // Get environment variables
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    
+    // Create a Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Parse request body
+    const { userId } = await req.json();
+    
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "No userId provided" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+    
+    // Try to fetch existing wallets first
+    const { data: existingWallets, error: walletsError } = await supabase
       .from("wallets")
-      .select("currency, blockchain")
+      .select("*")
       .eq("user_id", userId);
-
-    if (checkError) {
-      throw new Error(`Error checking existing wallets: ${checkError.message}`);
-    }
-
-    const existingWalletKeys = new Set();
-    if (existingWallets && existingWallets.length > 0) {
+    
+    if (walletsError) {
+      console.error("Error fetching existing wallets:", walletsError);
+    } else if (existingWallets && existingWallets.length > 0) {
+      // User already has wallets
       console.log(`User ${userId} already has ${existingWallets.length} wallets`);
-      
-      existingWallets.forEach(wallet => {
-        existingWalletKeys.add(`${wallet.blockchain}-${wallet.currency}`);
+      return new Response(JSON.stringify({
+        success: true,
+        message: "User already has wallets",
+        wallets: existingWallets
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -241,7 +302,7 @@ async function createUserWallets(supabase: any, userId: string) {
     if (mnemonicError) {
       console.error("Error fetching user mnemonic:", mnemonicError);
       mnemonic = getOrCreateMnemonic(); // Generate a new one if there was an error
-    } else if (mnemonicData && mnemonicData.length > 0 && mnemonicData[0].main_mnemonic) {
+    } else if (mnemonicData && mnemonicData.length > 0) {
       console.log("Found existing mnemonic for user");
       mnemonic = mnemonicData[0].main_mnemonic;
     } else {
@@ -264,280 +325,21 @@ async function createUserWallets(supabase: any, userId: string) {
       console.error("Error storing mnemonic:", storeMnemonicError);
     }
     
-    const wallets = [];
-
-    if (!existingWalletKeys.has("Bitcoin-BTC")) {
-      try {
-        console.log("Creating Bitcoin wallet");
-        const btcWallet = createBitcoinWalletFromMnemonic(mnemonic, userId);
-        wallets.push({
-          user_id: userId,
-          blockchain: "Bitcoin",
-          currency: "BTC",
-          address: btcWallet.address,
-          private_key: btcWallet.private_key,
-          wallet_type: "imported",
-          balance: 0,
-        });
-        console.log("Created BTC wallet");
-      } catch (btcError) {
-        console.error("Error creating BTC wallet:", btcError);
-      }
-    }
-
-    if (!existingWalletKeys.has("Ethereum-ETH")) {
-      try {
-        console.log("Creating ETH wallet from mnemonic");
-        const ethWallet = createEVMWalletFromMnemonic(
-          mnemonic, 
-          DERIVATION_PATHS.ETHEREUM, 
-          "Ethereum", 
-          "ETH", 
-          userId
-        );
-        
-        wallets.push({
-          user_id: userId,
-          blockchain: ethWallet.blockchain,
-          currency: ethWallet.currency,
-          address: ethWallet.address,
-          private_key: ethWallet.private_key,
-          wallet_type: "imported",
-          balance: 0,
-        });
-        
-        if (!existingWalletKeys.has("Ethereum-USDT")) {
-          wallets.push({
-            user_id: userId,
-            blockchain: "Ethereum",
-            currency: "USDT",
-            address: ethWallet.address,
-            private_key: ethWallet.private_key,
-            wallet_type: "token",
-            balance: 0,
-          });
-        }
-        console.log("Created ETH and USDT (ERC20) wallets");
-      } catch (ethError) {
-        console.error("Error creating ETH wallet:", ethError);
-      }
-    }
-
-    if (!existingWalletKeys.has("Solana-SOL")) {
-      try {
-        console.log("Creating Solana wallet from mnemonic");
-        const solWallet = createSolanaWalletFromMnemonic(mnemonic, userId);
-        wallets.push({
-          user_id: userId,
-          blockchain: "Solana",
-          currency: "SOL",
-          address: solWallet.address,
-          private_key: solWallet.private_key,
-          wallet_type: "imported",
-          balance: 0,
-        });
-        
-        if (!existingWalletKeys.has("Solana-USDT")) {
-          wallets.push({
-            user_id: userId,
-            blockchain: "Solana",
-            currency: "USDT",
-            address: solWallet.address,
-            private_key: solWallet.private_key,
-            wallet_type: "token",
-            balance: 0,
-          });
-        }
-        console.log("Created SOL wallet and USDT (SPL) wallet");
-      } catch (solError) {
-        console.error("Error creating SOL wallet:", solError);
-      }
-    }
-
-    if (!existingWalletKeys.has("Tron-TRX")) {
-      try {
-        console.log("Creating Tron wallet from mnemonic");
-        const tronWallet = createTronWalletFromMnemonic(mnemonic, userId);
-        wallets.push({
-          user_id: userId,
-          blockchain: "Tron",
-          currency: "TRX",
-          address: tronWallet.address,
-          private_key: tronWallet.private_key,
-          wallet_type: "imported",
-          balance: 0,
-        });
-        
-        if (!existingWalletKeys.has("Tron-USDT")) {
-          wallets.push({
-            user_id: userId,
-            blockchain: "Tron",
-            currency: "USDT",
-            address: tronWallet.address,
-            private_key: tronWallet.private_key,
-            wallet_type: "token",
-            balance: 0,
-          });
-        }
-        console.log("Created TRX wallet and USDT (TRC20) wallet");
-      } catch (tronError) {
-        console.error("Error creating TRX wallet:", tronError);
-      }
-    }
-
-    try {
-      if (!existingWalletKeys.has("Binance Smart Chain-BNB")) {
-        console.log("Creating BSC wallet from mnemonic");
-        const bscWallet = createEVMWalletFromMnemonic(
-          mnemonic,
-          DERIVATION_PATHS.BNB_CHAIN, 
-          "Binance Smart Chain", 
-          "BNB", 
-          userId
-        );
-        
-        wallets.push({
-          user_id: userId,
-          blockchain: bscWallet.blockchain,
-          currency: bscWallet.currency,
-          address: bscWallet.address,
-          private_key: bscWallet.private_key,
-          wallet_type: "imported",
-          balance: 0,
-        });
-        
-        if (!existingWalletKeys.has("Binance Smart Chain-USDT")) {
-          wallets.push({
-            user_id: userId,
-            blockchain: "Binance Smart Chain",
-            currency: "USDT",
-            address: bscWallet.address,
-            private_key: bscWallet.private_key,
-            wallet_type: "token",
-            balance: 0,
-          });
-        }
-      }
-      
-      if (!existingWalletKeys.has("Polygon-MATIC")) {
-        console.log("Creating Polygon wallet from mnemonic");
-        const polygonWallet = createEVMWalletFromMnemonic(
-          mnemonic,
-          DERIVATION_PATHS.POLYGON,
-          "Polygon",
-          "MATIC",
-          userId
-        );
-        
-        wallets.push({
-          user_id: userId,
-          blockchain: polygonWallet.blockchain,
-          currency: polygonWallet.currency,
-          address: polygonWallet.address,
-          private_key: polygonWallet.private_key,
-          wallet_type: "imported",
-          balance: 0,
-        });
-        
-        if (!existingWalletKeys.has("Polygon-USDT")) {
-          wallets.push({
-            user_id: userId,
-            blockchain: "Polygon",
-            currency: "USDT",
-            address: polygonWallet.address,
-            private_key: polygonWallet.private_key,
-            wallet_type: "token",
-            balance: 0,
-          });
-        }
-      }
-      
-      console.log("Created additional EVM wallets and USDT tokens");
-    } catch (evmError) {
-      console.error("Error creating additional EVM wallets:", evmError);
-    }
-
-    if (wallets.length > 0) {
-      console.log(`Inserting ${wallets.length} new wallets`);
-      const { data: insertedWallets, error: insertError } = await supabase
-        .from("wallets")
-        .insert(wallets)
-        .select();
-
-      if (insertError) {
-        throw new Error(`Error inserting wallets: ${insertError.message}`);
-      }
-
-      return { 
-        success: true, 
-        message: "Wallets created successfully", 
-        count: wallets.length, 
-        existingCount: existingWallets?.length || 0,
-        wallets: insertedWallets
-      };
-    } else if (existingWallets && existingWallets.length > 0) {
-      return { 
-        success: true, 
-        message: "Wallets already exist", 
-        count: 0,
-        existingCount: existingWallets.length,
-        wallets: existingWallets 
-      };
-    } else {
-      throw new Error("No wallets were created");
-    }
-
-  } catch (error) {
-    console.error("Error in createUserWallets function:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-serve(async (req) => {
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
-
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    let requestData;
-    try {
-      const text = await req.text();
-      if (text && text.trim()) {
-        requestData = JSON.parse(text);
-      } else {
-        requestData = {};
-      }
-    } catch (e) {
-      console.error("Error parsing request body:", e);
-      return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
-    const userId = requestData.userId;
+    const wallets = await generateWalletsForUser(supabase, userId, mnemonic);
     
-    if (!userId) {
-      return new Response(JSON.stringify({ error: "No userId provided" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
-    const result = await createUserWallets(supabase, userId);
-
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({
+      success: true,
+      message: "Wallets created successfully",
+      wallets: wallets
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: result.success ? 200 : 400,
     });
-    
   } catch (error) {
     console.error("Error in edge function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error" 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
