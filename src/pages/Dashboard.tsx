@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -203,7 +204,7 @@ const Dashboard = () => {
               Retry Loading
             </KashButton>
             <KashButton 
-              onClick={handleForceCreate}
+              onClick={() => handleForceCreate()}
               size="sm"
               variant="outline"
               disabled={isCreatingWallets}
@@ -225,7 +226,7 @@ const Dashboard = () => {
           <AlertDescription className="flex flex-col">
             <span>You don't have any wallets yet. Create wallets to get started.</span>
             <KashButton 
-              onClick={handleForceCreate}
+              onClick={() => handleForceCreate()}
               className="mt-4"
               disabled={isCreatingWallets}
             >
