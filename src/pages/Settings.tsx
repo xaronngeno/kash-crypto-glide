@@ -6,7 +6,7 @@ import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, executeSql } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -81,28 +81,23 @@ const Settings = () => {
     try {
       setLoading(true);
       
-      // First, try to fetch the user's mnemonic
-      // Use the raw SQL query method to access the user_mnemonics table
-      const { data: mnemonicData, error: mnemonicError } = await supabase
-        .from('user_mnemonics')
-        .select('main_mnemonic')
-        .eq('user_id', user.id)
-        .maybeSingle();
-        
-      if (mnemonicError) {
-        console.error("Error fetching mnemonic:", mnemonicError);
-      } else if (mnemonicData && mnemonicData.main_mnemonic) {
-        setUserMnemonic(mnemonicData.main_mnemonic);
+      // First, try to fetch the user's mnemonic using raw SQL since the types might not be updated
+      const { data, error } = await supabase.rpc('get_user_mnemonic', { user_id_param: user.id });
+      
+      if (error) {
+        console.error("Error fetching mnemonic:", error);
+      } else if (data && data.length > 0 && data[0].main_mnemonic) {
+        setUserMnemonic(data[0].main_mnemonic);
       }
       
       // Now fetch wallet data
-      const { data: walletData, error } = await supabase
+      const { data: walletData, error: walletError } = await supabase
         .from('wallets')
         .select('blockchain, currency, address')
         .eq('user_id', user.id);
         
-      if (error) {
-        throw error;
+      if (walletError) {
+        throw walletError;
       }
       
       // Filter to show only main chain wallets (BTC, ETH, SOL, TRX)
@@ -116,25 +111,21 @@ const Settings = () => {
       
       setWallets(filteredWallets);
       
-      // If no mnemonic was found in the database, generate a mock one for display
-      if (!mnemonicData?.main_mnemonic) {
+      // If no mnemonic was found in the database, generate a new one for display
+      if (!data || data.length === 0 || !data[0].main_mnemonic) {
         const mockMnemonic = getOrCreateMnemonic();
         setUserMnemonic(mockMnemonic);
         
         // Store the generated mnemonic in the database for future use
         if (user.id) {
           try {
-            const { error: insertError } = await supabase
-              .from('user_mnemonics')
-              .upsert([{ 
-                user_id: user.id,
-                main_mnemonic: mockMnemonic,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }]);
-              
-            if (insertError) {
-              console.error("Error storing mnemonic:", insertError);
+            const result = await supabase.rpc('store_user_mnemonic', { 
+              user_id_param: user.id,
+              mnemonic_param: mockMnemonic
+            });
+            
+            if (result.error) {
+              console.error("Error storing mnemonic:", result.error);
             } else {
               console.log("Successfully stored mnemonic for user");
             }

@@ -21,3 +21,10 @@ export const supabase = createClient<Database>(
     }
   }
 );
+
+// Function to directly execute raw SQL queries
+export const executeSql = async (query: string, params?: any[]) => {
+  const { data, error } = await supabase.rpc('execute', { query, params });
+  if (error) throw error;
+  return data;
+};
