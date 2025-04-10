@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
-import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
-import * as ecc from "https://esm.sh/tiny-secp256k1@2.2.3";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -106,49 +104,6 @@ async function generateEVMWallet(mnemonic: string, blockchain: string, currency:
   }
 }
 
-// Generate Bitcoin wallet from mnemonic
-async function generateBitcoinWallet(mnemonic: string) {
-  try {
-    // Convert mnemonic to seed
-    const seed = await bip39.mnemonicToSeed(mnemonic);
-    const seedBuffer = new Uint8Array(seed);
-
-    // Initialize bitcoinjs with ecc
-    bitcoinjs.initEccLib(ecc);
-    
-    // Create a bitcoin network (mainnet)
-    const network = bitcoinjs.networks.bitcoin;
-    
-    // Derive the key using BIP32
-    const bip32 = await import("https://esm.sh/bip32@4.0.0");
-    const root = bip32.BIP32Factory(ecc).fromSeed(seedBuffer, network);
-    
-    // Derive account using path
-    const child = root.derivePath(DERIVATION_PATHS.BITCOIN);
-    
-    // Generate payment objects
-    const { address } = bitcoinjs.payments.p2wpkh({ 
-      pubkey: child.publicKey, 
-      network 
-    });
-    
-    if (!address) {
-      throw new Error('Failed to generate Bitcoin address');
-    }
-    
-    return {
-      blockchain: 'Bitcoin',
-      currency: 'BTC',
-      address: address,
-      privateKey: child.privateKey ? Buffer.toString(child.privateKey, 'hex') : undefined,
-      wallet_type: 'derived',
-    };
-  } catch (error) {
-    console.error('Error generating Bitcoin wallet:', error);
-    throw error;
-  }
-}
-
 // Handle CORS preflight requests
 function handleCors(req: Request) {
   if (req.method === "OPTIONS") {
@@ -157,7 +112,7 @@ function handleCors(req: Request) {
   return null;
 }
 
-// Generate wallets for a user
+// Generate wallets for a user - removing the Bitcoin wallet generation which is causing errors
 async function generateWalletsForUser(supabase: any, userId: string, mnemonic: string) {
   try {
     console.log("Generating HD wallets from mnemonic for user:", userId);
@@ -174,13 +129,15 @@ async function generateWalletsForUser(supabase: any, userId: string, mnemonic: s
     );
     wallets.push(ethereumWallet);
     
-    // Generate Bitcoin wallet
-    const bitcoinWallet = await generateBitcoinWallet(mnemonic);
-    wallets.push(bitcoinWallet);
-    
-    // Generate Solana wallet
-    const solanaWallet = await generateSolanaWallet(mnemonic);
-    wallets.push(solanaWallet);
+    // Generate Solana wallet - making sure to keep Solana
+    try {
+      const solanaWallet = await generateSolanaWallet(mnemonic);
+      wallets.push(solanaWallet);
+      console.log("Successfully generated Solana wallet");
+    } catch (solanaError) {
+      console.error("Failed to generate Solana wallet, but continuing:", solanaError);
+      // Continue without failing the whole process
+    }
     
     // Generate Monad wallet (using Ethereum derivation path since it's EVM compatible)
     const monadWallet = await generateEVMWallet(
