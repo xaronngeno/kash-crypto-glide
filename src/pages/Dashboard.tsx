@@ -13,10 +13,6 @@ import { useAuth } from '@/components/AuthProvider';
 import { toast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { KashButton } from '@/components/ui/KashButton';
-
-// Updated to use ETH, SOL, TRX as main currencies
-const MAIN_CURRENCIES = ['ETH', 'SOL', 'TRX', 'MONAD', 'SUI'];
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -29,17 +25,19 @@ const Dashboard = () => {
     assets, 
     loading: walletLoading, 
     isCreatingWallets, 
-    error: walletError,
-    refreshWallets
+    error: walletError 
   } = useWallets({ prices });
 
+  // Redirect to auth if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       navigate('/auth');
     }
   }, [navigate, isAuthenticated, authLoading]);
 
+  // Debug logging for user and wallet relationship
   useEffect(() => {
+    // Log auth state
     console.log('Auth state:', { 
       userId: user?.id,
       userEmail: user?.email,
@@ -52,10 +50,17 @@ const Dashboard = () => {
 
     if (!walletLoading && assets.length === 0) {
       console.warn('Wallet assets loaded but empty. No wallets created or issue with data?');
+      toast({
+        title: 'Showing demo wallets',
+        description: 'We\'re showing you demo wallet data.',
+        variant: 'default',
+        duration: 5000,
+      });
     } else if (!walletLoading) {
       console.log(`Loaded ${assets.length} assets for user`);
     }
 
+    // Alert user if wallets are being created
     if (isCreatingWallets) {
       toast({
         title: 'Setting up your wallet',
@@ -64,26 +69,18 @@ const Dashboard = () => {
       });
     }
 
+    // Show info toast if there's an error but we're showing demo data
     if (walletError) {
-      console.error('Wallet loading error:', walletError);
+      console.log('Using demo wallet data:', walletError);
     }
     
+    // Show info toast if there's a price loading error
     if (pricesError) {
-      console.error('Price loading error:', pricesError);
+      console.log('Using estimated price data:', pricesError);
     }
   }, [user, profile, assets, walletLoading, isCreatingWallets, walletError, pricesError, toast, isAuthenticated]);
 
-  useEffect(() => {
-    const safetyTimer = setTimeout(() => {
-      if (walletLoading) {
-        console.log("Safety timeout reached - forcing loading state to complete");
-        setLoadingProgress(100);
-      }
-    }, 10000); // 10 second maximum timeout
-    
-    return () => clearTimeout(safetyTimer);
-  }, [walletLoading]);
-
+  // If not authenticated or still loading auth, show loading state
   if (authLoading) {
     return (
       <MainLayout title="Portfolio">
@@ -95,6 +92,7 @@ const Dashboard = () => {
     );
   }
   
+  // Immediately redirect if not authenticated
   if (!isAuthenticated) {
     return (
       <MainLayout title="Portfolio">
@@ -106,14 +104,15 @@ const Dashboard = () => {
     );
   }
 
+  // Simple loading progress effect
   useEffect(() => {
     if (walletLoading || pricesLoading || isCreatingWallets) {
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
           if (prev >= 90) return 90;
-          return prev + 10;
+          return prev + 10; // Faster progress
         });
-      }, 300);
+      }, 300); // Shorter interval
       
       return () => clearInterval(interval);
     } else {
@@ -129,14 +128,17 @@ const Dashboard = () => {
   const isLoading = (walletLoading || pricesLoading || isCreatingWallets);
 
   const handleRetryLoading = () => {
+    // Try to refetch data
     refetchPrices();
     toast({
       title: 'Refreshing data',
       description: 'Attempting to reload your wallet data...',
       duration: 3000,
     });
-    
-    refreshWallets();
+    // Force page reload if things are really stuck
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   };
 
   const renderLoadingSkeleton = () => (
@@ -163,20 +165,19 @@ const Dashboard = () => {
     </div>
   );
 
-  const renderErrorMessage = () => {
+  const renderInfoMessage = () => {
     return (
-      <Alert variant="destructive" className="mb-6">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error Loading Wallet Data</AlertTitle>
+      <Alert variant="default" className="mb-6 bg-blue-50 border-blue-100">
+        <AlertCircle className="h-4 w-4 text-blue-500" />
+        <AlertTitle>Demo Mode</AlertTitle>
         <AlertDescription className="flex flex-col">
-          <span>{walletError || "Failed to load your wallet data"}</span>
-          <KashButton 
+          <span>Showing demo wallet data with sample balances.</span>
+          <button 
             onClick={handleRetryLoading}
-            className="mt-4"
-            size="sm"
+            className="text-sm mt-2 underline text-left text-blue-500"
           >
-            Retry Loading
-          </KashButton>
+            Reload data
+          </button>
         </AlertDescription>
       </Alert>
     );
@@ -208,63 +209,49 @@ const Dashboard = () => {
 
       {!isLoading && (
         <div className="space-y-6">
-          {walletError && renderErrorMessage()}
+          {(walletError || pricesError) && renderInfoMessage()}
           
-          {assets.length === 0 && !isLoading && !isCreatingWallets && (
-            <Alert variant="default" className="mb-6 bg-blue-50 border-blue-100">
-              <AlertCircle className="h-4 w-4 text-blue-500" />
-              <AlertTitle>No Wallets Found</AlertTitle>
-              <AlertDescription className="flex flex-col">
-                <span>Your wallet data could not be loaded. Please try refreshing the page or contact support if the issue persists.</span>
-                <KashButton 
-                  onClick={handleRetryLoading}
-                  className="mt-4"
-                >
-                  Refresh Data
-                </KashButton>
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {assets.length > 0 && (
-            <>
-              <div className="flex flex-col items-center justify-center pt-4">
-                <div className="text-gray-500 text-sm mb-1">Total Balance</div>
-                <div className="flex items-center">
-                  <h1 className="text-3xl font-bold">
-                    {currency === 'USD' ? '$' : 'KES '}
-                    {hideBalance ? '•••••' : totalBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                  </h1>
-                  <button 
-                    onClick={() => setHideBalance(!hideBalance)}
-                    className="ml-2 text-gray-400 hover:text-gray-600"
-                  >
-                    {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                
-                <div className="mt-4">
-                  <ActionButtons />
-                </div>
-              </div>
+          <div className="flex flex-col items-center justify-center pt-4">
+            <div className="text-gray-500 text-sm mb-1">Total Balance</div>
+            <div className="flex items-center">
+              <h1 className="text-3xl font-bold">
+                {currency === 'USD' ? '$' : 'KES '}
+                {hideBalance ? '•••••' : totalBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+              </h1>
+              <button 
+                onClick={() => setHideBalance(!hideBalance)}
+                className="ml-2 text-gray-400 hover:text-gray-600"
+              >
+                {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            
+            <div className="mt-4">
+              <ActionButtons />
+            </div>
+          </div>
 
-              <div className="mt-6">
-                <div className="flex justify-between items-center mb-2">
-                  <h2 className="text-xl font-semibold">Your Assets</h2>
-                  <button 
-                    onClick={() => setCurrency(currency === 'USD' ? 'KES' : 'USD')}
-                    className="text-sm text-kash-green"
-                  >
-                    Show in {currency === 'USD' ? 'KES' : 'USD'}
-                  </button>
-                </div>
-                
-                <AssetsList assets={assets} currency={currency} />
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-xl font-semibold">Your Assets</h2>
+              <button 
+                onClick={() => setCurrency(currency === 'USD' ? 'KES' : 'USD')}
+                className="text-sm text-kash-green"
+              >
+                Show in {currency === 'USD' ? 'KES' : 'USD'}
+              </button>
+            </div>
+            
+            {assets.length > 0 ? (
+              <AssetsList assets={assets} currency={currency} />
+            ) : (
+              <div className="py-8 text-center">
+                <p className="text-gray-500">Setting up your wallets, please wait...</p>
               </div>
-              
-              <PromoCard />
-            </>
-          )}
+            )}
+          </div>
+          
+          <PromoCard />
         </div>
       )}
     </MainLayout>

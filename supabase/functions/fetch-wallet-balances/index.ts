@@ -1,179 +1,87 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
-// CORS headers
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Handle CORS preflight requests
-function handleCors(req: Request) {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
-  return null;
-}
-
-// Only require these three cryptocurrencies
-const MAIN_CURRENCIES = ['ETH', 'SOL', 'TRX'];
-
-// Fetch real wallet balances for a user from the database
-async function fetchWalletBalances(supabase: any, userId: string) {
-  try {
-    console.log(`Fetching wallet balances for user: ${userId}`);
-    
-    // Fetch all wallets for the user
-    const { data: wallets, error } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("user_id", userId);
-    
-    if (error) {
-      console.error(`Error fetching wallets: ${error.message}`);
-      throw new Error(`Error fetching wallets: ${error.message}`);
-    }
-    
-    if (!wallets || wallets.length === 0) {
-      console.log(`No wallets found for user ${userId}. Should create them.`);
-      
-      // Check for stored mnemonic
-      const { data: mnemonicData } = await supabase
-        .from("user_mnemonics")
-        .select("main_mnemonic")
-        .eq("user_id", userId)
-        .maybeSingle();
-      
-      return {
-        success: true,
-        message: "No wallets found for user",
-        wallets: [],
-        shouldCreateWallets: true
-      };
-    }
-    
-    console.log(`Found ${wallets.length} wallets for user ${userId}`);
-    
-    // Check if all main currencies are present
-    const existingCurrencies = new Set(wallets.map(w => w.currency));
-    const missingMainCurrencies = MAIN_CURRENCIES.filter(currency => !existingCurrencies.has(currency));
-    
-    if (missingMainCurrencies.length > 0) {
-      console.log(`Missing main currencies: ${missingMainCurrencies.join(', ')}. User should recreate wallets.`);
-      
-      return {
-        success: true,
-        message: "Some main currencies are missing",
-        wallets: wallets.map(wallet => ({
-          blockchain: wallet.blockchain,
-          currency: wallet.currency,
-          address: wallet.address,
-          balance: wallet.balance || 0,
-          wallet_type: wallet.wallet_type
-        })),
-        shouldCreateWallets: true,
-        missingCurrencies: missingMainCurrencies
-      };
-    }
-    
-    // Sort wallets by priority
-    const walletsByPriority = [...wallets].sort((a, b) => {
-      // Main currencies first, in their defined order
-      const aIndex = MAIN_CURRENCIES.indexOf(a.currency);
-      const bIndex = MAIN_CURRENCIES.indexOf(b.currency);
-      
-      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-      
-      // Alphabetical as last priority
-      return a.currency.localeCompare(b.currency);
-    });
-    
-    // Return the wallet data with balance information
-    return {
-      success: true,
-      message: "Wallet balances retrieved successfully",
-      wallets: walletsByPriority.map(wallet => ({
-        blockchain: wallet.blockchain,
-        currency: wallet.currency,
-        address: wallet.address,
-        balance: wallet.balance || 0,
-        wallet_type: wallet.wallet_type
-      }))
-    };
-    
-  } catch (error) {
-    console.error("Error fetching wallet balances:", error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-serve(async (req) => {
-  // Handle CORS
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
 
   try {
-    // Get environment variables
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Missing required environment variables");
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: "Server configuration error" 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Parse the request body
-    let requestData;
-    try {
-      const text = await req.text();
-      requestData = text ? JSON.parse(text) : {};
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
+    const { userId } = await req.json();
 
-    // Get user ID from request
-    const userId = requestData.userId;
-    
     if (!userId) {
-      return new Response(JSON.stringify({ error: "No userId provided" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: 'User ID is required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
 
-    // Fetch wallet balances for the user
-    const result = await fetchWalletBalances(supabase, userId);
-
-    // Return the result
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: result.success ? 200 : 400,
-    });
+    console.log(`Fetching wallets for user: ${userId}`);
     
-  } catch (error) {
-    console.error("Error in edge function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+    // Get wallets from database
+    const { data: wallets, error: walletsError } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (walletsError) {
+      console.error('Error fetching wallets:', walletsError);
+      return new Response(
+        JSON.stringify({ success: false, error: walletsError.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+
+    if (!wallets || wallets.length === 0) {
+      console.log('No wallets found for user');
+      return new Response(
+        JSON.stringify({ success: false, error: 'No wallets found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      );
+    }
+
+    // In a real application, you would fetch balances from blockchain APIs here
+    // For now, we'll return the wallets with their actual balances from the database
+    // This could be extended to call different blockchain providers APIs
+    
+    // For demonstration, we'll just return the wallets as is
+    // In production, you'd make API calls to fetch real balances
+    const walletsWithBalances = wallets.map(wallet => {
+      // Real implementation would get balance from blockchain APIs
+      // based on wallet.blockchain and wallet.address
+      return {
+        ...wallet,
+        // Using the balance from the database for now
+        balance: parseFloat(wallet.balance) || 0
+      };
     });
+
+    console.log(`Successfully processed ${walletsWithBalances.length} wallets`);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Wallet balances fetched successfully',
+        wallets: walletsWithBalances
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message || 'Unknown error' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+    );
   }
 });

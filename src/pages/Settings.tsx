@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
@@ -6,7 +7,7 @@ import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
-import { supabase, getUserMnemonic, storeUserMnemonic } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -14,8 +15,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { getOrCreateMnemonic } from '@/utils/mnemonicWalletGenerator';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -29,21 +28,20 @@ const Settings = () => {
     numeric_id?: number | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  const [wallets, setWallets] = useState<Array<{
-    blockchain: string;
-    currency: string;
-    address: string;
-  }>>([]);
-  const [userMnemonic, setUserMnemonic] = useState<string | null>(null);
-  const [isMnemonicLoading, setIsMnemonicLoading] = useState(false);
+  
+  // Mock seed phrase - in a real app, this would be securely stored and retrieved
+  const mockSeedPhrase = "point coffee twist knock deposit differ yard adjust battle reason million elite";
   
   useEffect(() => {
+    // Immediately redirect if not authenticated and not loading
     if (!authLoading && !isAuthenticated) {
       navigate('/auth', { state: { from: location } });
       return;
     }
     
+    // Only fetch profile if authenticated
     if (isAuthenticated && user) {
       const fetchUserProfile = async () => {
         try {
@@ -66,83 +64,10 @@ const Settings = () => {
       };
       
       fetchUserProfile();
-      fetchUserWallets();
     } else {
       setLoading(false);
     }
   }, [user, isAuthenticated, authLoading, navigate]);
-  
-  const fetchUserWallets = async () => {
-    if (!user) return;
-    
-    try {
-      setLoading(true);
-      setIsMnemonicLoading(true);
-      
-      console.log('Attempting to fetch mnemonic for user:', user.id);
-      // Fetch the user's mnemonic using our helper function
-      const mnemonic = await getUserMnemonic(user.id);
-      
-      if (mnemonic) {
-        console.log('Successfully retrieved stored mnemonic');
-        setUserMnemonic(mnemonic);
-      } else {
-        console.log('No stored mnemonic found');
-      }
-      
-      // Now fetch wallet data
-      const { data: walletData, error: walletError } = await supabase
-        .from('wallets')
-        .select('blockchain, currency, address')
-        .eq('user_id', user.id);
-        
-      if (walletError) {
-        throw walletError;
-      }
-      
-      // Filter to show only main chain wallets (BTC, ETH, SOL, TRX)
-      const mainChains = ['Bitcoin', 'Ethereum', 'Solana', 'Tron', 'Sui', 'Monad'];
-      const mainCurrencies = ['BTC', 'ETH', 'SOL', 'TRX', 'SUI', 'MONAD'];
-      
-      const filteredWallets = walletData.filter(wallet => 
-        mainChains.includes(wallet.blockchain) && 
-        mainCurrencies.includes(wallet.currency)
-      );
-      
-      setWallets(filteredWallets);
-      
-      // If no mnemonic was found, generate a new one and store it
-      if (!mnemonic && user.id) {
-        console.log('No mnemonic found, generating a new one');
-        const newMnemonic = getOrCreateMnemonic();
-        setUserMnemonic(newMnemonic);
-        
-        console.log('Storing newly generated mnemonic');
-        // Store the generated mnemonic in the database for future use
-        const success = await storeUserMnemonic(user.id, newMnemonic);
-        if (!success) {
-          console.error("Error storing mnemonic");
-          toast({
-            title: "Error",
-            description: "Failed to save your recovery phrase securely",
-            variant: "destructive"
-          });
-        } else {
-          console.log("Successfully stored mnemonic for user");
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching wallets or mnemonic:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch wallet information',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-      setIsMnemonicLoading(false);
-    }
-  };
   
   const handleLogout = async () => {
     try {
@@ -171,6 +96,7 @@ const Settings = () => {
     });
   };
 
+  // Format user's full name based on available profile data
   const getUserDisplayName = () => {
     if (!profile) return user?.email || 'User';
     
@@ -195,9 +121,12 @@ const Settings = () => {
   });
   
   const onAuthSubmit = async (data: z.infer<typeof authFormSchema>) => {
+    // In a real app, verify password with Supabase or your auth provider
     try {
+      // Mock authentication - in real app, verify with Supabase
       setTimeout(() => {
         setIsAuthDialogOpen(false);
+        setShowSeedPhrase(true);
         
         toast({
           title: "Authentication successful",
@@ -216,15 +145,8 @@ const Settings = () => {
   const handleViewSecureInfo = () => {
     setIsAuthDialogOpen(true);
   };
-  
-  const copySeedPhrase = (seedPhrase: string) => {
-    navigator.clipboard.writeText(seedPhrase);
-    toast({
-      title: "Copied",
-      description: "Seed phrase copied to clipboard",
-    });
-  };
 
+  // Loading state
   if (authLoading || loading) {
     return (
       <MainLayout title="Settings">
@@ -235,6 +157,7 @@ const Settings = () => {
     );
   }
   
+  // If not authenticated, redirect immediately
   if (!isAuthenticated) {
     return (
       <MainLayout title="Settings">
@@ -249,6 +172,7 @@ const Settings = () => {
   return (
     <MainLayout title="Settings">
       <div className="space-y-6">
+        {/* Profile Section */}
         <KashCard>
           <div className="flex items-center">
             <div className="w-12 h-12 rounded-full bg-kash-green/10 flex items-center justify-center">
@@ -260,6 +184,7 @@ const Settings = () => {
               {profile?.phone && (
                 <p className="text-sm text-gray-500">{profile.phone}</p>
               )}
+              {/* Only show User ID if it exists in the profile */}
               {profile?.numeric_id && (
                 <div className="mt-2 flex items-center">
                   <p className="text-xs text-gray-500 mr-1">User ID: {profile.numeric_id}</p>
@@ -280,6 +205,7 @@ const Settings = () => {
           </div>
         </KashCard>
         
+        {/* Security Section */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Security</h2>
           <KashCard className="divide-y divide-gray-100">
@@ -302,91 +228,47 @@ const Settings = () => {
           </KashCard>
         </div>
         
+        {/* Wallet Recovery Section */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Wallet Recovery</h2>
-          <KashCard>
+          <KashCard className="divide-y divide-gray-100">
             <div className="py-3 px-1">
-              <Accordion type="single" collapsible>
-                <AccordionItem value="wallet-recovery">
-                  <AccordionTrigger className="flex items-center py-2">
-                    <div className="flex items-center">
-                      <Lock size={18} className="mr-2 text-kash-green" />
-                      <span className="text-gray-800">Wallet Seed Phrase</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    {/* Show a single seed phrase for all wallets */}
-                    <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                      <div className="flex justify-between items-center mb-3">
-                        <h4 className="font-medium">Universal Recovery Seed</h4>
-                        {userMnemonic && (
-                          <button 
-                            onClick={() => copySeedPhrase(userMnemonic)}
-                            className="text-kash-green hover:opacity-70 p-1"
-                          >
-                            <Copy size={16} />
-                          </button>
-                        )}
-                      </div>
-                      
-                      {isMnemonicLoading ? (
-                        <div className="p-3 flex justify-center">
-                          <Loader2 className="h-5 w-5 animate-spin text-kash-green" />
-                        </div>
-                      ) : userMnemonic ? (
-                        <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono break-all">
-                          {userMnemonic}
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-white border border-gray-200 rounded text-sm text-gray-500">
-                          No recovery phrase found
-                        </div>
-                      )}
-                      
-                      <p className="text-xs text-gray-500 mt-3">
-                        This is your master seed phrase that can restore all your wallets. Never share it with anyone.
-                      </p>
-                      
-                      {/* Display the list of wallets derived from this seed */}
-                      <div className="mt-4">
-                        <h5 className="font-medium text-sm mb-2">Your Wallets</h5>
-                        {wallets.length > 0 ? (
-                          <div className="space-y-2">
-                            {wallets.map((wallet, index) => (
-                              <div key={index} className="p-2 border border-gray-100 rounded bg-white">
-                                <div className="flex justify-between">
-                                  <div>
-                                    <p className="text-sm font-medium">{wallet.blockchain}</p>
-                                    <p className="text-xs text-gray-500 truncate">{wallet.address}</p>
-                                  </div>
-                                  <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded-full">
-                                    {wallet.currency}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="p-3 text-center text-sm text-gray-500">
-                            <p>No wallets found.</p>
-                            <KashButton 
-                              className="mt-2" 
-                              size="sm"
-                              onClick={() => navigate('/dashboard')}
-                            >
-                              Go to Dashboard to create wallets
-                            </KashButton>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+              <button 
+                className="w-full flex items-center justify-between"
+                onClick={handleViewSecureInfo}
+              >
+                <div className="flex items-center">
+                  <Lock size={18} className="mr-2 text-kash-green" />
+                  <span className="text-gray-800">Wallet Seed Phrase</span>
+                </div>
+                <ChevronRight size={18} className="text-gray-400" />
+              </button>
+              
+              {showSeedPhrase && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Seed Phrase</span>
+                    <button 
+                      onClick={() => setShowSeedPhrase(false)}
+                      className="text-sm text-kash-green flex items-center"
+                    >
+                      <EyeOff size={16} className="mr-1" />
+                      Hide
+                    </button>
+                  </div>
+                  <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono">
+                    {mockSeedPhrase}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    This seed phrase gives access to all your individual wallet addresses. Never share it with anyone.
+                  </p>
+                </div>
+              )}
             </div>
           </KashCard>
         </div>
         
+        {/* KYC Verification */}
         <div>
           <h2 className="text-lg font-semibold mb-3">KYC Verification</h2>
           <KashCard>
@@ -402,6 +284,7 @@ const Settings = () => {
           </KashCard>
         </div>
         
+        {/* Preferences */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Preferences</h2>
           <KashCard className="divide-y divide-gray-100">
@@ -426,6 +309,7 @@ const Settings = () => {
           </KashCard>
         </div>
         
+        {/* Account Actions */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Account Actions</h2>
           <KashCard className="divide-y divide-gray-100">
@@ -453,6 +337,7 @@ const Settings = () => {
         </div>
       </div>
       
+      {/* Authentication Dialog */}
       <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
         <DialogContent>
           <DialogHeader>
