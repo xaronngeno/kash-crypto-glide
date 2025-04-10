@@ -21,13 +21,41 @@ function handleCors(req: Request) {
   return null;
 }
 
+// Simple encryption function - in production, use a more secure method and proper key management
+function encryptPrivateKey(privateKey: string, userId: string): string {
+  try {
+    // This is a VERY simple encryption method for demonstration
+    // In production, use a proper encryption library and secure key management
+    // Example: AES encryption with a proper key derivation function
+    
+    // Create a simple XOR encryption with user ID as part of the key
+    // DO NOT USE THIS IN PRODUCTION - it's not secure!
+    const encryptionKey = `KASH_SECRET_KEY_${userId}_SECURE`;
+    let encrypted = "";
+    
+    for (let i = 0; i < privateKey.length; i++) {
+      const keyChar = encryptionKey[i % encryptionKey.length].charCodeAt(0);
+      const plainChar = privateKey[i].charCodeAt(0);
+      encrypted += String.fromCharCode(plainChar ^ keyChar);
+    }
+    
+    // Convert to base64 for storage
+    return btoa(encrypted);
+  } catch (error) {
+    console.error("Encryption error:", error);
+    throw new Error("Failed to encrypt private key");
+  }
+}
+
 // Function to create a Solana wallet
-function createSolanaWallet() {
+function createSolanaWallet(userId: string) {
   try {
     const keypair = solanaWeb3.Keypair.generate();
+    const privateKeyHex = Buffer.from(keypair.secretKey).toString('hex');
+    
     return {
       address: keypair.publicKey.toString(),
-      private_key: Buffer.from(keypair.secretKey).toString('hex'),
+      private_key: encryptPrivateKey(privateKeyHex, userId),
     };
   } catch (error) {
     console.error("Error creating Solana wallet:", error);
@@ -37,7 +65,7 @@ function createSolanaWallet() {
 
 // Function to create a Tron wallet using Ethereum wallet method
 // Tron addresses are derived from Ethereum-style private keys but with a different address format
-function createTronWallet() {
+function createTronWallet(userId: string) {
   try {
     // Create an Ethereum wallet first
     const ethWallet = ethers.Wallet.createRandom();
@@ -51,7 +79,7 @@ function createTronWallet() {
     
     return {
       address: tronAddress,
-      private_key: ethWallet.privateKey,
+      private_key: encryptPrivateKey(ethWallet.privateKey, userId),
     };
   } catch (error) {
     console.error("Error creating Tron wallet:", error);
@@ -60,7 +88,7 @@ function createTronWallet() {
 }
 
 // Function to create a Bitcoin wallet
-function createBitcoinWallet() {
+function createBitcoinWallet(userId: string) {
   try {
     const network = bitcoinjs.networks.bitcoin;
     const keyPair = bitcoinjs.ECPair.makeRandom({ network });
@@ -73,7 +101,7 @@ function createBitcoinWallet() {
     
     return {
       address: address,
-      private_key: privateKey,
+      private_key: encryptPrivateKey(privateKey, userId),
     };
   } catch (error) {
     console.error("Error creating BTC wallet:", error);
@@ -82,14 +110,14 @@ function createBitcoinWallet() {
 }
 
 // Function to create a standard EVM wallet (Ethereum, BSC, etc.)
-function createEVMWallet(blockchain: string, currency: string) {
+function createEVMWallet(blockchain: string, currency: string, userId: string) {
   try {
     const wallet = ethers.Wallet.createRandom();
     return {
       blockchain,
       currency,
       address: wallet.address,
-      private_key: wallet.privateKey,
+      private_key: encryptPrivateKey(wallet.privateKey, userId),
     };
   } catch (error) {
     console.error(`Error creating ${blockchain} wallet:`, error);
@@ -101,6 +129,55 @@ function createEVMWallet(blockchain: string, currency: string) {
 async function createUserWallets(supabase: any, userId: string) {
   try {
     console.log(`Creating wallets for user: ${userId}`);
+    
+    // Get user profile to check numeric ID
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("numeric_id")
+      .eq("id", userId)
+      .single();
+      
+    if (profileError) {
+      throw new Error(`Error fetching user profile: ${profileError.message}`);
+    }
+    
+    if (!profile || !profile.numeric_id) {
+      // Assign a numeric ID if not already present
+      console.log("User doesn't have a numeric ID yet, generating one");
+      let numeric_id;
+      let idUnique = false;
+      
+      // Try up to 10 times to generate a unique ID
+      for (let attempts = 0; attempts < 10 && !idUnique; attempts++) {
+        numeric_id = Math.floor(Math.random() * (99999999 - 10000000 + 1)) + 10000000;
+        
+        // Check if this ID already exists
+        const { count, error: countError } = await supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('numeric_id', numeric_id);
+        
+        if (!countError && count === 0) {
+          idUnique = true;
+        }
+      }
+      
+      if (!idUnique) {
+        throw new Error("Could not generate a unique numeric ID");
+      }
+      
+      // Update the profile with the new numeric ID
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ numeric_id })
+        .eq('id', userId);
+        
+      if (updateError) {
+        throw new Error(`Error updating user's numeric ID: ${updateError.message}`);
+      }
+      
+      console.log(`Assigned numeric ID ${numeric_id} to user ${userId}`);
+    }
     
     // Check if user already has wallets
     const { data: existingWallets, error: checkError } = await supabase
@@ -122,7 +199,7 @@ async function createUserWallets(supabase: any, userId: string) {
 
     // 1. Create Bitcoin wallet
     try {
-      const btcWallet = createBitcoinWallet();
+      const btcWallet = createBitcoinWallet(userId);
       wallets.push({
         user_id: userId,
         blockchain: "Bitcoin",
@@ -130,7 +207,7 @@ async function createUserWallets(supabase: any, userId: string) {
         address: btcWallet.address,
         private_key: btcWallet.private_key,
         wallet_type: "imported",
-        balance: 0.05, // Add sample balance for testing
+        balance: 0, // Start with zero balance
       });
       console.log("Created BTC wallet");
     } catch (btcError) {
@@ -139,7 +216,7 @@ async function createUserWallets(supabase: any, userId: string) {
 
     // 2. Create Ethereum wallet
     try {
-      const ethWallet = createEVMWallet("Ethereum", "ETH");
+      const ethWallet = createEVMWallet("Ethereum", "ETH", userId);
       wallets.push({
         user_id: userId,
         blockchain: ethWallet.blockchain,
@@ -147,10 +224,11 @@ async function createUserWallets(supabase: any, userId: string) {
         address: ethWallet.address,
         private_key: ethWallet.private_key,
         wallet_type: "imported",
-        balance: 1.2, // Add sample balance for testing
+        balance: 0,
       });
       
       // Also create USDT wallet on Ethereum with the same address
+      // For USDT, we need to track which network it's on
       wallets.push({
         user_id: userId,
         blockchain: "Ethereum",
@@ -158,16 +236,16 @@ async function createUserWallets(supabase: any, userId: string) {
         address: ethWallet.address,
         private_key: ethWallet.private_key,
         wallet_type: "token",
-        balance: 150, // Add sample balance for testing
+        balance: 0,
       });
-      console.log("Created ETH and USDT wallets");
+      console.log("Created ETH and USDT (ERC20) wallets");
     } catch (ethError) {
       console.error("Error creating ETH wallet:", ethError);
     }
 
     // 3. Create Solana wallet
     try {
-      const solWallet = createSolanaWallet();
+      const solWallet = createSolanaWallet(userId);
       wallets.push({
         user_id: userId,
         blockchain: "Solana",
@@ -175,16 +253,27 @@ async function createUserWallets(supabase: any, userId: string) {
         address: solWallet.address,
         private_key: solWallet.private_key,
         wallet_type: "imported",
-        balance: 2.5, // Add sample balance for testing
+        balance: 0,
       });
-      console.log("Created SOL wallet");
+      
+      // Add USDT on Solana (SPL token)
+      wallets.push({
+        user_id: userId,
+        blockchain: "Solana",
+        currency: "USDT",
+        address: solWallet.address,
+        private_key: solWallet.private_key,
+        wallet_type: "token",
+        balance: 0,
+      });
+      console.log("Created SOL wallet and USDT (SPL) wallet");
     } catch (solError) {
       console.error("Error creating SOL wallet:", solError);
     }
 
     // 4. Create Tron wallet
     try {
-      const tronWallet = createTronWallet();
+      const tronWallet = createTronWallet(userId);
       wallets.push({
         user_id: userId,
         blockchain: "Tron",
@@ -192,9 +281,20 @@ async function createUserWallets(supabase: any, userId: string) {
         address: tronWallet.address,
         private_key: tronWallet.private_key,
         wallet_type: "imported",
-        balance: 100, // Add sample balance for testing
+        balance: 0,
       });
-      console.log("Created TRX wallet");
+      
+      // Add USDT on Tron (TRC20)
+      wallets.push({
+        user_id: userId,
+        blockchain: "Tron",
+        currency: "USDT",
+        address: tronWallet.address,
+        private_key: tronWallet.private_key,
+        wallet_type: "token",
+        balance: 0,
+      });
+      console.log("Created TRX wallet and USDT (TRC20) wallet");
     } catch (tronError) {
       console.error("Error creating TRX wallet:", tronError);
     }
@@ -202,7 +302,7 @@ async function createUserWallets(supabase: any, userId: string) {
     // 5. Create additional EVM-compatible wallets
     try {
       // Binance Smart Chain (BSC)
-      const bscWallet = createEVMWallet("Binance Smart Chain", "BNB");
+      const bscWallet = createEVMWallet("Binance Smart Chain", "BNB", userId);
       wallets.push({
         user_id: userId,
         blockchain: bscWallet.blockchain,
@@ -210,11 +310,22 @@ async function createUserWallets(supabase: any, userId: string) {
         address: bscWallet.address,
         private_key: bscWallet.private_key,
         wallet_type: "imported",
-        balance: 3.0, // Add sample balance for testing
+        balance: 0,
+      });
+      
+      // Add USDT on BSC (BEP20)
+      wallets.push({
+        user_id: userId,
+        blockchain: "Binance Smart Chain",
+        currency: "USDT",
+        address: bscWallet.address,
+        private_key: bscWallet.private_key,
+        wallet_type: "token",
+        balance: 0,
       });
       
       // Polygon
-      const polygonWallet = createEVMWallet("Polygon", "MATIC");
+      const polygonWallet = createEVMWallet("Polygon", "MATIC", userId);
       wallets.push({
         user_id: userId,
         blockchain: polygonWallet.blockchain,
@@ -222,10 +333,21 @@ async function createUserWallets(supabase: any, userId: string) {
         address: polygonWallet.address,
         private_key: polygonWallet.private_key,
         wallet_type: "imported",
-        balance: 50.0, // Add sample balance for testing
+        balance: 0,
       });
       
-      console.log("Created additional EVM wallets (BNB, MATIC)");
+      // Add USDT on Polygon
+      wallets.push({
+        user_id: userId,
+        blockchain: "Polygon",
+        currency: "USDT",
+        address: polygonWallet.address,
+        private_key: polygonWallet.private_key,
+        wallet_type: "token",
+        balance: 0,
+      });
+      
+      console.log("Created additional EVM wallets and USDT tokens");
     } catch (evmError) {
       console.error("Error creating additional EVM wallets:", evmError);
     }

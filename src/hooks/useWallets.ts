@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -161,24 +160,42 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       try {
         console.log("Processing wallets:", wallets);
         const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-        const currencyBalances: Record<string, number> = {};
+        
+        // Group wallets by currency, keeping track of network
+        const currencyNetworkBalances: Record<string, { 
+          totalBalance: number, 
+          networks: Record<string, { address: string, balance: number }>
+        }> = {};
 
         wallets.forEach(wallet => {
-          const currency = wallet.currency;
-          const walletBalance = typeof wallet.balance === 'number' 
-            ? wallet.balance 
-            : parseFloat(String(wallet.balance)) || 0;
+          const { currency, blockchain, address, balance: walletBalance } = wallet;
+          const balance = typeof walletBalance === 'number' 
+            ? walletBalance 
+            : parseFloat(String(walletBalance)) || 0;
           
-          if (!isNaN(walletBalance)) {
-            if (!currencyBalances[currency]) {
-              currencyBalances[currency] = 0;
+          if (!isNaN(balance)) {
+            // Initialize currency entry if it doesn't exist
+            if (!currencyNetworkBalances[currency]) {
+              currencyNetworkBalances[currency] = { 
+                totalBalance: 0, 
+                networks: {} 
+              };
             }
-            currencyBalances[currency] += walletBalance;
+            
+            // Add to total balance for this currency
+            currencyNetworkBalances[currency].totalBalance += balance;
+            
+            // Add network-specific data
+            currencyNetworkBalances[currency].networks[blockchain] = {
+              address,
+              balance
+            };
           }
         });
         
         const updatedAssets = initialAssets.map(asset => {
-          const balance = currencyBalances[asset.symbol] || asset.amount; // Fall back to demo amount
+          const currencyData = currencyNetworkBalances[asset.symbol];
+          const balance = currencyData?.totalBalance ?? asset.amount; // Fall back to demo amount
           const assetPrice = prices?.[asset.symbol]?.price || asset.price;
           
           return {
@@ -186,7 +203,9 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
             amount: balance,
             price: assetPrice,
             value: balance * assetPrice,
-            change: prices?.[asset.symbol]?.change_24h || 0
+            change: prices?.[asset.symbol]?.change_24h || 0,
+            // Add networks info for use in transaction screens
+            networks: currencyData?.networks || {}
           };
         });
         
@@ -230,6 +249,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     assets, 
     loading, 
     isCreatingWallets: creatingWallets,
-    error
+    error,
+    createWallets: createWalletsForUser 
   };
 };
