@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Copy, QrCode } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -7,7 +6,7 @@ import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
-import QRCode from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface WalletAddress {
   blockchain: string;
@@ -23,7 +22,6 @@ const Receive = () => {
   const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Fetch actual wallet addresses from the database
   useEffect(() => {
     const fetchWalletAddresses = async () => {
       if (!user) {
@@ -43,7 +41,6 @@ const Receive = () => {
           throw error;
         }
 
-        // Map database results to the WalletAddress format
         if (data && data.length > 0) {
           const addresses = data.map(wallet => ({
             blockchain: wallet.blockchain,
@@ -53,7 +50,7 @@ const Receive = () => {
           
           console.log("Fetched wallet addresses:", addresses);
           setWalletAddresses(addresses);
-          setSelectedChain(addresses[0]); // Select first wallet by default
+          setSelectedChain(addresses[0]);
         } else {
           console.log("No wallets found for user");
           toast({
@@ -120,7 +117,6 @@ const Receive = () => {
           </p>
         </div>
 
-        {/* Blockchain selector */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {walletAddresses.map(chain => (
             <KashButton
@@ -134,7 +130,6 @@ const Receive = () => {
           ))}
         </div>
 
-        {/* Selected blockchain wallet address */}
         {selectedChain && (
           <KashCard className="p-5">
             <div className="text-center">
@@ -143,10 +138,9 @@ const Receive = () => {
               {showQR ? (
                 <div className="mb-4 flex justify-center">
                   <div className="w-48 h-48 bg-gray-100 flex items-center justify-center">
-                    <QRCode 
+                    <QRCodeSVG 
                       value={selectedChain.address}
                       size={200}
-                      renderAs="svg"
                       level="H"
                       includeMargin={true}
                       className="w-40 h-40"
