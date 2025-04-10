@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Copy, QrCode, Info } from 'lucide-react';
+import { Copy, QrCode, Info, Bitcoin, Wallet } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
@@ -43,6 +43,9 @@ const demoWallets: WalletAddress[] = [
     address: 'TH2Quo8DVXpKzBGBeCoRmsmfw7P6jfrzVN'
   }
 ];
+
+// Required wallet types that must always be available
+const requiredWalletTypes = ['BTC', 'ETH', 'USDT', 'SOL', 'TRX'];
 
 const Receive = () => {
   const { toast } = useToast();
@@ -93,9 +96,34 @@ const Receive = () => {
           });
           
           console.log("Fetched wallet addresses:", addresses);
+          
+          // Check if we have all required wallet types
+          const fetchedSymbols = new Set(addresses.map(addr => addr.symbol));
+          let missingWalletTypes = false;
+          
+          for (const requiredType of requiredWalletTypes) {
+            if (!fetchedSymbols.has(requiredType)) {
+              missingWalletTypes = true;
+              // Add missing wallet types from demo data
+              const demoWallet = demoWallets.find(w => w.symbol === requiredType);
+              if (demoWallet) {
+                addresses.push({...demoWallet});
+                console.log(`Added missing ${requiredType} wallet from demo data`);
+              }
+            }
+          }
+          
+          if (missingWalletTypes) {
+            toast({
+              title: "Some demo wallets added",
+              description: "We've added demo wallets for missing blockchain types.",
+              variant: "default"
+            });
+          }
+          
           setWalletAddresses(addresses);
           setSelectedChain(addresses[0]);
-          setUsingDemoWallets(false);
+          setUsingDemoWallets(missingWalletTypes);
         } else {
           console.log("No wallets found for user, using demo wallets");
           setWalletAddresses(demoWallets);
@@ -155,7 +183,7 @@ const Receive = () => {
           </p>
           {usingDemoWallets && (
             <p className="text-xs text-amber-600 mt-1">
-              Showing sample demo addresses
+              {usingDemoWallets === true ? "Showing sample demo addresses" : "Some demo addresses included"}
             </p>
           )}
         </div>
@@ -175,7 +203,7 @@ const Receive = () => {
           </div>
           
           <p className="text-sm text-gray-500 mt-1 mb-3">
-            {walletAddresses.length} wallets {usingDemoWallets ? "(demo)" : "created at registration"}
+            {walletAddresses.length} wallets {usingDemoWallets ? "(some demo)" : "created at registration"}
           </p>
           
           {showAllDetails && (
@@ -205,15 +233,17 @@ const Receive = () => {
           )}
         </KashCard>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {/* Use a unique key for each wallet button to prevent duplicates */}
           {walletAddresses.map((chain, index) => (
             <KashButton
               key={`${chain.blockchain}-${chain.symbol}-${index}`}
               variant={selectedChain?.blockchain === chain.blockchain && selectedChain?.symbol === chain.symbol ? "primary" : "outline"}
-              className="py-3"
+              className="py-3 flex items-center justify-center gap-1"
               onClick={() => setSelectedChain(chain)}
             >
+              {chain.symbol === 'BTC' && <Bitcoin size={14} className="mr-1" />}
+              {chain.symbol === 'SOL' && <Wallet size={14} className="mr-1" />}
               {chain.symbol}
             </KashButton>
           ))}
