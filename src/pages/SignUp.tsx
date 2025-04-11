@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +38,8 @@ const SignUp = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { checkAndCreateWallets } = useAuth();
   
   const form = useForm<SignUpFormValues>({
@@ -173,12 +175,21 @@ const SignUp = () => {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <KashInput
-                          {...field}
-                          type="password"
-                          placeholder="Create a password"
-                          icon={<Lock size={18} className="text-gray-400" />}
-                        />
+                        <div className="relative">
+                          <KashInput
+                            {...field}
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Create a password"
+                            icon={<Lock size={18} className="text-gray-400" />}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                          >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -192,12 +203,21 @@ const SignUp = () => {
                     <FormItem>
                       <FormLabel>Confirm Password</FormLabel>
                       <FormControl>
-                        <KashInput
-                          {...field}
-                          type="password"
-                          placeholder="Confirm your password"
-                          icon={<Lock size={18} className="text-gray-400" />}
-                        />
+                        <div className="relative">
+                          <KashInput
+                            {...field}
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="Confirm your password"
+                            icon={<Lock size={18} className="text-gray-400" />}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                          >
+                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
