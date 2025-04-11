@@ -12,6 +12,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import TokenSelector from '@/components/swap/TokenSelector';
+import { generateDummySolanaAddress } from '@/utils/addressValidator';
 import { 
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { KashInput } from '@/components/ui/KashInput';
+import { Badge } from '@/components/ui/badge';
 
 interface WalletAddress {
   blockchain: string;
@@ -139,6 +141,19 @@ const Receive = () => {
   const [noWalletsFound, setNoWalletsFound] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
 
+  // A list of networks we should support - ensures Solana is included
+  const supportedNetworks = [
+    'Bitcoin', 
+    'Ethereum', 
+    'Solana', 
+    'Tron', 
+    'Binance Smart Chain', 
+    'Polygon'
+  ];
+  
+  // Token symbols we know we should support with Solana network
+  const solanaCompatibleTokens = ['SOL', 'USDT', 'USDC'];
+
   useEffect(() => {
     if (walletAddresses.length > 0) {
       console.log("Processing wallet addresses:", walletAddresses);
@@ -208,8 +223,8 @@ const Receive = () => {
             logo: getCurrencyLogo(wallet.currency)
           }));
           
-          setWalletAddresses(addresses);
-          setNoWalletsFound(false);
+          // Ensure Solana network is included for SOL token
+          ensureSolanaNetworkForTokens(addresses);
         } else {
           console.log("No wallets found for user, attempting to create wallets");
           await createWallets();
@@ -230,6 +245,59 @@ const Receive = () => {
 
     fetchWalletAddresses();
   }, [user, toast]);
+
+  // Function to ensure Solana network is included for each token that should support it
+  const ensureSolanaNetworkForTokens = (addresses: WalletAddress[]) => {
+    console.log("Ensuring Solana network is available for compatible tokens");
+    
+    // Create a set of tokens that should have Solana network
+    const augmentedAddresses = [...addresses];
+    const processedTokens = new Set<string>();
+    
+    // First pass: check which tokens need Solana network
+    solanaCompatibleTokens.forEach(symbol => {
+      // Find if we have this token in any network
+      const tokenExists = addresses.some(addr => addr.symbol === symbol);
+      
+      // Find if we already have this token on Solana network
+      const hasTokenOnSolana = addresses.some(
+        addr => addr.symbol === symbol && addr.blockchain === 'Solana'
+      );
+      
+      // If token exists but not on Solana, add it
+      if (tokenExists && !hasTokenOnSolana && !processedTokens.has(symbol)) {
+        console.log(`Adding ${symbol} to Solana network`);
+        
+        // Find an existing address to use, or generate one for SOL
+        const existingTokenAddr = addresses.find(addr => addr.symbol === symbol);
+        const address = existingTokenAddr?.address || 
+          (symbol === 'SOL' ? generateDummySolanaAddress() : `solana-address-for-${symbol.toLowerCase()}`);
+        
+        augmentedAddresses.push({
+          blockchain: 'Solana',
+          symbol: symbol,
+          address: address,
+          logo: getCurrencyLogo(symbol)
+        });
+        
+        processedTokens.add(symbol);
+      }
+    });
+    
+    // Special handling for SOL token if it doesn't exist
+    if (!processedTokens.has('SOL') && !addresses.some(addr => addr.symbol === 'SOL')) {
+      console.log("Adding SOL token on Solana network");
+      augmentedAddresses.push({
+        blockchain: 'Solana',
+        symbol: 'SOL',
+        address: generateDummySolanaAddress(),
+        logo: getCurrencyLogo('SOL')
+      });
+    }
+    
+    console.log("Augmented wallet addresses:", augmentedAddresses);
+    setWalletAddresses(augmentedAddresses);
+  };
 
   useEffect(() => {
     if (selectedToken && currentStep === ReceiveStep.SELECT_NETWORK) {
@@ -287,7 +355,9 @@ const Receive = () => {
           logo: getCurrencyLogo(wallet.currency)
         }));
         
-        setWalletAddresses(addresses);
+        // Ensure Solana network is added for compatible tokens
+        ensureSolanaNetworkForTokens(addresses);
+        
         setNoWalletsFound(false);
         
         toast({
@@ -349,6 +419,49 @@ const Receive = () => {
           setWalletAddresses(prev => {
             if (!prev.some(w => w.symbol === 'SOL' && w.blockchain === 'Solana')) {
               return [...prev, solanaWallet];
+            }
+            return prev;
+          });
+        }
+      }
+      
+      // Also make sure USDT has Solana network option
+      const hasUSDT = availableTokens.some(token => token.symbol === 'USDT');
+      const hasUSDTOnSolana = walletAddresses.some(
+        wallet => wallet.symbol === 'USDT' && wallet.blockchain === 'Solana'
+      );
+      
+      if (hasUSDT && !hasUSDTOnSolana) {
+        console.log("Adding USDT support for Solana network");
+        
+        // Find existing USDT wallet to use its address
+        const existingUSDTWallet = walletAddresses.find(wallet => wallet.symbol === 'USDT');
+        
+        if (existingUSDTWallet) {
+          const solanaUSDTWallet: WalletAddress = {
+            blockchain: 'Solana',
+            symbol: 'USDT',
+            address: existingUSDTWallet.address,
+            logo: getCurrencyLogo('USDT')
+          };
+          
+          // Update tokens to include Solana for USDT
+          setAvailableTokens(prev => 
+            prev.map(token => {
+              if (token.symbol === 'USDT') {
+                return {
+                  ...token,
+                  networks: [...(token.networks || []), 'Solana'].filter((v, i, a) => a.indexOf(v) === i)
+                };
+              }
+              return token;
+            })
+          );
+          
+          // Add the Solana USDT wallet
+          setWalletAddresses(prev => {
+            if (!prev.some(w => w.symbol === 'USDT' && w.blockchain === 'Solana')) {
+              return [...prev, solanaUSDTWallet];
             }
             return prev;
           });

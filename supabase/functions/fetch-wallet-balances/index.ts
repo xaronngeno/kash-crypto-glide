@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -56,6 +57,39 @@ serve(async (req: Request) => {
         ...wallet,
         balance: parseFloat(wallet.balance as any) || 0
       }));
+      
+      // Check if we're missing Solana wallets
+      const hasSol = walletsWithBalances.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
+      const hasUsdtSol = walletsWithBalances.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
+      
+      // Add missing Solana wallets if needed
+      if (!hasSol || !hasUsdtSol) {
+        console.log("Adding missing Solana wallets");
+        
+        // Find any existing wallets to use their addresses
+        const existingSolWallet = walletsWithBalances.find(w => w.currency === 'SOL');
+        const existingUsdtWallet = walletsWithBalances.find(w => w.currency === 'USDT');
+        
+        if (!hasSol && existingSolWallet) {
+          walletsWithBalances.push({
+            blockchain: 'Solana',
+            currency: 'SOL',
+            address: existingSolWallet.address,
+            balance: existingSolWallet.balance,
+            wallet_type: 'hot'
+          });
+        }
+        
+        if (!hasUsdtSol && existingUsdtWallet) {
+          walletsWithBalances.push({
+            blockchain: 'Solana',
+            currency: 'USDT',
+            address: existingUsdtWallet.address,
+            balance: existingUsdtWallet.balance,
+            wallet_type: 'hot'
+          });
+        }
+      }
 
       return new Response(
         JSON.stringify({ 
