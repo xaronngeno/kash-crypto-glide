@@ -1,10 +1,14 @@
 
 import { Buffer } from './globalPolyfills';
-import { generateSolanaWallet } from './wallets/solanaWalletGenerator';
+import { generateSolanaWallet as generateSingleSolanaWallet } from './wallets/solanaWalletGenerator';
 import { generateEthWallet } from './wallets/ethWalletGenerator';
-import { generateBitcoinWallet } from './wallets/bitcoinWalletGenerator';
-import { generateTronWallet } from './wallets/tronWalletGenerator';
-import { generateUnifiedWallets, UnifiedWalletData, generateWalletsFromSeedPhrase } from './unifiedWalletGenerator';
+import { generateBitcoinWallet as generateSingleBitcoinWallet } from './wallets/bitcoinWalletGenerator';
+import { generateTronWallet as generateSingleTronWallet } from './wallets/tronWalletGenerator';
+import { 
+  generateUnifiedWallets,
+  generateWalletsFromSeedPhrase 
+} from './wallet/unifiedWalletGenerator';
+import { UnifiedWalletData } from './wallet/types';
 
 // Interface for wallet data
 export interface WalletData {
@@ -56,14 +60,14 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
     
     try {
       // Add Solana wallet
-      wallets.push(generateSolanaWallet());
+      wallets.push(generateSingleSolanaWallet());
       
       // Add Ethereum wallet
       wallets.push(generateEthWallet('Ethereum', 'Ethereum'));
       
       // Add Tron wallet
       try {
-        wallets.push(generateTronWallet());
+        wallets.push(generateSingleTronWallet());
       } catch (tronError) {
         console.error('Failed to generate Tron wallet:', tronError);
       }
@@ -71,7 +75,7 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
       // Add Bitcoin wallet (Native SegWit only)
       try {
         console.log('Attempting to generate Bitcoin wallet');
-        const segwitWallet = await generateBitcoinWallet();
+        const segwitWallet = await generateSingleBitcoinWallet();
         wallets.push(segwitWallet);
         console.log('Successfully generated Bitcoin wallet');
       } catch (bitcoinError) {

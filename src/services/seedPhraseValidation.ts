@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { generateWalletsFromSeed } from '@/utils/walletGenerators';
-import { useToast } from '@/hooks/use-toast';
 
 interface ValidationResult {
   isValid: boolean;
@@ -16,14 +15,7 @@ export const validateSeedPhrase = async (
   phrase: string, 
   userId: string | undefined
 ): Promise<ValidationResult> => {
-  const { toast } = useToast();
-  
   if (!userId) {
-    toast({
-      title: "Authentication Error",
-      description: "You must be logged in to validate a seed phrase",
-      variant: "destructive"
-    });
     return { isValid: false, matches: [], mismatches: [] };
   }
 
@@ -42,7 +34,8 @@ export const validateSeedPhrase = async (
       ethereum: wallets.find(w => w.blockchain === 'Ethereum')?.address?.toLowerCase(),
       solana: wallets.find(w => w.blockchain === 'Solana')?.address,
       bitcoin: wallets.find(w => w.blockchain === 'Bitcoin')?.address,
-      tron: wallets.find(w => w.blockchain === 'Tron')?.address
+      tron: wallets.find(w => w.blockchain === 'Tron')?.address,
+      polygon: wallets.find(w => w.blockchain === 'Polygon')?.address?.toLowerCase(),
     };
     
     console.log("Generated addresses from seed phrase:", generatedAddresses);
@@ -64,7 +57,8 @@ export const validateSeedPhrase = async (
       ethereum: userWallets?.find(w => w.blockchain === 'Ethereum' && w.currency === 'ETH')?.address?.toLowerCase(),
       solana: userWallets?.find(w => w.blockchain === 'Solana' && w.currency === 'SOL')?.address,
       bitcoin: userWallets?.find(w => w.blockchain === 'Bitcoin' && (w.wallet_type === 'Native SegWit' || !w.wallet_type))?.address,
-      tron: userWallets?.find(w => w.blockchain === 'Tron')?.address
+      tron: userWallets?.find(w => w.blockchain === 'Tron')?.address,
+      polygon: userWallets?.find(w => w.blockchain === 'Polygon' && w.currency === 'MATIC')?.address?.toLowerCase()
     };
     
     console.log("Comparing addresses:");
@@ -120,6 +114,18 @@ export const validateSeedPhrase = async (
         matches.push('Tron');
       } else {
         mismatches.push('Tron');
+      }
+    }
+    
+    if (generatedAddresses.polygon && userAddresses.polygon) {
+      console.log("Comparing Polygon addresses:");
+      console.log("- Generated:", generatedAddresses.polygon);
+      console.log("- User's:", userAddresses.polygon);
+      
+      if (generatedAddresses.polygon === userAddresses.polygon) {
+        matches.push('Polygon');
+      } else {
+        mismatches.push('Polygon');
       }
     }
 
