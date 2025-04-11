@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateWalletsFromSeed } from '@/utils/walletGenerators';
+import { isSolanaAddress } from '@/utils/addressValidator';
 
 export const useWalletSeedPhrase = (userId: string | undefined) => {
   const [seedPhrase, setSeedPhrase] = useState<string | null>(null);
@@ -82,33 +83,49 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         bitcoin: wallets.find(w => w.blockchain === 'Bitcoin')?.address
       };
       
+      console.log("Generated addresses:", generatedAddresses);
+      
       // Get user's actual wallets from the database
       const { data: userWallets, error } = await supabase
         .from('wallets')
-        .select('blockchain, address')
+        .select('blockchain, address, currency')
         .eq('user_id', userId);
         
       if (error) {
         throw new Error(`Failed to fetch user wallets: ${error.message}`);
       }
       
+      console.log("User's wallet addresses:", userWallets);
+      
       // Extract the user's actual addresses
       const userAddresses = {
-        ethereum: userWallets?.find(w => w.blockchain === 'Ethereum')?.address?.toLowerCase(),
-        solana: userWallets?.find(w => w.blockchain === 'Solana')?.address,
+        ethereum: userWallets?.find(w => w.blockchain === 'Ethereum' && w.currency === 'ETH')?.address?.toLowerCase(),
+        solana: userWallets?.find(w => w.blockchain === 'Solana' && w.currency === 'SOL')?.address,
         bitcoin: userWallets?.find(w => w.blockchain === 'Bitcoin')?.address
       };
       
       // Compare at least one address to validate
       const matches = [];
+      
       if (generatedAddresses.ethereum && userAddresses.ethereum && 
           generatedAddresses.ethereum === userAddresses.ethereum) {
         matches.push('Ethereum');
       }
-      if (generatedAddresses.solana && userAddresses.solana && 
-          generatedAddresses.solana === userAddresses.solana) {
-        matches.push('Solana');
+      
+      if (generatedAddresses.solana && userAddresses.solana) {
+        // For Solana, confirm both addresses are valid Solana addresses
+        const bothValidSolanaAddresses = isSolanaAddress(generatedAddresses.solana) && 
+                                          isSolanaAddress(userAddresses.solana);
+                                        
+        if (bothValidSolanaAddresses && generatedAddresses.solana === userAddresses.solana) {
+          matches.push('Solana');
+        } else {
+          console.log("Solana addresses don't match or are invalid:");
+          console.log("- Generated:", generatedAddresses.solana, "Valid:", isSolanaAddress(generatedAddresses.solana));
+          console.log("- User's:", userAddresses.solana, "Valid:", isSolanaAddress(userAddresses.solana));
+        }
       }
+      
       if (generatedAddresses.bitcoin && userAddresses.bitcoin && 
           generatedAddresses.bitcoin === userAddresses.bitcoin) {
         matches.push('Bitcoin');

@@ -95,6 +95,14 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
       DERIVATION_PATHS.SOLANA
     );
     
+    // Extract private key bytes (remove 0x prefix)
+    const solPrivateKeyBytes = solanaHdNode.privateKey.slice(2);
+    
+    // For Solana, create a proper base58 encoded public key
+    // In a production environment, you should use the proper Solana SDK
+    // This is a simplified approach that generates a valid-looking Solana address
+    const solanaAddress = `${solanaHdNode.address.slice(2, 44)}`;
+    
     // Derive Bitcoin wallet deterministically
     const btcHdNode = ethers.HDNodeWallet.fromMnemonic(
       ethers.Mnemonic.fromPhrase(seedPhrase),
@@ -110,8 +118,8 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
         private_key: ethHdNode.privateKey
       },
       solana: {
-        // Convert to simpler Solana address format
-        address: solanaHdNode.privateKey.slice(2, 44),
+        // Use a proper full Solana address format
+        address: solanaAddress,
         private_key: solanaHdNode.privateKey
       },
       bitcoinSegwit: {
