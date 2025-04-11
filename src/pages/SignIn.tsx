@@ -6,10 +6,12 @@ import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 
 const SignIn = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { checkAndCreateWallets } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,16 @@ const SignIn = () => {
           variant: "destructive"
         });
         console.error("Sign in error:", error);
-      } else {
+      } else if (data.user) {
+        console.log("Login successful with user:", data.user.email);
+        
+        // Ensure wallets exist for this user
+        try {
+          await checkAndCreateWallets(data.user.id);
+        } catch (walletError) {
+          console.error("Error checking wallets:", walletError);
+        }
+        
         // Navigate immediately to dashboard without additional toast delay
         navigate('/dashboard');
         

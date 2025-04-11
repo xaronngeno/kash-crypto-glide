@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User } from 'lucide-react';
@@ -78,13 +79,27 @@ const SignUp = () => {
           variant: "destructive"
         });
         console.error("Registration error:", error);
-      } else {
+      } else if (data.user) {
+        console.log("Account created successfully for user:", data.user.email);
+        
+        // Ensure wallets exist for this user
+        try {
+          await checkAndCreateWallets(data.user.id);
+        } catch (walletError) {
+          console.error("Error checking wallets:", walletError);
+        }
+        
         toast({
           title: "Account created",
           description: "Your account has been successfully created.",
         });
         
         navigate('/dashboard');
+      } else {
+        toast({
+          title: "Account created",
+          description: "Please check your email to verify your account.",
+        });
       }
     } catch (error: any) {
       console.error("Unexpected error:", error);
