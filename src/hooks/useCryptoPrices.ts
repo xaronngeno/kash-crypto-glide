@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -25,87 +24,9 @@ interface CryptoPrices {
   [symbol: string]: CryptoPrice;
 }
 
-const fallbackPrices: CryptoPrices = {
-  BTC: { 
-    price: 64000, 
-    change_24h: 1.5, 
-    updated_at: new Date().toISOString(),
-    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1.png",
-    name: "Bitcoin",
-    symbol: "BTC",
-    platform: { name: "Bitcoin", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1.png" }
-  },
-  ETH: { 
-    price: 3200, 
-    change_24h: 0.8, 
-    updated_at: new Date().toISOString(),
-    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
-    name: "Ethereum",
-    symbol: "ETH",
-    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
-  },
-  USDT: { 
-    price: 1.00, 
-    change_24h: 0.01, 
-    updated_at: new Date().toISOString(),
-    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/825.png",
-    name: "Tether",
-    symbol: "USDT",
-    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
-  },
-  SOL: { 
-    price: 120, 
-    change_24h: 2.3, 
-    updated_at: new Date().toISOString(),
-    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png",
-    name: "Solana",
-    symbol: "SOL",
-    platform: { name: "Solana", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png" }
-  },
-  TRX: { 
-    price: 0.12, 
-    change_24h: 1.1, 
-    updated_at: new Date().toISOString(),
-    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png",
-    name: "Tron",
-    symbol: "TRX",
-    platform: { name: "Tron", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png" }
-  },
-  MATIC: { 
-    price: 0.75, 
-    change_24h: 1.2, 
-    updated_at: new Date().toISOString(),
-    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png",
-    name: "Polygon",
-    symbol: "MATIC",
-    platform: { name: "Ethereum", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png" }
-  },
-  SUI: { 
-    price: 0.85, 
-    change_24h: 1.5, 
-    updated_at: new Date().toISOString(),
-    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/20947.png",
-    name: "Sui",
-    symbol: "SUI",
-    platform: { name: "Sui", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/20947.png" }
-  },
-  MONAD: { 
-    price: 12.25, 
-    change_24h: 3.7, 
-    updated_at: new Date().toISOString(),
-    logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/28126.png",
-    name: "Monad",
-    symbol: "MONAD",
-    platform: { name: "Monad", logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/28126.png" }
-  }
-};
-
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const LOCALSTORAGE_CACHE_KEY = 'kash_crypto_prices_cache';
-
 export function useCryptoPrices() {
-  // Start with fallback prices immediately - no loading state
-  const [prices, setPrices] = useState<CryptoPrices>(fallbackPrices);
+  // Start with an empty object instead of fallback prices
+  const [prices, setPrices] = useState<CryptoPrices>({});
   const [error, setError] = useState<string | null>(null);
   
   const isFetchingRef = useRef(false);
@@ -113,6 +34,9 @@ export function useCryptoPrices() {
   const cachedPricesRef = useRef<CryptoPrices | null>(null);
   const retryCountRef = useRef<number>(0);
   const maxRetries = 3;
+
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  const LOCALSTORAGE_CACHE_KEY = 'kash_crypto_prices_cache';
 
   // Try to load cached data from localStorage on initial mount
   useEffect(() => {

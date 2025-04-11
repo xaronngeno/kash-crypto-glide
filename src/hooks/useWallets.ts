@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -17,30 +16,9 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   // Reference for tracking if wallets are already created
   const walletsCreatedRef = useRef(false);
   
-  // Default assets for fallback and instant display
-  const defaultAssetsMap = {
-    'BTC': { id: '1', name: 'Bitcoin', symbol: 'BTC', price: 0, amount: 0.05, value: 0, change: 0, icon: '₿' },
-    'ETH': { id: '2', name: 'Ethereum', symbol: 'ETH', price: 0, amount: 1.2, value: 0, change: 0, icon: 'Ξ' },
-    'USDT': { id: '3', name: 'USDT', symbol: 'USDT', price: 1.00, amount: 150, value: 150, change: 0, icon: '₮' },
-    'SOL': { id: '4', name: 'Solana', symbol: 'SOL', price: 0, amount: 2.5, value: 0, change: 0, icon: 'Ѕ' },
-    'TRX': { id: '5', name: 'Tron', symbol: 'TRX', price: 0, amount: 100, value: 0, change: 0, icon: 'T' },
-    'MATIC': { id: '6', name: 'Polygon', symbol: 'MATIC', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
-    'SUI': { id: '7', name: 'Sui', symbol: 'SUI', price: 0, amount: 0, value: 0, change: 0, icon: 'S' },
-    'MONAD': { id: '8', name: 'Monad', symbol: 'MONAD', price: 0, amount: 0, value: 0, change: 0, icon: 'M' },
-    'BNB': { id: '9', name: 'Binance Coin', symbol: 'BNB', price: 0, amount: 0, value: 0, change: 0, icon: 'B' },
-    'XRP': { id: '10', name: 'XRP', symbol: 'XRP', price: 0, amount: 0, value: 0, change: 0, icon: 'X' },
-    'ADA': { id: '11', name: 'Cardano', symbol: 'ADA', price: 0, amount: 0, value: 0, change: 0, icon: 'A' },
-    'DOGE': { id: '12', name: 'Dogecoin', symbol: 'DOGE', price: 0, amount: 0, value: 0, change: 0, icon: 'D' },
-    'DOT': { id: '13', name: 'Polkadot', symbol: 'DOT', price: 0, amount: 0, value: 0, change: 0, icon: 'P' },
-    'LINK': { id: '14', name: 'Chainlink', symbol: 'LINK', price: 0, amount: 0, value: 0, change: 0, icon: 'L' },
-    'BASE': { id: '15', name: 'Base', symbol: 'BASE', price: 0, amount: 0, value: 0, change: 0, icon: 'B' }
-  };
-
-  // Initialize with default assets immediately
+  // Initialize with an empty array
   useEffect(() => {
-    // Start with default demo assets right away for instant display
-    const initialAssets = Object.values(defaultAssetsMap).map(asset => ({...asset}));
-    setAssets(initialAssets);
+    setAssets([]);
   }, []);
 
   // Update asset prices when prices change
@@ -103,26 +81,17 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       const processedAssets: Asset[] = [];
       
       Object.entries(currencyNetworkBalances).forEach(([symbol, data]) => {
-        // Get default asset data if available
-        const defaultAsset = defaultAssetsMap[symbol] || {
-          id: symbol,
-          name: symbol,
-          symbol,
-          price: 0,
-          amount: 0,
-          value: 0,
-          change: 0,
-          icon: symbol[0]
-        };
-        
         const assetPrice = prices?.[symbol]?.price || 0;
         
         processedAssets.push({
-          ...defaultAsset,
-          amount: data.totalBalance,
+          id: symbol,
+          name: symbol,
+          symbol: symbol,
           price: assetPrice,
+          amount: data.totalBalance,
           value: data.totalBalance * assetPrice,
           change: prices?.[symbol]?.change_24h || 0,
+          icon: symbol[0],
           networks: data.networks || {}
         });
       });
