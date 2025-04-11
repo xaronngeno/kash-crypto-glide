@@ -8,17 +8,23 @@ import { AssetsList } from '@/components/dashboard/AssetsList';
 import { PromoCard } from '@/components/dashboard/PromoCard';
 import { useAuth } from '@/components/AuthProvider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import { Asset } from '@/types/assets';
+import { useCryptoPrices } from '@/hooks/useCryptoPrices';
+import { useWallets } from '@/hooks/useWallets';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
-  const [error, setError] = useState<string | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  
+  // Get crypto prices
+  const { prices, error: pricesError } = useCryptoPrices();
+  
+  // Get wallet assets
+  const { assets, error: walletsError } = useWallets({ prices });
+  
+  // Combined error state
+  const error = pricesError || walletsError;
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -26,123 +32,6 @@ const Dashboard = () => {
       navigate('/auth');
     }
   }, [navigate, isAuthenticated, authLoading]);
-
-  // Fetch crypto prices and wallets directly in the component
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchData = async () => {
-      try {
-        setError(null);
-        
-        // Fetch crypto prices from edge function
-        const { data: pricesData, error: pricesError } = await supabase.functions.invoke('crypto-prices', {
-          method: 'GET'
-        });
-        
-        if (pricesError) {
-          console.error('Error fetching crypto prices:', pricesError);
-          throw new Error('Unable to load cryptocurrency prices');
-        }
-        
-        const prices = pricesData?.prices || {};
-        
-        // Fetch wallet balances from edge function
-        const { data: walletsData, error: walletsError } = await supabase.functions.invoke('fetch-wallet-balances', {
-          method: 'POST',
-          body: { userId: user.id }
-        });
-        
-        if (walletsError) {
-          console.error('Error fetching wallets:', walletsError);
-          throw new Error('Unable to load wallet information');
-        }
-        
-        if (!walletsData?.wallets || walletsData.wallets.length === 0) {
-          console.log('No wallets found or empty wallets response');
-          setAssets([]);
-          return;
-        }
-        
-        // Process wallet data directly
-        const wallets = walletsData.wallets;
-        console.log('Wallets data:', wallets);
-        
-        // Group wallets by currency
-        const currencyNetworkBalances: Record<string, { 
-          totalBalance: number, 
-          networks: Record<string, { address: string, balance: number }>
-        }> = {};
-
-        wallets.forEach(wallet => {
-          const { currency, blockchain, address, balance: walletBalance } = wallet;
-          const balance = typeof walletBalance === 'number' 
-            ? walletBalance 
-            : parseFloat(String(walletBalance)) || 0;
-          
-          if (!isNaN(balance)) {
-            // Initialize currency entry if it doesn't exist
-            if (!currencyNetworkBalances[currency]) {
-              currencyNetworkBalances[currency] = { 
-                totalBalance: 0, 
-                networks: {} 
-              };
-            }
-            
-            // Add to total balance for this currency
-            currencyNetworkBalances[currency].totalBalance += balance;
-            
-            // Add network-specific data
-            currencyNetworkBalances[currency].networks[blockchain] = {
-              address,
-              balance
-            };
-          }
-        });
-        
-        // Convert to assets array
-        const processedAssets: Asset[] = [];
-        
-        Object.entries(currencyNetworkBalances).forEach(([symbol, data]) => {
-          const priceData = prices[symbol];
-          const assetPrice = priceData?.price || 0;
-          
-          processedAssets.push({
-            id: symbol,
-            name: symbol,
-            symbol: symbol,
-            price: assetPrice,
-            amount: data.totalBalance,
-            value: data.totalBalance * assetPrice,
-            change: priceData?.change_24h || 0,
-            icon: symbol[0],
-            networks: data.networks || {}
-          });
-        });
-        
-        // Sort by value (highest first)
-        processedAssets.sort((a, b) => b.value - a.value);
-        setAssets(processedAssets);
-        
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
-        console.error('Error in data fetching:', errorMessage);
-        setError(errorMessage);
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive"
-        });
-      }
-    };
-    
-    fetchData();
-    
-    // Set up interval to refresh data
-    const intervalId = setInterval(fetchData, 60000); // Every minute
-    
-    return () => clearInterval(intervalId);
-  }, [user]);
 
   // Calculate total balance
   const totalBalance = assets.reduce((acc, asset) => {

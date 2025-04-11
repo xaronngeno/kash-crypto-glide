@@ -5,32 +5,44 @@ import MPesaUsdtSection from '@/components/swap/MPesaUsdtSection';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
+import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 
 const SellUsdt = () => {
-  const [balance, setBalance] = useState(1000); // Example initial balance
-  const [usdtPrice, setUsdtPrice] = useState(1.00);
+  const [balance, setBalance] = useState(0);
+  const { prices } = useCryptoPrices();
   const { user } = useAuth();
   
-  // Fetch the USDT price directly
+  // Fetch USDT balance for the user
   useEffect(() => {
-    const fetchUsdtPrice = async () => {
+    if (!user?.id) return;
+    
+    const fetchUsdtBalance = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('crypto-prices', {
-          method: 'GET'
+        const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
+          method: 'POST',
+          body: { userId: user.id }
         });
         
         if (error) throw error;
         
-        if (data && data.prices && data.prices.USDT) {
-          setUsdtPrice(data.prices.USDT.price || 1.00);
+        if (data?.wallets) {
+          // Find USDT wallet(s) and sum balances
+          const usdtBalance = data.wallets
+            .filter(wallet => wallet.currency === 'USDT')
+            .reduce((sum, wallet) => sum + (parseFloat(wallet.balance) || 0), 0);
+          
+          setBalance(usdtBalance);
         }
       } catch (err) {
-        console.error('Failed to fetch USDT price:', err);
+        console.error('Failed to fetch USDT balance:', err);
       }
     };
     
-    fetchUsdtPrice();
-  }, []);
+    fetchUsdtBalance();
+  }, [user?.id]);
+  
+  // Get USDT price from prices data
+  const usdtPrice = prices?.USDT?.price || 1.00;
   
   const usdtAsset = {
     symbol: 'USDT',
