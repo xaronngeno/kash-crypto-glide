@@ -7,7 +7,7 @@ import {
   createUserWallets,
   useWalletCreationStatus,
   useWalletProcessor
-} from './useWalletBalance';
+} from '@/hooks/wallet';
 import { toast } from '@/hooks/use-toast';
 
 interface UseWalletsProps {
