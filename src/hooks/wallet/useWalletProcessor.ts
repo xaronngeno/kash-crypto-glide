@@ -48,7 +48,9 @@ export const useWalletProcessor = (prices: Record<string, { price: number; chang
         change: change,
         value: (parseFloat(wallet.balance) || 0) * (price || 0),
         address: wallet.address,
-        logo: `/coins/${wallet.currency.toLowerCase()}.png`
+        logo: `/coins/${wallet.currency.toLowerCase()}.png`,
+        // Add the required icon property
+        icon: wallet.currency.charAt(0).toUpperCase() // Use first character of currency as fallback icon
       };
     });
     
