@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
@@ -15,6 +16,16 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
 import { useWalletSeedPhrase } from '@/hooks/useWalletSeedPhrase';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -159,7 +170,7 @@ const Settings = () => {
 
     setIsDeletingAccount(true);
     try {
-      const { error } = await supabase.functions.invoke('delete-account');
+      const { data, error } = await supabase.functions.invoke('delete-account');
 
       if (error) {
         throw error;
@@ -374,7 +385,7 @@ const Settings = () => {
             <div className="py-3 px-1">
               <button 
                 className="w-full flex items-center text-kash-error"
-                onClick={handleDeleteAccount}
+                onClick={() => setIsDeleteAlertOpen(true)}
               >
                 <Trash2 size={18} className="mr-2" />
                 <span>Delete Account</span>
@@ -389,6 +400,7 @@ const Settings = () => {
         </div>
       </div>
       
+      {/* Authentication Dialog */}
       <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -434,6 +446,40 @@ const Settings = () => {
           </Form>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete Account Confirmation Dialog */}
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-kash-error">Delete Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your account and remove all your data from our servers, including:
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Your profile information</li>
+                <li>Your wallet information and transaction history</li>
+                <li>All associated data with your account</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-kash-error hover:bg-kash-error/90 text-white"
+              onClick={handleDeleteAccount}
+              disabled={isDeletingAccount}
+            >
+              {isDeletingAccount ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Account"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 };

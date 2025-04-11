@@ -48,6 +48,53 @@ serve(async (req) => {
       );
     }
 
+    // Clean up related data first
+    // This is necessary to avoid foreign key constraint issues
+    
+    // 1. Delete user wallets
+    const { error: walletsError } = await supabaseAdmin
+      .from('wallets')
+      .delete()
+      .eq('user_id', user.id);
+    
+    if (walletsError) {
+      console.error("Error deleting wallets:", walletsError);
+      // Continue with deletion, don't return early
+    }
+    
+    // 2. Delete user transactions
+    const { error: txError } = await supabaseAdmin
+      .from('transactions')
+      .delete()
+      .eq('user_id', user.id);
+    
+    if (txError) {
+      console.error("Error deleting transactions:", txError);
+      // Continue with deletion, don't return early
+    }
+    
+    // 3. Delete user mnemonics
+    const { error: mnemonicError } = await supabaseAdmin
+      .from('user_mnemonics')
+      .delete()
+      .eq('user_id', user.id);
+    
+    if (mnemonicError) {
+      console.error("Error deleting mnemonics:", mnemonicError);
+      // Continue with deletion, don't return early
+    }
+
+    // Delete the user profile
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .delete()
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.error("Error deleting profile:", profileError);
+      // Continue with deletion, don't return early
+    }
+
     // Delete the user
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
 
