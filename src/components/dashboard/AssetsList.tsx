@@ -2,6 +2,7 @@
 import { memo } from 'react';
 import { KashCard } from '@/components/ui/KashCard';
 import { Asset } from '@/types/assets';
+import Image from '@/components/ui/Image';
 
 interface AssetsListProps {
   assets: Asset[];
@@ -9,16 +10,18 @@ interface AssetsListProps {
 }
 
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
-  // We're already sorting in the useWallets hook, so no need to sort again
-  
   return (
     <div className="space-y-3">
       {assets.map((asset) => (
         <KashCard key={asset.id} className="hover:bg-kash-lightGray cursor-pointer transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold">
-                {asset.icon}
+              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                {asset.logo ? (
+                  <Image src={asset.logo} alt={asset.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-xl font-bold">{asset.icon}</div>
+                )}
               </div>
               <div className="ml-3">
                 <h3 className="font-medium">{asset.name}</h3>

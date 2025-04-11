@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -102,7 +103,7 @@ export const useWalletCreationStatus = () => {
 /**
  * Hook for processing wallet data into assets
  */
-export const useWalletProcessor = (prices: Record<string, { price: number; change_24h: number }>) => {
+export const useWalletProcessor = (prices: Record<string, { price: number; change_24h: number; logo?: string; name?: string }>) => {
   const processWallets = useCallback((wallets: any[]): Asset[] => {
     try {
       console.log("Processing wallets:", wallets.length);
@@ -148,13 +149,14 @@ export const useWalletProcessor = (prices: Record<string, { price: number; chang
         
         assets.push({
           id: symbol,
-          name: symbol,
+          name: priceData?.name || symbol,
           symbol: symbol,
           price: assetPrice,
           amount: data.totalBalance,
           value: data.totalBalance * assetPrice,
           change: priceData?.change_24h || 0,
           icon: symbol[0],
+          logo: priceData?.logo || undefined,
           networks: data.networks || {}
         });
       });
