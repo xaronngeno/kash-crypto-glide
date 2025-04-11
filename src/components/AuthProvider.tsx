@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +16,7 @@ type AuthContextType = {
     phone_numbers?: string[];
     kyc_status?: string;
   } | null;
+  checkAndCreateWallets: (userId: string) => Promise<void>; // New method
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -26,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   isAuthenticated: false,
   profile: null,
+  checkAndCreateWallets: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -54,6 +55,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error('Unexpected error fetching profile:', error);
       return null;
+    }
+  };
+
+  // New method to check and create wallets
+  const checkAndCreateWallets = async (userId: string) => {
+    try {
+      console.log("Checking wallets for user:", userId);
+      
+      // Check if wallets already exist
+      const { data: existingWallets, error: walletsError } = await supabase
+        .from('wallets')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1);
+      
+      if (walletsError) {
+        console.error("Error checking existing wallets:", walletsError);
+        return;
+      }
+      
+      // If wallets exist, do nothing
+      if (existingWallets && existingWallets.length > 0) {
+        console.log("Wallets already exist for user");
+        return;
+      }
+      
+      // If no wallets exist, create them
+      console.log("Creating wallets for user:", userId);
+      await supabase.functions.invoke('create-wallets', {
+        body: { userId: userId }
+      });
+    } catch (error) {
+      console.error("Error in checkAndCreateWallets:", error);
     }
   };
 
@@ -105,6 +139,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setProfile(null);
           setLoading(false);
+        }
+        
+        // Trigger wallet creation only on first sign-in
+        if (session?.user && event === 'SIGNED_IN') {
+          setTimeout(async () => {
+            if (isMounted) {
+              await checkAndCreateWallets(session.user.id);
+            }
+          }, 0);
         }
       }
     );
@@ -190,7 +233,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading, 
       signOut,
       isAuthenticated,
-      profile
+      profile,
+      checkAndCreateWallets 
     }}>
       {children}
     </AuthContext.Provider>

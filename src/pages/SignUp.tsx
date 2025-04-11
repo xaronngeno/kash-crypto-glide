@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User } from 'lucide-react';
@@ -6,6 +5,7 @@ import { KashButton } from '@/components/ui/KashButton';
 import { KashInput } from '@/components/ui/KashInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -37,6 +37,7 @@ const SignUp = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
+  const { checkAndCreateWallets } = useAuth();
   
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -54,13 +55,11 @@ const SignUp = () => {
     setProcessingStatus('Validating information...');
     
     try {
-      // Split name into first and last name
       setProcessingStatus('Creating your account...');
       const nameParts = values.name.trim().split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      // Register user with Supabase
       const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
@@ -85,34 +84,6 @@ const SignUp = () => {
           description: "Your account has been successfully created.",
         });
         
-        // Create wallets immediately for the new user
-        if (data.user) {
-          try {
-            setProcessingStatus('Generating secure wallets...');
-            console.log("Creating wallets for user:", data.user.id);
-            
-            // Call the edge function to create wallets
-            const { data: walletData, error: walletError } = await supabase.functions.invoke('create-wallets', {
-              body: { userId: data.user.id }
-            });
-            
-            if (walletError) {
-              console.error("Error creating wallets:", walletError);
-              toast({
-                title: "Wallet creation issue",
-                description: "Your account was created but there was an issue setting up your wallets. This will be resolved automatically.",
-                variant: "destructive"
-              });
-            } else {
-              console.log("Wallets created successfully:", walletData);
-            }
-          } catch (walletError) {
-            console.error("Error in wallet creation process:", walletError);
-            // We don't block the user experience here, just log the error
-          }
-        }
-        
-        // Navigate to dashboard
         navigate('/dashboard');
       }
     } catch (error: any) {
