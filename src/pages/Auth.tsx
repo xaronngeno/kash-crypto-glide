@@ -61,21 +61,47 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-        }
-      });
+      console.log("Checking email existence:", email);
       
-      if (error && error.message.includes("Email not found")) {
+      const { data: existingUsers, error: userError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email)
+        .limit(1);
+      
+      if (userError) {
+        console.error("Error checking email:", userError);
+        throw userError;
+      }
+      
+      if (!existingUsers || existingUsers.length === 0) {
+        console.log("Email not found in profiles, proceeding to signup");
         setAuthStage(AuthStage.SIGNUP);
       } else {
+        console.log("Email found, proceeding to password input");
         setAuthStage(AuthStage.PASSWORD_INPUT);
       }
     } catch (error: any) {
       console.error("Authentication error:", error);
-      setError(error?.message || "Failed to check email. Please try again.");
+      
+      try {
+        const { error: otpError } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            shouldCreateUser: false,
+          }
+        });
+        
+        if (otpError && otpError.message.includes("Email not found")) {
+          console.log("Email not found via OTP check, proceeding to signup");
+          setAuthStage(AuthStage.SIGNUP);
+        } else {
+          setAuthStage(AuthStage.PASSWORD_INPUT);
+        }
+      } catch (otpError: any) {
+        console.error("OTP check error:", otpError);
+        setError(error?.message || "Failed to check email. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
