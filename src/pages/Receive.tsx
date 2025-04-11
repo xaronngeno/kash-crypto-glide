@@ -26,6 +26,7 @@ interface WalletAddress {
   blockchain: string;
   symbol: string;
   address: string;
+  wallet_type?: string;
   logo?: string;
 }
 
@@ -37,11 +38,13 @@ interface Token {
   decimals: number;
   logo?: string;
   networks?: string[];
+  wallet_types?: Record<string, string[]>;
 }
 
 enum ReceiveStep {
   SELECT_COIN = 'select_coin',
   SELECT_NETWORK = 'select_network',
+  SELECT_WALLET_TYPE = 'select_wallet_type',
   VIEW_ADDRESS = 'view_address'
 }
 
@@ -121,6 +124,14 @@ const NetworkBadge = ({ network, className }: NetworkBadgeProps) => {
   );
 };
 
+const WalletTypeBadge = ({ type, className }: { type: string, className?: string }) => {
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-medium ${className}`}>
+      {type}
+    </span>
+  );
+};
+
 const Receive = () => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -132,6 +143,7 @@ const Receive = () => {
   const [availableTokens, setAvailableTokens] = useState<Token[]>([]);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
+  const [selectedWalletType, setSelectedWalletType] = useState<string | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<WalletAddress | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showQR, setShowQR] = useState(false);
@@ -139,7 +151,7 @@ const Receive = () => {
   const [noWalletsFound, setNoWalletsFound] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
 
-  // A list of networks we should support - ensures Solana is included
+  // A list of networks we should support - ensures Solana and Bitcoin are included
   const supportedNetworks = [
     'Bitcoin', 
     'Ethereum', 
@@ -151,6 +163,9 @@ const Receive = () => {
   
   // Token symbols we know we should support with Solana network
   const solanaCompatibleTokens = ['SOL', 'USDT', 'USDC'];
+  
+  // Token symbols we know we should support with Bitcoin network
+  const bitcoinCompatibleTokens = ['BTC'];
 
   useEffect(() => {
     if (walletAddresses.length > 0) {
@@ -163,9 +178,26 @@ const Receive = () => {
         if (existingToken) {
           if (!existingToken.networks?.includes(wallet.blockchain)) {
             existingToken.networks = [...(existingToken.networks || []), wallet.blockchain];
-            tokenMap.set(wallet.symbol, existingToken);
           }
+          
+          // Add wallet type to the token if it's for Bitcoin
+          if (wallet.blockchain === 'Bitcoin' && wallet.wallet_type) {
+            existingToken.wallet_types = existingToken.wallet_types || {};
+            existingToken.wallet_types['Bitcoin'] = existingToken.wallet_types['Bitcoin'] || [];
+            
+            if (!existingToken.wallet_types['Bitcoin'].includes(wallet.wallet_type)) {
+              existingToken.wallet_types['Bitcoin'].push(wallet.wallet_type);
+            }
+          }
+          
+          tokenMap.set(wallet.symbol, existingToken);
         } else {
+          const walletTypes: Record<string, string[]> = {};
+          
+          if (wallet.blockchain === 'Bitcoin' && wallet.wallet_type) {
+            walletTypes['Bitcoin'] = [wallet.wallet_type];
+          }
+          
           tokenMap.set(wallet.symbol, {
             id: wallet.symbol,
             name: wallet.symbol,
@@ -173,7 +205,8 @@ const Receive = () => {
             icon: wallet.symbol[0],
             decimals: 8,
             logo: getCurrencyLogo(wallet.symbol),
-            networks: [wallet.blockchain]
+            networks: [wallet.blockchain],
+            wallet_types: Object.keys(walletTypes).length > 0 ? walletTypes : undefined
           });
         }
       });
@@ -200,45 +233,40 @@ const Receive = () => {
         setLoading(true);
         console.log("Fetching wallet addresses for user:", user.id);
         
-        const { data, error } = await supabase
-          .from('wallets')
-          .select('blockchain, currency, address')
-          .eq('user_id', user.id);
+        const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
+          method: 'POST',
+          body: { userId: user.id }
+        });
         
         if (error) {
           throw error;
         }
 
-        if (data && data.length > 0) {
-          console.log("Fetched wallet addresses:", data);
+        if (data && data.success && data.wallets && data.wallets.length > 0) {
+          console.log("Fetched wallet addresses:", data.wallets);
           
-          // Add debug log for SOL wallets
-          const solWallets = data.filter(w => w.currency === 'SOL');
-          console.log("SOL wallets found:", solWallets);
+          // Add debug log for BTC wallets
+          const btcWallets = data.wallets.filter(w => w.currency === 'BTC');
+          console.log("BTC wallets found:", btcWallets);
           
-          const addresses: WalletAddress[] = data.map(wallet => ({
+          const addresses: WalletAddress[] = data.wallets.map(wallet => ({
             blockchain: wallet.blockchain,
             symbol: wallet.currency,
             address: wallet.address,
+            wallet_type: wallet.wallet_type,
             logo: getCurrencyLogo(wallet.currency)
           }));
           
-          // Check if we have SOL on Solana network
-          const hasSolanaSOL = addresses.some(
-            wallet => wallet.symbol === 'SOL' && wallet.blockchain === 'Solana'
+          // Check if we have BTC on Bitcoin network
+          const hasBitcoinBTC = addresses.some(
+            wallet => wallet.symbol === 'BTC' && wallet.blockchain === 'Bitcoin'
           );
           
-          // Check if we have USDT on Solana network
-          const hasSolanaUSDT = addresses.some(
-            wallet => wallet.symbol === 'USDT' && wallet.blockchain === 'Solana'
-          );
+          console.log("Has Bitcoin BTC:", hasBitcoinBTC);
           
-          console.log("Has Solana SOL:", hasSolanaSOL);
-          console.log("Has Solana USDT:", hasSolanaUSDT);
-          
-          // If either is missing, we should recreate wallets
-          if (!hasSolanaSOL || !hasSolanaUSDT) {
-            console.log("Missing Solana tokens, creating wallets");
+          // If it's missing, we should recreate wallets
+          if (!hasBitcoinBTC) {
+            console.log("Missing Bitcoin tokens, creating wallets");
             await createWallets();
             return;
           }
@@ -271,13 +299,22 @@ const Receive = () => {
       if (selectedToken.networks?.length === 1) {
         setSelectedNetwork(selectedToken.networks[0]);
         
-        const wallet = walletAddresses.find(
-          w => w.symbol === selectedToken.symbol && w.blockchain === selectedToken.networks[0]
-        );
-        
-        if (wallet) {
-          setSelectedWallet(wallet);
-          setCurrentStep(ReceiveStep.VIEW_ADDRESS);
+        // Check if this token on this network has multiple wallet types
+        if (selectedToken.symbol === 'BTC' && 
+            selectedToken.networks[0] === 'Bitcoin' && 
+            selectedToken.wallet_types?.Bitcoin?.length) {
+          // If it has wallet types, go to wallet type selection
+          setCurrentStep(ReceiveStep.SELECT_WALLET_TYPE);
+        } else {
+          // Otherwise find the wallet and go straight to the view
+          const wallet = walletAddresses.find(
+            w => w.symbol === selectedToken.symbol && w.blockchain === selectedToken.networks[0]
+          );
+          
+          if (wallet) {
+            setSelectedWallet(wallet);
+            setCurrentStep(ReceiveStep.VIEW_ADDRESS);
+          }
         }
       }
     }
@@ -302,24 +339,25 @@ const Receive = () => {
       console.log("Wallets created successfully:", data);
       
       // Fetch the newly created wallets
-      const { data: wallets, error: fetchError } = await supabase
-        .from('wallets')
-        .select('blockchain, currency, address')
-        .eq('user_id', user.id);
+      const { data: wallets, error: fetchError } = await supabase.functions.invoke('fetch-wallet-balances', {
+        method: 'POST',
+        body: { userId: user.id }
+      });
       
       if (fetchError) {
         throw fetchError;
       }
       
-      if (wallets && wallets.length > 0) {
-        // Add debug log for SOL wallets after creation
-        const solWallets = wallets.filter(w => w.currency === 'SOL');
-        console.log("SOL wallets after creation:", solWallets);
+      if (wallets && wallets.success && wallets.wallets && wallets.wallets.length > 0) {
+        // Add debug log for BTC wallets after creation
+        const btcWallets = wallets.wallets.filter(w => w.currency === 'BTC');
+        console.log("BTC wallets after creation:", btcWallets);
         
-        const addresses: WalletAddress[] = wallets.map(wallet => ({
+        const addresses: WalletAddress[] = wallets.wallets.map(wallet => ({
           blockchain: wallet.blockchain,
           symbol: wallet.currency,
           address: wallet.address,
+          wallet_type: wallet.wallet_type,
           logo: getCurrencyLogo(wallet.currency)
         }));
         
@@ -350,6 +388,7 @@ const Receive = () => {
   const handleTokenSelect = (token: Token) => {
     setSelectedToken(token);
     setSelectedNetwork(null);
+    setSelectedWalletType(null);
     setSelectedWallet(null);
     setCurrentStep(ReceiveStep.SELECT_NETWORK);
   };
@@ -357,8 +396,37 @@ const Receive = () => {
   const handleNetworkSelect = (network: string) => {
     setSelectedNetwork(network);
     
+    // Check if this is Bitcoin and has multiple wallet types
+    if (selectedToken?.symbol === 'BTC' && 
+        network === 'Bitcoin' &&
+        selectedToken.wallet_types?.Bitcoin?.length > 1) {
+      setCurrentStep(ReceiveStep.SELECT_WALLET_TYPE);
+    } else {
+      // For other tokens or single wallet type, directly find the wallet
+      const wallet = walletAddresses.find(
+        w => w.symbol === selectedToken?.symbol && w.blockchain === network
+      );
+      
+      if (wallet) {
+        setSelectedWallet(wallet);
+        setCurrentStep(ReceiveStep.VIEW_ADDRESS);
+      } else {
+        toast({
+          title: "Wallet not found",
+          description: `We couldn't find a wallet for ${selectedToken?.symbol} on ${network}.`,
+          variant: "destructive"
+        });
+      }
+    }
+  };
+  
+  const handleWalletTypeSelect = (walletType: string) => {
+    setSelectedWalletType(walletType);
+    
     const wallet = walletAddresses.find(
-      w => w.symbol === selectedToken?.symbol && w.blockchain === network
+      w => w.symbol === selectedToken?.symbol && 
+           w.blockchain === selectedNetwork && 
+           w.wallet_type === walletType
     );
     
     if (wallet) {
@@ -367,7 +435,7 @@ const Receive = () => {
     } else {
       toast({
         title: "Wallet not found",
-        description: `We couldn't find a wallet for ${selectedToken?.symbol} on ${network}.`,
+        description: `We couldn't find a wallet for ${selectedToken?.symbol} on ${selectedNetwork} with type ${walletType}.`,
         variant: "destructive"
       });
     }
@@ -384,7 +452,33 @@ const Receive = () => {
   const resetFlow = () => {
     setCurrentStep(ReceiveStep.SELECT_COIN);
     setSelectedNetwork(null);
+    setSelectedWalletType(null);
     setSelectedWallet(null);
+  };
+
+  // Search filtering logic that properly handles BTC
+  const filterTokens = (tokens: Token[]) => {
+    if (!searchTerm) {
+      return tokens;
+    }
+    
+    const lowercaseSearch = searchTerm.toLowerCase();
+    return tokens.filter(token => {
+      // Match by name or symbol
+      const nameMatch = token.name.toLowerCase().includes(lowercaseSearch);
+      const symbolMatch = token.symbol.toLowerCase().includes(lowercaseSearch);
+      
+      // Special case for Bitcoin/BTC
+      const isBitcoinSearch = 
+        lowercaseSearch === 'bitcoin' || 
+        lowercaseSearch === 'btc' || 
+        lowercaseSearch.includes('bitcoin') || 
+        lowercaseSearch.includes('btc');
+      
+      const isBitcoinToken = token.symbol.toLowerCase() === 'btc';
+      
+      return nameMatch || symbolMatch || (isBitcoinSearch && isBitcoinToken);
+    });
   };
 
   if (loading) {
@@ -443,9 +537,15 @@ const Receive = () => {
           {currentStep === ReceiveStep.SELECT_NETWORK && (
             <p className="text-gray-600">Select network for {selectedToken?.symbol}</p>
           )}
+          {currentStep === ReceiveStep.SELECT_WALLET_TYPE && (
+            <p className="text-gray-600">
+              Select {selectedToken?.symbol} wallet type on {selectedNetwork}
+            </p>
+          )}
           {currentStep === ReceiveStep.VIEW_ADDRESS && (
             <p className="text-gray-600">
               {selectedToken?.symbol} address on {selectedNetwork}
+              {selectedWalletType && ` (${selectedWalletType})`}
             </p>
           )}
         </div>
@@ -467,43 +567,34 @@ const Receive = () => {
               </div>
               
               <div className="space-y-2 max-h-80 overflow-y-auto">
-                {availableTokens
-                  .filter(token => 
-                    token.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                    token.symbol.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map((token) => (
-                    <div
-                      key={token.id}
-                      className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                      onClick={() => handleTokenSelect(token)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={token.logo} alt={token.name} />
-                          <AvatarFallback>{token.symbol[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <h3 className="font-medium">{token.symbol}</h3>
-                          <p className="text-sm text-gray-500">{token.name}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        {prices[token.symbol] && (
-                          <span className="text-sm text-gray-500 mr-2">
-                            ${prices[token.symbol].price.toLocaleString()}
-                          </span>
-                        )}
-                        <ArrowRight size={18} className="text-gray-400" />
+                {filterTokens(availableTokens).map((token) => (
+                  <div
+                    key={token.id}
+                    className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleTokenSelect(token)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={token.logo} alt={token.name} />
+                        <AvatarFallback>{token.symbol[0]}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-medium">{token.symbol}</h3>
+                        <p className="text-sm text-gray-500">{token.name}</p>
                       </div>
                     </div>
-                  ))
-                }
+                    <div className="flex items-center">
+                      {prices[token.symbol] && (
+                        <span className="text-sm text-gray-500 mr-2">
+                          ${prices[token.symbol].price.toLocaleString()}
+                        </span>
+                      )}
+                      <ArrowRight size={18} className="text-gray-400" />
+                    </div>
+                  </div>
+                ))}
                 
-                {availableTokens.filter(token => 
-                  token.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                  token.symbol.toLowerCase().includes(searchTerm.toLowerCase())
-                ).length === 0 && (
+                {filterTokens(availableTokens).length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     No cryptocurrencies found matching "{searchTerm}"
                   </div>
@@ -567,8 +658,11 @@ const Receive = () => {
             </div>
           </KashCard>
         )}
-
-        {currentStep === ReceiveStep.VIEW_ADDRESS && selectedWallet && (
+        
+        {currentStep === ReceiveStep.SELECT_WALLET_TYPE && 
+         selectedToken && 
+         selectedNetwork && 
+         selectedToken.wallet_types?.[selectedNetwork] && (
           <KashCard className="p-5">
             <div className="flex items-center mb-6">
               <KashButton 
@@ -582,12 +676,77 @@ const Receive = () => {
               
               <div className="flex items-center">
                 <Avatar className="h-8 w-8 mr-2">
+                  <AvatarImage src={selectedToken.logo} alt={selectedToken.symbol} />
+                  <AvatarFallback>{selectedToken.symbol[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex items-center">
+                  <h3 className="font-medium mr-2">{selectedToken.symbol}</h3>
+                  <NetworkBadge network={selectedNetwork} />
+                </div>
+              </div>
+            </div>
+
+            <h3 className="font-medium mb-3">Select Wallet Type</h3>
+            <div className="space-y-2">
+              {selectedToken.wallet_types[selectedNetwork].map((walletType) => (
+                <div
+                  key={walletType}
+                  className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleWalletTypeSelect(walletType)}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={getNetworkLogo(selectedNetwork)} alt={selectedNetwork} />
+                      <AvatarFallback>{walletType[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex items-center">
+                      <h3 className="font-medium">{walletType}</h3>
+                      <WalletTypeBadge type={walletType} className="ml-2" />
+                    </div>
+                  </div>
+                  <ArrowRight size={18} className="text-gray-400" />
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 bg-blue-50 p-3 rounded-lg">
+              <div className="flex items-start">
+                <Info size={18} className="text-blue-500 mr-2 mt-0.5" />
+                <p className="text-sm text-blue-700">
+                  Bitcoin has different address formats. Taproot is newer and offers enhanced privacy and security features.
+                  Native SegWit offers lower transaction fees than legacy addresses.
+                </p>
+              </div>
+            </div>
+          </KashCard>
+        )}
+
+        {currentStep === ReceiveStep.VIEW_ADDRESS && selectedWallet && (
+          <KashCard className="p-5">
+            <div className="flex items-center mb-6">
+              <KashButton 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => selectedWalletType 
+                  ? setCurrentStep(ReceiveStep.SELECT_WALLET_TYPE)
+                  : setCurrentStep(ReceiveStep.SELECT_NETWORK)
+                }
+                className="mr-2"
+              >
+                Back
+              </KashButton>
+              
+              <div className="flex items-center">
+                <Avatar className="h-8 w-8 mr-2">
                   <AvatarImage src={selectedWallet.logo} alt={selectedWallet.symbol} />
                   <AvatarFallback>{selectedWallet.symbol[0]}</AvatarFallback>
                 </Avatar>
                 <div className="flex items-center">
                   <h3 className="font-medium mr-2">{selectedWallet.symbol}</h3>
                   <NetworkBadge network={selectedWallet.blockchain} />
+                  {selectedWallet.wallet_type && (
+                    <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-2" />
+                  )}
                 </div>
               </div>
             </div>
@@ -595,6 +754,9 @@ const Receive = () => {
             <div className="text-center">
               <div className="inline-block mb-3">
                 <NetworkBadge network={selectedWallet.blockchain} />
+                {selectedWallet.wallet_type && (
+                  <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-2" />
+                )}
               </div>
               {showQR ? (
                 <div className="mb-4 flex justify-center">
@@ -608,6 +770,9 @@ const Receive = () => {
                     />
                     <div className="mt-2 text-xs text-center">
                       <NetworkBadge network={selectedWallet.blockchain} />
+                      {selectedWallet.wallet_type && (
+                        <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-2" />
+                      )}
                       <p className="text-gray-500 mt-1 break-all px-2">
                         {selectedWallet.address}
                       </p>
@@ -617,8 +782,11 @@ const Receive = () => {
               ) : (
                 <>
                   <div className="bg-gray-50 p-4 rounded-lg mb-4 relative">
-                    <div className="absolute top-0 right-0 mt-2 mr-2">
+                    <div className="absolute top-0 right-0 mt-2 mr-2 flex">
                       <NetworkBadge network={selectedWallet.blockchain} />
+                      {selectedWallet.wallet_type && (
+                        <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-2" />
+                      )}
                     </div>
                     <p className="break-all text-sm font-mono border-gray-100 pt-4">
                       {selectedWallet.address}
@@ -656,6 +824,9 @@ const Receive = () => {
                 <li>Only send {selectedWallet.symbol} on the <strong>{selectedWallet.blockchain}</strong> network to this address</li>
                 <li>Sending any other cryptocurrency or using the wrong network may result in permanent loss</li>
                 <li>Always verify the entire address before sending any funds</li>
+                {selectedWallet.wallet_type && (
+                  <li>This is a <strong>{selectedWallet.wallet_type}</strong> type wallet address</li>
+                )}
               </ul>
             </div>
             
