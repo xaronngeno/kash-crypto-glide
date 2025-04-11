@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
@@ -46,15 +47,29 @@ function encryptPrivateKey(privateKey: string, userId: string): string {
   }
 }
 
-// Function to create a Solana wallet
+// Function to create a Solana wallet that works in Deno
 function createSolanaWallet(userId: string) {
   try {
     console.log("Creating Solana wallet...");
+    
+    // Create a Solana keypair using the ed25519 crypto built into Deno
     const keypair = solanaWeb3.Keypair.generate();
-    const privateKeyHex = Buffer.from(keypair.secretKey).toString('hex');
+    
+    // Get the base58 encoded public key (address)
+    const publicKey = keypair.publicKey.toString();
+    
+    // Convert secretKey to hex string for storage
+    const privateKeyBytes = keypair.secretKey;
+    let privateKeyHex = "";
+    for (let i = 0; i < privateKeyBytes.length; i++) {
+      const hex = privateKeyBytes[i].toString(16).padStart(2, "0");
+      privateKeyHex += hex;
+    }
+    
+    console.log("Successfully created Solana wallet with address:", publicKey);
     
     return {
-      address: keypair.publicKey.toString(),
+      address: publicKey,
       private_key: encryptPrivateKey(privateKeyHex, userId),
     };
   } catch (error) {

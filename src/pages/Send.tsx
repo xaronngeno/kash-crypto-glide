@@ -141,9 +141,35 @@ const Send = () => {
   const [possibleNetwork, setPossibleNetwork] = useState<string | null>(null);
   
   useEffect(() => {
+    console.log("Processing tokens:", assets.map(asset => ({
+      id: asset.symbol,
+      name: asset.name || asset.symbol,
+      symbol: asset.symbol,
+      icon: asset.symbol[0],
+      decimals: 8,
+      networks: getNetworksForCurrency(asset.symbol),
+      logo: getCurrencyLogo(asset.symbol)
+    })));
+    
+    const solWallets = assets.filter(asset => 
+      asset.symbol === 'SOL' || 
+      (asset.symbol === 'USDT' && asset.networks && 'Solana' in asset.networks)
+    );
+    console.log("SOL wallets after creation:", solWallets);
+    
     if (assets.length > 0) {
       const tokens: Token[] = assets.map(asset => {
         const networks = getNetworksForCurrency(asset.symbol);
+        
+        if (asset.symbol === 'SOL' && !networks.includes('Solana')) {
+          networks.push('Solana');
+        }
+        
+        if (asset.symbol === 'USDT' && 
+            assets.some(a => a.symbol === 'SOL') && 
+            !networks.includes('Solana')) {
+          networks.push('Solana');
+        }
         
         return {
           id: asset.symbol,
@@ -161,6 +187,25 @@ const Send = () => {
       setAvailableTokens(tokens);
     }
   }, [assets]);
+  
+  useEffect(() => {
+    if (availableTokens.length > 0) {
+      const walletAddresses = availableTokens.flatMap(token => 
+        (token.networks || []).map(network => ({
+          blockchain: network,
+          symbol: token.symbol,
+          address: assets.find(a => 
+            a.symbol === token.symbol && 
+            a.networks && 
+            network.toLowerCase() in a.networks
+          )?.networks?.[network.toLowerCase()]?.address || 'unknown',
+          logo: token.logo
+        }))
+      );
+      
+      console.log("Processing wallet addresses:", walletAddresses);
+    }
+  }, [availableTokens, assets]);
   
   const calculateFee = (symbol: string, network: string) => {
     const feeMap: Record<string, Record<string, number>> = {

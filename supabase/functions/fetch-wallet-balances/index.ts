@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -23,93 +22,109 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get wallets from database with a shorter timeout (reduced to 1ms for near-instant response)
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1); // Ultra-fast timeout for immediate response
+    console.log(`Fetching wallets for user ${userId}`);
 
-    try {
-      const { data: wallets, error: walletsError } = await supabase
-        .from('wallets')
-        .select('blockchain, currency, address, balance, wallet_type')
-        .eq('user_id', userId)
-        .abortSignal(controller.signal);
-      
-      clearTimeout(timeout);
-      
-      if (walletsError) {
-        throw walletsError;
-      }
+    // Get wallets from database
+    const { data: wallets, error: walletsError } = await supabase
+      .from('wallets')
+      .select('blockchain, currency, address, balance, wallet_type')
+      .eq('user_id', userId);
+    
+    if (walletsError) {
+      console.error('Error fetching wallets:', walletsError.message);
+      throw walletsError;
+    }
 
-      if (!wallets || wallets.length === 0) {
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'No wallets found for user',
-            wallets: [],
-            shouldCreateWallets: true
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
-      }
+    console.log(`Found ${wallets?.length || 0} wallets for user ${userId}`);
 
-      // Process wallets efficiently
-      const walletsWithBalances = wallets.map(wallet => ({
-        ...wallet,
-        balance: parseFloat(wallet.balance as any) || 0
-      }));
-      
-      // Check if we're missing Solana wallets
-      const hasSol = walletsWithBalances.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
-      const hasUsdtSol = walletsWithBalances.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
-      
-      // Add missing Solana wallets if needed
-      if (!hasSol || !hasUsdtSol) {
-        console.log("Adding missing Solana wallets");
-        
-        // Find any existing wallets to use their addresses
-        const existingSolWallet = walletsWithBalances.find(w => w.currency === 'SOL');
-        const existingUsdtWallet = walletsWithBalances.find(w => w.currency === 'USDT');
-        
-        if (!hasSol && existingSolWallet) {
-          walletsWithBalances.push({
-            blockchain: 'Solana',
-            currency: 'SOL',
-            address: existingSolWallet.address,
-            balance: existingSolWallet.balance,
-            wallet_type: 'hot'
-          });
-        }
-        
-        if (!hasUsdtSol && existingUsdtWallet) {
-          walletsWithBalances.push({
-            blockchain: 'Solana',
-            currency: 'USDT',
-            address: existingUsdtWallet.address,
-            balance: existingUsdtWallet.balance,
-            wallet_type: 'hot'
-          });
-        }
-      }
-
+    if (!wallets || wallets.length === 0) {
+      console.log('No wallets found, triggering wallet creation');
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Wallet balances fetched successfully',
-          wallets: walletsWithBalances
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
-    } catch (abortError) {
-      // For timed out queries, return empty wallets array for now and let background fetch handle it
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Wallet balances processing in background',
-          wallets: []
+          message: 'No wallets found for user',
+          wallets: [],
+          shouldCreateWallets: true
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
+
+    // Process wallets efficiently
+    const walletsWithBalances = wallets.map(wallet => ({
+      ...wallet,
+      balance: parseFloat(wallet.balance as any) || 0
+    }));
+    
+    // Check if we're missing Solana wallets
+    const hasSol = walletsWithBalances.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
+    const hasUsdtSol = walletsWithBalances.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
+    
+    console.log(`Has SOL wallet: ${hasSol}, Has USDT on Solana: ${hasUsdtSol}`);
+    
+    // Add missing Solana wallets if needed
+    if (!hasSol || !hasUsdtSol) {
+      console.log("Adding missing Solana wallets");
+      
+      // Find any existing wallets to use their addresses
+      const existingSolWallet = walletsWithBalances.find(w => w.blockchain === 'Solana');
+      const existingEthWallet = walletsWithBalances.find(w => w.blockchain === 'Ethereum');
+      
+      // If no Solana wallet exists at all, but we have other wallets, create a Solana entry in the database
+      if (!existingSolWallet && existingEthWallet) {
+        try {
+          console.log("No Solana wallet found, creating one");
+          // Call create-wallets edge function to generate proper Solana wallets
+          const { data: createWalletsResponse, error: createError } = await supabase.functions.invoke('create-wallets', {
+            method: 'POST',
+            body: { userId }
+          });
+          
+          if (createError) {
+            console.error("Error creating Solana wallets:", createError);
+          } else {
+            console.log("Solana wallet creation response:", createWalletsResponse);
+            
+            // Refresh wallet data after creation
+            const { data: freshWallets } = await supabase
+              .from('wallets')
+              .select('blockchain, currency, address, balance, wallet_type')
+              .eq('user_id', userId)
+              .in('blockchain', ['Solana']);
+            
+            if (freshWallets && freshWallets.length > 0) {
+              // Add the newly created Solana wallets
+              freshWallets.forEach(wallet => {
+                if (!walletsWithBalances.some(w => 
+                  w.blockchain === wallet.blockchain && 
+                  w.currency === wallet.currency
+                )) {
+                  walletsWithBalances.push({
+                    ...wallet,
+                    balance: parseFloat(wallet.balance as any) || 0
+                  });
+                }
+              });
+              
+              console.log(`Added ${freshWallets.length} Solana wallets to response`);
+            }
+          }
+        } catch (err) {
+          console.error("Error in wallet creation process:", err);
+        }
+      }
+    }
+
+    console.log(`Returning ${walletsWithBalances.length} wallets with balances`);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Wallet balances fetched successfully',
+        wallets: walletsWithBalances
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
   } catch (error) {
     console.error('Unexpected error:', error);
     
