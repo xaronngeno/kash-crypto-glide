@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
+import { User, Shield, Bell, CreditCard, LogOut, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
@@ -15,16 +16,6 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
 import { useWalletSeedPhrase } from '@/hooks/useWalletSeedPhrase';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -40,8 +31,6 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
   const { seedPhrase, loading: seedPhraseLoading, fetchSeedPhrase } = useWalletSeedPhrase(user?.id);
 
@@ -161,42 +150,6 @@ const Settings = () => {
         title: "Seed phrase copied",
         description: "Seed phrase has been copied to clipboard.",
       });
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!user) return;
-
-    setIsDeletingAccount(true);
-    try {
-      console.log("Starting account deletion process...");
-      const { data, error } = await supabase.functions.invoke('delete-account');
-
-      if (error) {
-        console.error("Error from delete-account function:", error);
-        throw error;
-      }
-
-      console.log("Delete account function response:", data);
-      
-      await signOut();
-      
-      toast({
-        title: "Account deleted",
-        description: "Your account has been successfully deleted.",
-      });
-      
-      navigate('/auth');
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      toast({
-        title: "Deletion failed",
-        description: "There was a problem deleting your account. Please try again later.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsDeletingAccount(false);
-      setIsDeleteAlertOpen(false);
     }
   };
 
@@ -385,15 +338,6 @@ const Settings = () => {
                 <span>Log Out</span>
               </button>
             </div>
-            <div className="py-3 px-1">
-              <button 
-                className="w-full flex items-center text-kash-error"
-                onClick={() => setIsDeleteAlertOpen(true)}
-              >
-                <Trash2 size={18} className="mr-2" />
-                <span>Delete Account</span>
-              </button>
-            </div>
           </KashCard>
         </div>
         
@@ -448,39 +392,6 @@ const Settings = () => {
           </Form>
         </DialogContent>
       </Dialog>
-      
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-kash-error">Delete Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your account and remove all your data from our servers, including:
-              <ul className="list-disc pl-5 mt-2 space-y-1">
-                <li>Your profile information</li>
-                <li>Your wallet information and transaction history</li>
-                <li>All associated data with your account</li>
-              </ul>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              className="bg-kash-error hover:bg-kash-error/90 text-white"
-              onClick={handleDeleteAccount}
-              disabled={isDeletingAccount}
-            >
-              {isDeletingAccount ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete Account"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </MainLayout>
   );
 };

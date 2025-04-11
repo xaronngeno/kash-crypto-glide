@@ -22,6 +22,3 @@ site_url = "http://localhost:3000"
 [storage]
 enabled = true
 
-[functions]
-[functions.delete-account]
-verify_jwt = true
