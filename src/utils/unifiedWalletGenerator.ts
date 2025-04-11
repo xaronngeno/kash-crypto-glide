@@ -51,13 +51,12 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
     
     const wallets: UnifiedWalletData[] = [];
     
-    // Generate Ethereum wallet
+    // Generate Ethereum wallet - using standard BIP44 path
     const ethHdNode = ethers.HDNodeWallet.fromMnemonic(
       ethers.Mnemonic.fromPhrase(mnemonic),
       DERIVATION_PATHS.ETHEREUM
     );
     
-    // Ethereum wallet
     wallets.push({
       blockchain: "Ethereum",
       platform: "Ethereum",
@@ -65,9 +64,8 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       privateKey: ethHdNode.privateKey
     });
     
-    // Generate Solana wallet using the proper derivation method
+    // Generate Solana wallet using ed25519 curve from the same seed
     try {
-      // Use standard Solana derivation path to get the keypair
       const solanaHdNode = ethers.HDNodeWallet.fromMnemonic(
         ethers.Mnemonic.fromPhrase(mnemonic),
         DERIVATION_PATHS.SOLANA
@@ -76,7 +74,7 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       // Get bytes from the private key (remove 0x prefix)
       const privateKeyBytes = Buffer.from(solanaHdNode.privateKey.slice(2), 'hex');
       
-      // Create Solana keypair from the seed
+      // Create Solana keypair directly from the seed
       const keypair = Keypair.fromSeed(privateKeyBytes.slice(0, 32));
       
       wallets.push({

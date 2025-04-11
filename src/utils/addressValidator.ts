@@ -28,8 +28,8 @@ export const isSolanaAddress = (address: string): boolean => {
   // Enhanced validation for Solana addresses
   if (!address || typeof address !== 'string') return false;
   
-  // Solana addresses are base58 encoded public keys
-  // They're typically 32-44 characters and use the base58 alphabet
+  // Solana addresses are base58 encoded public keys, typically 32-44 characters
+  // They use the base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
   const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
   
   return solanaRegex.test(address);

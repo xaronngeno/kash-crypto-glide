@@ -64,7 +64,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
     setSeedPhrase(null);
   };
   
-  // New function to validate a seed phrase and test against user's wallets
+  // Validate a seed phrase and test against user's wallets
   const validateSeedPhrase = async (phrase: string) => {
     try {
       setLoading(true);
@@ -83,7 +83,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         bitcoin: wallets.find(w => w.blockchain === 'Bitcoin')?.address
       };
       
-      console.log("Generated addresses:", generatedAddresses);
+      console.log("Generated addresses from seed phrase:", generatedAddresses);
       
       // Get user's actual wallets from the database
       const { data: userWallets, error } = await supabase
@@ -115,7 +115,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
       if (generatedAddresses.solana && userAddresses.solana) {
         // For Solana, confirm both addresses are valid Solana addresses
         const bothValidSolanaAddresses = isSolanaAddress(generatedAddresses.solana) && 
-                                          isSolanaAddress(userAddresses.solana);
+                                         isSolanaAddress(userAddresses.solana);
                                         
         if (bothValidSolanaAddresses && generatedAddresses.solana === userAddresses.solana) {
           matches.push('Solana');
