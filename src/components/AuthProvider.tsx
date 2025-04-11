@@ -81,6 +81,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               // Only mark as not loading after profile is fetched
               setLoading(false);
               
+              // Ensure wallets exist for user on login/signup
+              if (event === 'SIGNED_IN') {
+                try {
+                  console.log("Verifying wallets exist for user:", session.user.id);
+                  await supabase.functions.invoke('fetch-wallet-balances', {
+                    body: { userId: session.user.id }
+                  });
+                } catch (error) {
+                  console.error("Error checking user wallets:", error);
+                }
+              }
+              
               // Log the full auth state for debugging
               console.log('Auth state after profile fetch:', {
                 userId: session.user.id,

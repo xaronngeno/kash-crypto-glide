@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User } from 'lucide-react';
@@ -84,14 +85,11 @@ const SignUp = () => {
           description: "Your account has been successfully created.",
         });
         
-        // Navigate to dashboard first for better UX
-        navigate('/dashboard');
-        
-        // Create wallets in background using edge function
+        // Create wallets immediately for the new user
         if (data.user) {
           try {
             setProcessingStatus('Generating secure wallets...');
-            console.log("Calling wallet creation edge function");
+            console.log("Creating wallets for user:", data.user.id);
             
             // Call the edge function to create wallets
             const { data: walletData, error: walletError } = await supabase.functions.invoke('create-wallets', {
@@ -99,7 +97,12 @@ const SignUp = () => {
             });
             
             if (walletError) {
-              console.error("Error calling wallet creation function:", walletError);
+              console.error("Error creating wallets:", walletError);
+              toast({
+                title: "Wallet creation issue",
+                description: "Your account was created but there was an issue setting up your wallets. This will be resolved automatically.",
+                variant: "destructive"
+              });
             } else {
               console.log("Wallets created successfully:", walletData);
             }
@@ -108,6 +111,9 @@ const SignUp = () => {
             // We don't block the user experience here, just log the error
           }
         }
+        
+        // Navigate to dashboard
+        navigate('/dashboard');
       }
     } catch (error: any) {
       console.error("Unexpected error:", error);
