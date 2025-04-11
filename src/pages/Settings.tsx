@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
@@ -170,12 +169,16 @@ const Settings = () => {
 
     setIsDeletingAccount(true);
     try {
+      console.log("Starting account deletion process...");
       const { data, error } = await supabase.functions.invoke('delete-account');
 
       if (error) {
+        console.error("Error from delete-account function:", error);
         throw error;
       }
 
+      console.log("Delete account function response:", data);
+      
       await signOut();
       
       toast({
@@ -400,7 +403,6 @@ const Settings = () => {
         </div>
       </div>
       
-      {/* Authentication Dialog */}
       <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -447,7 +449,6 @@ const Settings = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Account Confirmation Dialog */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
