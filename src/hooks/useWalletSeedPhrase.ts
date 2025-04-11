@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateWalletsFromSeed } from '@/utils/walletGenerators';
-import { isSolanaAddress } from '@/utils/addressValidator';
+import { isSolanaAddress, isEthereumAddress, isBitcoinAddress } from '@/utils/addressValidator';
 
 export const useWalletSeedPhrase = (userId: string | undefined) => {
   const [seedPhrase, setSeedPhrase] = useState<string | null>(null);
@@ -104,31 +104,37 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         bitcoin: userWallets?.find(w => w.blockchain === 'Bitcoin')?.address
       };
       
-      // Compare at least one address to validate
+      // Compare addresses to validate
       const matches = [];
       
-      if (generatedAddresses.ethereum && userAddresses.ethereum && 
-          generatedAddresses.ethereum === userAddresses.ethereum) {
-        matches.push('Ethereum');
-      }
-      
-      if (generatedAddresses.solana && userAddresses.solana) {
-        // For Solana, confirm both addresses are valid Solana addresses
-        const bothValidSolanaAddresses = isSolanaAddress(generatedAddresses.solana) && 
-                                         isSolanaAddress(userAddresses.solana);
-                                        
-        if (bothValidSolanaAddresses && generatedAddresses.solana === userAddresses.solana) {
-          matches.push('Solana');
-        } else {
-          console.log("Solana addresses don't match or are invalid:");
-          console.log("- Generated:", generatedAddresses.solana, "Valid:", isSolanaAddress(generatedAddresses.solana));
-          console.log("- User's:", userAddresses.solana, "Valid:", isSolanaAddress(userAddresses.solana));
+      if (generatedAddresses.ethereum && userAddresses.ethereum) {
+        console.log("Comparing Ethereum addresses:");
+        console.log("- Generated:", generatedAddresses.ethereum);
+        console.log("- User's:", userAddresses.ethereum);
+        
+        if (generatedAddresses.ethereum === userAddresses.ethereum) {
+          matches.push('Ethereum');
         }
       }
       
-      if (generatedAddresses.bitcoin && userAddresses.bitcoin && 
-          generatedAddresses.bitcoin === userAddresses.bitcoin) {
-        matches.push('Bitcoin');
+      if (generatedAddresses.solana && userAddresses.solana) {
+        console.log("Comparing Solana addresses:");
+        console.log("- Generated:", generatedAddresses.solana);
+        console.log("- User's:", userAddresses.solana);
+        
+        if (generatedAddresses.solana === userAddresses.solana) {
+          matches.push('Solana');
+        }
+      }
+      
+      if (generatedAddresses.bitcoin && userAddresses.bitcoin) {
+        console.log("Comparing Bitcoin addresses:");
+        console.log("- Generated:", generatedAddresses.bitcoin);
+        console.log("- User's:", userAddresses.bitcoin);
+        
+        if (generatedAddresses.bitcoin === userAddresses.bitcoin) {
+          matches.push('Bitcoin');
+        }
       }
       
       if (matches.length > 0) {

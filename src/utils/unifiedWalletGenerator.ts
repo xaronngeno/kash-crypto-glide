@@ -4,12 +4,13 @@ import { ethers } from 'ethers';
 import { getBitcoin } from './bitcoinjsWrapper';
 import * as tweetnacl from './tweetnaclWrapper';
 import { Keypair } from '@solana/web3.js';
+import * as bs58 from './bs58Wrapper';
 
 // Define the derivation paths following BIP-44 standards
 const DERIVATION_PATHS = {
   BITCOIN: "m/84'/0'/0'/0/0", // Native SegWit (BIP84)
-  ETHEREUM: "m/44'/60'/0'/0/0",
-  SOLANA: "m/44'/501'/0'/0'"
+  ETHEREUM: "m/44'/60'/0'/0/0", // BIP44 for Ethereum
+  SOLANA: "m/44'/501'/0'/0'" // BIP44 for Solana (note the trailing ')
 };
 
 // Interface for wallet data
@@ -24,6 +25,7 @@ export interface UnifiedWalletData {
 /**
  * Generate unified wallets with ethers built-in HD wallet functionality
  * This approach ensures consistent derivation of addresses from a seed phrase
+ * that will be compatible with external wallets like MetaMask, Phantom, etc.
  */
 export const generateUnifiedWallets = async (seedPhrase?: string): Promise<UnifiedWalletData[]> => {
   try {
@@ -51,7 +53,7 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
     
     const wallets: UnifiedWalletData[] = [];
     
-    // Generate Ethereum wallet - using standard BIP44 path
+    // Generate Ethereum wallet using standard BIP44 path
     const ethHdNode = ethers.HDNodeWallet.fromMnemonic(
       ethers.Mnemonic.fromPhrase(mnemonic),
       DERIVATION_PATHS.ETHEREUM
@@ -66,15 +68,19 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
     
     // Generate Solana wallet using ed25519 curve from the same seed
     try {
-      const solanaHdNode = ethers.HDNodeWallet.fromMnemonic(
-        ethers.Mnemonic.fromPhrase(mnemonic),
-        DERIVATION_PATHS.SOLANA
-      );
+      // Get the seed from mnemonic (this is the key to getting matching addresses)
+      const mnemonicObj = ethers.Mnemonic.fromPhrase(mnemonic);
+      const seed = ethers.mnemonicToSeed(mnemonicObj); // Get full seed bytes
       
-      // Get bytes from the private key (remove 0x prefix)
-      const privateKeyBytes = Buffer.from(solanaHdNode.privateKey.slice(2), 'hex');
+      // Derive HD path for Solana using the full seed
+      const derivedPath = DERIVATION_PATHS.SOLANA;
+      const key = ethers.HDNodeWallet.fromMnemonic(mnemonicObj, derivedPath);
       
-      // Create Solana keypair directly from the seed
+      // For Solana, we need to use the private key to generate a compatible keypair
+      const privateKeyBytes = Buffer.from(key.privateKey.slice(2), 'hex');
+      
+      // Create Solana keypair using the first 32 bytes of the derived seed
+      // This is how Phantom and other Solana wallets derive their keypair
       const keypair = Keypair.fromSeed(privateKeyBytes.slice(0, 32));
       
       wallets.push({

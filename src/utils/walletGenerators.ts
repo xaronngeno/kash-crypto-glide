@@ -17,6 +17,7 @@ export interface WalletData {
 
 /**
  * Generate all wallets for a user from a seed phrase
+ * The generated wallets will be compatible with external wallet apps
  */
 export const generateWalletsFromSeed = async (seedPhrase: string): Promise<WalletData[]> => {
   try {

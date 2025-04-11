@@ -11,7 +11,7 @@ import {
   generateHDWallets
 } from '../_shared/wallet-helpers.ts';
 
-// Create all required wallets for a new user
+// Create all required wallets for a new user using HD derivation from a seed phrase
 export async function createInitialWallets(supabase: any, userId: string) {
   console.log("Creating wallets directly in fetch-wallet-balances");
   
@@ -21,6 +21,7 @@ export async function createInitialWallets(supabase: any, userId: string) {
     console.log("Got seed phrase for user");
     
     // Generate HD wallets from the seed phrase
+    // This ensures addresses are derived consistently and will work with other wallet apps
     const hdWallets = await generateHDWallets(seedPhrase, userId);
     
     const wallets = [];
@@ -118,7 +119,7 @@ export async function createInitialWallets(supabase: any, userId: string) {
       wallet_type: 'Native SegWit'
     });
     
-    console.log("Created wallets directly");
+    console.log("Created wallets directly with proper HD derivation");
     
     return wallets;
   } catch (error) {

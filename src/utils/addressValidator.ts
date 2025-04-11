@@ -28,11 +28,22 @@ export const isSolanaAddress = (address: string): boolean => {
   // Enhanced validation for Solana addresses
   if (!address || typeof address !== 'string') return false;
   
-  // Solana addresses are base58 encoded public keys, typically 32-44 characters
-  // They use the base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
-  const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-  
-  return solanaRegex.test(address);
+  try {
+    // Solana addresses are base58 encoded public keys, typically 32-44 characters
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    
+    // Check basic format
+    if (!base58Regex.test(address)) return false;
+    
+    // In a real-world scenario, we could perform additional validation:
+    // 1. Try decoding the base58 string and check if it's 32 bytes
+    // 2. Verify with Solana web3.js if it's a valid public key
+    
+    return true;
+  } catch (error) {
+    console.error("Error validating Solana address:", error);
+    return false;
+  }
 };
 
 // Binance Smart Chain validation (same format as Ethereum)
