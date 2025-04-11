@@ -17,7 +17,7 @@ interface UseWalletsProps {
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const { user, session } = useAuth();
   
