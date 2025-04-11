@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +17,7 @@ type AuthContextType = {
     phone_numbers?: string[];
     kyc_status?: string;
   } | null;
-  checkAndCreateWallets: (userId: string) => Promise<void>; // New method
+  // We're removing the wallet creation method since it's handled in useWallets
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -26,7 +27,6 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   isAuthenticated: false,
   profile: null,
-  checkAndCreateWallets: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -58,39 +58,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // New method to check and create wallets
-  const checkAndCreateWallets = async (userId: string) => {
-    try {
-      console.log("Checking wallets for user:", userId);
-      
-      // Check if wallets already exist
-      const { data: existingWallets, error: walletsError } = await supabase
-        .from('wallets')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-      
-      if (walletsError) {
-        console.error("Error checking existing wallets:", walletsError);
-        return;
-      }
-      
-      // If wallets exist, do nothing
-      if (existingWallets && existingWallets.length > 0) {
-        console.log("Wallets already exist for user");
-        return;
-      }
-      
-      // If no wallets exist, create them
-      console.log("Creating wallets for user:", userId);
-      await supabase.functions.invoke('create-wallets', {
-        body: { userId: userId }
-      });
-    } catch (error) {
-      console.error("Error in checkAndCreateWallets:", error);
-    }
-  };
-
   useEffect(() => {
     let isMounted = true;
     
@@ -115,18 +82,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               // Only mark as not loading after profile is fetched
               setLoading(false);
               
-              // Ensure wallets exist for user on login/signup
-              if (event === 'SIGNED_IN') {
-                try {
-                  console.log("Verifying wallets exist for user:", session.user.id);
-                  await supabase.functions.invoke('fetch-wallet-balances', {
-                    body: { userId: session.user.id }
-                  });
-                } catch (error) {
-                  console.error("Error checking user wallets:", error);
-                }
-              }
-              
               // Log the full auth state for debugging
               console.log('Auth state after profile fetch:', {
                 userId: session.user.id,
@@ -139,15 +94,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setProfile(null);
           setLoading(false);
-        }
-        
-        // Trigger wallet creation only on first sign-in
-        if (session?.user && event === 'SIGNED_IN') {
-          setTimeout(async () => {
-            if (isMounted) {
-              await checkAndCreateWallets(session.user.id);
-            }
-          }, 0);
         }
       }
     );
@@ -233,8 +179,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading, 
       signOut,
       isAuthenticated,
-      profile,
-      checkAndCreateWallets 
+      profile 
     }}>
       {children}
     </AuthContext.Provider>
