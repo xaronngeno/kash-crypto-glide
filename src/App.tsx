@@ -28,7 +28,7 @@ const queryClient = new QueryClient();
 
 const App: React.FC = () => {
   return (
-    <>
+    <React.StrictMode>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
@@ -108,7 +108,7 @@ const App: React.FC = () => {
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
-    </>
+    </React.StrictMode>
   );
 };
 
