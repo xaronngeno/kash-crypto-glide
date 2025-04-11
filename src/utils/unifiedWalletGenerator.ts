@@ -68,21 +68,20 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
     
     // Generate Solana wallet using ed25519 curve from the same seed
     try {
-      // Get the seed from mnemonic (this is the key to getting matching addresses)
+      // Get the seed from mnemonic
       const mnemonicObj = ethers.Mnemonic.fromPhrase(mnemonic);
       
-      // In ethers v6, we should use HDNodeWallet.fromMnemonic with the appropriate path
-      // Instead of using mnemonicToSeed, we'll get the private key from the derived path
+      // Use HDNodeWallet.fromMnemonic with the Solana path
       const solanaSeedNode = ethers.HDNodeWallet.fromMnemonic(
         mnemonicObj,
         DERIVATION_PATHS.SOLANA
       );
       
-      // For Solana, we need the private key bytes
+      // Extract private key bytes (remove 0x prefix)
       const privateKeyBytes = Buffer.from(solanaSeedNode.privateKey.slice(2), 'hex');
       
-      // Create Solana keypair using the first 32 bytes of the derived private key
-      // This is how Phantom and other Solana wallets derive their keypair
+      // Create Solana keypair using the first 32 bytes of the private key bytes
+      // This matches how Phantom and other Solana wallets derive their keypair
       const keypair = Keypair.fromSeed(privateKeyBytes.slice(0, 32));
       
       wallets.push({
