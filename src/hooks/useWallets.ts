@@ -64,7 +64,11 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
           ...asset,
           price: priceData.price,
           change: priceData.change_24h,
-          value: asset.amount * priceData.price
+          value: asset.amount * priceData.price,
+          // Update logo and name if available from price data
+          logo: priceData.logo || asset.logo,
+          name: priceData.name || asset.name,
+          platform: priceData.platform || asset.platform
         };
       }
       return asset;
@@ -75,7 +79,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
     // Update global cache with new prices
     globalAssetCache.assets = updatedAssets;
     globalAssetCache.timestamp = Date.now();
-  }, [prices]);  // Removed assets dependency to prevent infinite updates
+  }, [prices]); 
 
   // Fetch user assets with a small delay to allow UI to render first
   useEffect(() => {
@@ -169,7 +173,6 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
     
     return () => clearTimeout(timeoutId);
   }, [user?.id, session, processWallets, walletsCreated, markWalletsAsCreated, refreshCounter, skipInitialLoad]); 
-  // Fixed dependencies array to include only what's needed
 
   return { 
     assets, 
