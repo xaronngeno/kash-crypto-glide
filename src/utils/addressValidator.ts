@@ -23,6 +23,10 @@ export const isTronAddress = (address: string): boolean => {
 
 // Solana address validation (base58 encoded, 32-44 chars)
 export const isSolanaAddress = (address: string): boolean => {
+  // Enhanced validation for Solana addresses
+  if (!address || typeof address !== 'string') return false;
+  
+  // Solana addresses are base58 encoded and should be between 32-44 chars
   const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
   return solanaRegex.test(address);
 };
