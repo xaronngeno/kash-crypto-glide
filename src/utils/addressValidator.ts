@@ -1,7 +1,4 @@
 
-import { verifySolanaAddress } from './wallet/chains/solana';
-import { verifyPolygonAddress } from './wallet/chains/polygon';
-
 /**
  * Validates cryptocurrency addresses for different blockchain networks
  */
@@ -28,7 +25,25 @@ export const isTronAddress = (address: string): boolean => {
 
 // Solana address validation (base58 encoded, 32-44 chars)
 export const isSolanaAddress = (address: string): boolean => {
-  return verifySolanaAddress(address);
+  // Enhanced validation for Solana addresses
+  if (!address || typeof address !== 'string') return false;
+  
+  try {
+    // Solana addresses are base58 encoded public keys, typically 32-44 characters
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    
+    // Check basic format
+    if (!base58Regex.test(address)) return false;
+    
+    // In a real-world scenario, we could perform additional validation:
+    // 1. Try decoding the base58 string and check if it's 32 bytes
+    // 2. Verify with Solana web3.js if it's a valid public key
+    
+    return true;
+  } catch (error) {
+    console.error("Error validating Solana address:", error);
+    return false;
+  }
 };
 
 // Binance Smart Chain validation (same format as Ethereum)
@@ -43,7 +58,7 @@ export const isBaseAddress = (address: string): boolean => {
 
 // Polygon address validation (same format as Ethereum)
 export const isPolygonAddress = (address: string): boolean => {
-  return verifyPolygonAddress(address); // Using the specialized validator
+  return isEthereumAddress(address); // Polygon uses the same address format as Ethereum
 };
 
 // Check if address matches the selected network

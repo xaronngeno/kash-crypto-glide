@@ -30,8 +30,6 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
 // Helper function to verify Solana address
 function verifySolanaAddress(address: string): boolean {
   if (!address || typeof address !== 'string') return false;
-  
-  // Solana addresses are base58 encoded strings, typically 32-44 characters
   const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
   return base58Regex.test(address);
 }

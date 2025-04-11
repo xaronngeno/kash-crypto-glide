@@ -10,7 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { useWallets } from '@/hooks/useWallets';
-import { refreshWalletBalances } from '@/hooks/wallet';
+import { refreshWalletBalances } from '@/hooks/useWalletBalance';
 import { KashButton } from '@/components/ui/KashButton';
 
 const Dashboard = () => {
@@ -24,7 +24,7 @@ const Dashboard = () => {
   const { prices, error: pricesError } = useCryptoPrices();
   
   // Get wallet assets
-  const { assets, error: walletsError, loading: assetsLoading, reload } = useWallets({ prices });
+  const { assets, error: walletsError, reload } = useWallets({ prices });
   
   // Combined error state
   const error = pricesError || walletsError;
@@ -71,12 +71,12 @@ const Dashboard = () => {
             <span>Total Balance</span>
             <KashButton 
               variant="ghost" 
-              size="sm" 
+              size="icon" 
               onClick={handleRefresh}
               className="ml-2 h-6 w-6"
-              disabled={refreshing || assetsLoading}
+              disabled={refreshing}
             >
-              <RefreshCw size={14} className={refreshing || assetsLoading ? "animate-spin" : ""} />
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </KashButton>
           </div>
           <div className="flex items-center">
