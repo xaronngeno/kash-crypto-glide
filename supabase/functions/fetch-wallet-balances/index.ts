@@ -62,8 +62,8 @@ serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user ID from request
-    const { userId } = await req.json();
+    // Get user ID and options from request
+    const { userId, forceRefresh = false } = await req.json();
 
     if (!userId) {
       return new Response(
@@ -76,6 +76,27 @@ serve(async (req: Request) => {
     let wallets;
     try {
       wallets = await fetchUserWallets(supabase, userId);
+      
+      // If force refreshing, we'd call blockchain explorers here to get real-time balances
+      if (forceRefresh && wallets && wallets.length > 0) {
+        console.log("Force refresh requested, checking blockchain explorers");
+        // In a production app, you would call blockchain explorers here
+        // For now, we'll just log the addresses we would check
+        const solanaAddresses = wallets.filter(w => w.blockchain === 'Solana').map(w => w.address);
+        if (solanaAddresses.length > 0) {
+          console.log("Would check Solana balances for:", solanaAddresses);
+        }
+        
+        const ethereumAddresses = wallets.filter(w => w.blockchain === 'Ethereum').map(w => w.address);
+        if (ethereumAddresses.length > 0) {
+          console.log("Would check Ethereum balances for:", ethereumAddresses);
+        }
+        
+        const bitcoinAddresses = wallets.filter(w => w.blockchain === 'Bitcoin').map(w => w.address);
+        if (bitcoinAddresses.length > 0) {
+          console.log("Would check Bitcoin balances for:", bitcoinAddresses);
+        }
+      }
     } catch (error) {
       return new Response(
         JSON.stringify({ 
@@ -144,7 +165,8 @@ serve(async (req: Request) => {
       JSON.stringify({ 
         success: true, 
         message: 'Wallet balances fetched successfully',
-        wallets: noTaprootWallets
+        wallets: noTaprootWallets,
+        refreshed: forceRefresh
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

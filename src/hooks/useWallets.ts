@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Asset } from '@/types/assets';
 import { useAuth } from '@/components/AuthProvider';
 import { 
@@ -17,6 +17,8 @@ interface UseWalletsProps {
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
   const { user, session } = useAuth();
   
   // Track wallet creation status
@@ -27,6 +29,11 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   
   // Flag to prevent multiple wallet creation attempts
   const walletCreationAttempted = useRef(false);
+  
+  // Function to manually reload wallet data
+  const reload = useCallback(() => {
+    setRefreshCounter(prev => prev + 1);
+  }, []);
   
   // Update asset prices when prices change
   useEffect(() => {
@@ -59,6 +66,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         }
         
         setError(null);
+        setLoading(true);
         
         try {
           // Fetch wallet balances
@@ -105,6 +113,8 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           const errorMessage = err instanceof Error ? err.message : "Unknown error";
           console.error('Error in useWallets:', errorMessage);
           setError(errorMessage);
+        } finally {
+          setLoading(false);
         }
       };
   
@@ -123,11 +133,12 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     }, 10); // Small delay
     
     return () => clearTimeout(timeoutId);
-  }, [user, session, processWallets, walletsCreated, markWalletsAsCreated]);
+  }, [user, session, processWallets, walletsCreated, markWalletsAsCreated, refreshCounter]);
 
   return { 
     assets, 
-    loading: false,
-    error
+    loading,
+    error,
+    reload
   };
 };

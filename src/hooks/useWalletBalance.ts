@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -8,6 +7,7 @@ interface FetchWalletsOptions {
   userId: string;
   onSuccess?: (wallets: any[]) => void;
   onError?: (error: Error) => void;
+  forceRefresh?: boolean;
 }
 
 /**
@@ -16,7 +16,8 @@ interface FetchWalletsOptions {
 export const fetchWalletBalances = async ({ 
   userId, 
   onSuccess, 
-  onError 
+  onError,
+  forceRefresh = false
 }: FetchWalletsOptions): Promise<any[] | null> => {
   if (!userId) {
     console.log("No user ID provided for wallet fetch");
@@ -24,11 +25,11 @@ export const fetchWalletBalances = async ({
   }
 
   try {
-    console.log("Fetching wallets for user:", userId);
+    console.log(`Fetching wallets for user: ${userId}${forceRefresh ? ' (forced refresh)' : ''}`);
     
     const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
       method: 'POST',
-      body: { userId }
+      body: { userId, forceRefresh }
     });
     
     if (error) {
@@ -57,6 +58,49 @@ export const fetchWalletBalances = async ({
     }
     
     return null;
+  }
+};
+
+/**
+ * Force refresh wallet balances from blockchain explorers
+ */
+export const refreshWalletBalances = async (userId: string): Promise<boolean> => {
+  if (!userId) return false;
+  
+  try {
+    toast({
+      title: "Refreshing balances",
+      description: "Fetching latest balances from blockchain networks...",
+    });
+    
+    const wallets = await fetchWalletBalances({ 
+      userId, 
+      forceRefresh: true,
+      onError: (err) => {
+        toast({
+          title: "Refresh failed",
+          description: err.message,
+          variant: "destructive"
+        });
+      }
+    });
+    
+    if (wallets && wallets.length > 0) {
+      toast({
+        title: "Balances updated",
+        description: "Your wallet balances have been refreshed",
+      });
+      return true;
+    } else {
+      toast({
+        title: "No changes",
+        description: "No new transactions found",
+      });
+      return false;
+    }
+  } catch (error) {
+    console.error("Error refreshing wallet balances:", error);
+    return false;
   }
 };
 

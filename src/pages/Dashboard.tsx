@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { ActionButtons } from '@/components/dashboard/ActionButtons';
@@ -10,18 +10,21 @@ import { useAuth } from '@/components/AuthProvider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { useWallets } from '@/hooks/useWallets';
+import { refreshWalletBalances } from '@/hooks/useWalletBalance';
+import { KashButton } from '@/components/ui/KashButton';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
+  const [refreshing, setRefreshing] = useState(false);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   
   // Get crypto prices
   const { prices, error: pricesError } = useCryptoPrices();
   
   // Get wallet assets
-  const { assets, error: walletsError } = useWallets({ prices });
+  const { assets, error: walletsError, reload } = useWallets({ prices });
   
   // Combined error state
   const error = pricesError || walletsError;
@@ -39,6 +42,19 @@ const Dashboard = () => {
     return acc + value;
   }, 0);
 
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    if (!user?.id || refreshing) return;
+    
+    setRefreshing(true);
+    try {
+      await refreshWalletBalances(user.id);
+      reload(); // Reload wallet data after refresh
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <MainLayout title="Portfolio">
       <div className="space-y-6">
@@ -51,7 +67,18 @@ const Dashboard = () => {
         )}
 
         <div className="flex flex-col items-center justify-center pt-4">
-          <div className="text-gray-500 text-sm mb-1">Total Balance</div>
+          <div className="text-gray-500 text-sm mb-1 flex items-center">
+            <span>Total Balance</span>
+            <KashButton 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleRefresh}
+              className="ml-2 h-6 w-6"
+              disabled={refreshing}
+            >
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            </KashButton>
+          </div>
           <div className="flex items-center">
             <h1 className="text-3xl font-bold">
               {currency === 'USD' ? '$' : 'KES '}
