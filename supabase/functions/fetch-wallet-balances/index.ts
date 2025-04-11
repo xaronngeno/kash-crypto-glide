@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -75,7 +74,7 @@ serve(async (req: Request) => {
       const existingEthWallet = walletsWithBalances.find(w => w.blockchain === 'Ethereum');
       
       // If missing wallets and we have other wallets, create entries in the database
-      if ((!existingSolWallet || !hasBtcTaproot || !hasBtcSegwit) && existingEthWallet) {
+      if ((!hasSol || !hasUsdtSol || !hasBtcTaproot || !hasBtcSegwit) && existingEthWallet) {
         try {
           console.log("Creating missing wallets");
           // Call create-wallets edge function to generate proper wallets
