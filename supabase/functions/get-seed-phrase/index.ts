@@ -23,34 +23,36 @@ function decryptPrivateKey(encryptedKey: string, userId: string): string {
   try {
     // This should match the encryption logic used in the create-wallets function
     const encryptionKey = `KASH_SECRET_KEY_${userId}_SECURE`;
-    const encryptedBytes = atob(encryptedKey);
-    let decrypted = "";
+    const bytes = [];
     
-    for (let i = 0; i < encryptedBytes.length; i++) {
+    // Convert base64 to binary
+    const binary = atob(encryptedKey);
+    
+    // XOR each byte with the key
+    for (let i = 0; i < binary.length; i++) {
       const keyChar = encryptionKey[i % encryptionKey.length].charCodeAt(0);
-      const encChar = encryptedBytes.charCodeAt(i);
-      decrypted += String.fromCharCode(encChar ^ keyChar);
+      const encChar = binary.charCodeAt(i);
+      bytes.push(encChar ^ keyChar);
     }
     
-    return decrypted;
+    // Convert to hex string with 0x prefix for ethers
+    const hexString = "0x" + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hexString;
   } catch (error) {
     console.error("Decryption error:", error);
     throw new Error("Failed to decrypt private key");
   }
 }
 
-// Function to derive a deterministic seed phrase from a private key
-function deriveSeedPhrase(privateKey: string): string {
+// Generate a seed phrase
+function generateSeedPhrase(): string {
   try {
-    // Use ethers.js to create a wallet from the private key
-    const wallet = new ethers.Wallet(privateKey);
-    
-    // We'll use the mnemonic from the wallet
-    // In a real implementation, you'd store the original mnemonic or use proper HD wallet derivation
-    return wallet.mnemonic?.phrase || "Unable to derive seed phrase";
+    // Create a random wallet which automatically generates a mnemonic
+    const wallet = ethers.Wallet.createRandom();
+    return wallet.mnemonic?.phrase || "";
   } catch (error) {
-    console.error("Error deriving seed phrase:", error);
-    throw new Error("Failed to derive seed phrase");
+    console.error("Error generating seed phrase:", error);
+    throw new Error("Failed to generate seed phrase");
   }
 }
 
@@ -125,30 +127,9 @@ serve(async (req) => {
       });
     }
 
-    // If no stored mnemonic, fetch the user's ethereum wallet private key
-    const { data: walletData, error: walletError } = await supabase
-      .from('wallets')
-      .select('private_key')
-      .eq('user_id', userId)
-      .eq('blockchain', 'Ethereum')  // We'll use the Ethereum wallet's private key
-      .eq('currency', 'ETH')
-      .maybeSingle();
-
-    if (walletError || !walletData?.private_key) {
-      console.error("Wallet fetch error:", walletError);
-      return new Response(JSON.stringify({ error: "No wallet found for this user" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 404,
-      });
-    }
-
-    // Decrypt the private key
-    const decryptedPrivateKey = decryptPrivateKey(walletData.private_key, userId);
-
-    // Derive a seed phrase from the private key
-    // In a real implementation, you'd retrieve the original mnemonic or use proper HD wallet derivation
-    const seedPhrase = deriveSeedPhrase(decryptedPrivateKey);
-
+    // If no stored mnemonic, generate a new one
+    const seedPhrase = generateSeedPhrase();
+    
     // Store the mnemonic for future use
     await supabase
       .from('user_mnemonics')
