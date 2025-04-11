@@ -1,11 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { ActionButtons } from '@/components/dashboard/ActionButtons';
 import { AssetsList } from '@/components/dashboard/AssetsList';
-import { AssetsListSkeleton } from '@/components/dashboard/AssetsListSkeleton';
 import { PromoCard } from '@/components/dashboard/PromoCard';
 import { useAuth } from '@/components/AuthProvider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -19,7 +17,6 @@ const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
   const [refreshing, setRefreshing] = useState(false);
-  const [showSkeleton, setShowSkeleton] = useState(true);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   
   const { prices, error: pricesError } = useCryptoPrices();
@@ -27,18 +24,6 @@ const Dashboard = () => {
   const { assets, error: walletsError, reload, loading } = useWallets({ prices });
   
   const error = pricesError || walletsError;
-
-  // Show skeleton for a brief period even if data loads quickly
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSkeleton(false);
-    }, 800); // Show skeleton for at least 800ms
-    
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Determine if we should show the skeleton
-  const shouldShowSkeleton = showSkeleton || loading;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -134,11 +119,7 @@ const Dashboard = () => {
             </button>
           </div>
           
-          {shouldShowSkeleton ? (
-            <AssetsListSkeleton />
-          ) : (
-            <AssetsList assets={assets} currency={currency} />
-          )}
+          <AssetsList assets={assets} currency={currency} />
         </div>
         
         <PromoCard />
