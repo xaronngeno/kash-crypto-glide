@@ -12,12 +12,13 @@ import { toast } from '@/hooks/use-toast';
 
 interface UseWalletsProps {
   prices: Record<string, { price: number; change_24h: number }>;
+  skipInitialLoad?: boolean;
 }
 
-export const useWallets = ({ prices }: UseWalletsProps) => {
+export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!skipInitialLoad);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const { user, session } = useAuth();
   
@@ -29,9 +30,12 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   
   // Flag to prevent multiple wallet creation attempts
   const walletCreationAttempted = useRef(false);
+  // Flag to track if initial load has been done
+  const initialLoadDone = useRef(false);
   
   // Function to manually reload wallet data
   const reload = useCallback(() => {
+    setLoading(true);
     setRefreshCounter(prev => prev + 1);
   }, []);
   
@@ -57,6 +61,11 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
 
   // Fetch user assets with a small delay to allow UI to render first
   useEffect(() => {
+    // Skip loading if skipInitialLoad is true and initialLoadDone is true
+    if (skipInitialLoad && initialLoadDone.current) {
+      return;
+    }
+    
     // Small timeout to let React render first
     const timeoutId = setTimeout(() => {
       const loadUserAssets = async () => {
@@ -66,7 +75,9 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         }
         
         setError(null);
-        setLoading(true);
+        if (!skipInitialLoad || !initialLoadDone.current) {
+          setLoading(true);
+        }
         
         try {
           // Fetch wallet balances
@@ -108,6 +119,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           // Process the wallet data into assets
           const processedAssets = processWallets(wallets);
           setAssets(processedAssets);
+          initialLoadDone.current = true;
           
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -120,20 +132,10 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   
       loadUserAssets();
       
-      // Set up periodic refresh in the background
-      const refreshInterval = setInterval(() => {
-        if (user?.id) {
-          loadUserAssets();
-        }
-      }, 60000); // Every 60 seconds
-      
-      return () => {
-        clearInterval(refreshInterval);
-      };
     }, 10); // Small delay
     
     return () => clearTimeout(timeoutId);
-  }, [user, session, processWallets, walletsCreated, markWalletsAsCreated, refreshCounter]);
+  }, [user, session, processWallets, walletsCreated, markWalletsAsCreated, refreshCounter, skipInitialLoad]);
 
   return { 
     assets, 

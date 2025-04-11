@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -17,13 +18,28 @@ const Dashboard = () => {
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
   const [refreshing, setRefreshing] = useState(false);
+  const [pullToRefreshActive, setPullToRefreshActive] = useState(false);
+  const pullStartY = useRef(0);
+  const contentRef = useRef<HTMLDivElement>(null);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   
   const { prices, error: pricesError } = useCryptoPrices();
   
-  const { assets, error: walletsError, reload, loading } = useWallets({ prices });
+  // Only skip initial load if we're not on first mount - manage this with sessionStorage
+  const isFirstLoad = !sessionStorage.getItem('dashboardLoaded');
+  const { assets, error: walletsError, reload, loading } = useWallets({ 
+    prices,
+    skipInitialLoad: !isFirstLoad
+  });
   
   const error = pricesError || walletsError;
+
+  // Mark dashboard as loaded after first successful load
+  useEffect(() => {
+    if (!loading && assets.length > 0 && !sessionStorage.getItem('dashboardLoaded')) {
+      sessionStorage.setItem('dashboardLoaded', 'true');
+    }
+  }, [loading, assets]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -31,6 +47,46 @@ const Dashboard = () => {
       navigate('/auth');
     }
   }, [navigate, isAuthenticated, authLoading]);
+
+  // Handle pull-to-refresh gesture
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      // Only enable pull to refresh when at top of page
+      if (window.scrollY === 0) {
+        pullStartY.current = e.touches[0].clientY;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const currentY = e.touches[0].clientY;
+      const pullDistance = currentY - pullStartY.current;
+      
+      // Only activate pull to refresh when pulling down from top of page
+      if (window.scrollY === 0 && pullDistance > 50 && !refreshing) {
+        setPullToRefreshActive(true);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (pullToRefreshActive && !refreshing) {
+        handleRefresh();
+      }
+      setPullToRefreshActive(false);
+    };
+
+    content.addEventListener('touchstart', handleTouchStart);
+    content.addEventListener('touchmove', handleTouchMove);
+    content.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      content.removeEventListener('touchstart', handleTouchStart);
+      content.removeEventListener('touchmove', handleTouchMove);
+      content.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [pullToRefreshActive, refreshing]);
 
   const totalBalance = assets.reduce((acc, asset) => {
     const value = typeof asset.value === 'number' ? asset.value : 0;
@@ -66,7 +122,14 @@ const Dashboard = () => {
 
   return (
     <MainLayout title="Portfolio">
-      <div className="space-y-6">
+      <div className="space-y-6" ref={contentRef}>
+        {pullToRefreshActive && (
+          <div className="flex justify-center py-4 text-kash-green">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-kash-green"></div>
+            <span className="ml-2">Release to refresh</span>
+          </div>
+        )}
+        
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
