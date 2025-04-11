@@ -5,7 +5,7 @@ import { getBitcoin } from './bitcoinjsWrapper';
 import * as tweetnacl from './tweetnaclWrapper';
 import { Keypair } from '@solana/web3.js';
 
-// Define the derivation paths
+// Define the derivation paths following BIP-44 standards
 const DERIVATION_PATHS = {
   BITCOIN: "m/84'/0'/0'/0/0", // Native SegWit (BIP84)
   ETHEREUM: "m/44'/60'/0'/0/0",
@@ -23,21 +23,31 @@ export interface UnifiedWalletData {
 
 /**
  * Generate unified wallets with ethers built-in HD wallet functionality
- * This approach doesn't require additional dependencies like bip39 or bip32
+ * This approach ensures consistent derivation of addresses from a seed phrase
  */
-export const generateUnifiedWallets = async (): Promise<UnifiedWalletData[]> => {
+export const generateUnifiedWallets = async (seedPhrase?: string): Promise<UnifiedWalletData[]> => {
   try {
-    console.log("Generating unified wallets");
+    console.log("Generating unified wallets from seed phrase");
     
-    // Generate a random mnemonic with ethers
-    const wallet = ethers.Wallet.createRandom();
-    const mnemonic = wallet.mnemonic?.phrase;
-    
-    if (!mnemonic) {
-      throw new Error("Failed to generate mnemonic");
+    // Use provided seed phrase or generate a new one
+    let mnemonic;
+    if (seedPhrase) {
+      // Validate the provided seed phrase
+      if (!ethers.Mnemonic.isValidMnemonic(seedPhrase)) {
+        throw new Error("Invalid seed phrase provided");
+      }
+      mnemonic = seedPhrase;
+      console.log("Using provided seed phrase");
+    } else {
+      // Generate a random mnemonic with ethers
+      const wallet = ethers.Wallet.createRandom();
+      mnemonic = wallet.mnemonic?.phrase;
+      
+      if (!mnemonic) {
+        throw new Error("Failed to generate mnemonic");
+      }
+      console.log("Generated new seed phrase");
     }
-    
-    console.log("Mnemonic generated successfully");
     
     const wallets: UnifiedWalletData[] = [];
     
@@ -116,10 +126,25 @@ export const generateUnifiedWallets = async (): Promise<UnifiedWalletData[]> => 
       console.error("Failed to generate Bitcoin wallet:", error);
     }
     
+    // Return the generated seed phrase along with the wallets
     console.log(`Generated ${wallets.length} unified wallets`);
+    
+    // Add the seed phrase to the first wallet for retrieval
+    if (wallets.length > 0) {
+      (wallets[0] as any).seedPhrase = mnemonic;
+    }
+    
     return wallets;
   } catch (error) {
     console.error("Error in unified wallet generation:", error);
     throw error;
   }
+};
+
+/**
+ * Generate wallets from an existing seed phrase
+ * This is a convenience wrapper around generateUnifiedWallets
+ */
+export const generateWalletsFromSeedPhrase = async (seedPhrase: string): Promise<UnifiedWalletData[]> => {
+  return generateUnifiedWallets(seedPhrase);
 };

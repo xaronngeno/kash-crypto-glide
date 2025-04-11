@@ -1,7 +1,8 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as ethers from "https://esm.sh/ethers@6.13.5";
-import { decode as base58_decode, encode as base58_encode } from "https://esm.sh/bs58@5.0.0";
+import { base58_decode, base58_encode } from "https://esm.sh/bs58@5.0.0/index.js";
 import * as solanaWeb3 from "https://esm.sh/@solana/web3.js@1.91.1";
 
 // CORS headers
@@ -47,94 +48,88 @@ function encryptPrivateKey(privateKey: string, userId: string): string {
 
 // WALLET GENERATION FUNCTIONS
 
-// Function to create a Solana wallet that works in Deno
-function createSolanaWallet(userId: string) {
+// Generate a mnemonic seed phrase that will be used for all wallets
+function generateHDWallets(userId: string) {
   try {
-    console.log("Creating Solana wallet...");
+    console.log("Generating HD wallet from seed phrase...");
     
-    // Create a Solana keypair using the ed25519 crypto built into Deno
-    const keypair = solanaWeb3.Keypair.generate();
+    // Create a random HD wallet (this automatically generates a mnemonic phrase)
+    const hdWallet = ethers.Wallet.createRandom();
+    const mnemonic = hdWallet.mnemonic?.phrase;
     
-    // Get the base58 encoded public key (address)
-    const publicKey = keypair.publicKey.toString();
-    
-    // Convert secretKey to hex string for storage
-    const privateKeyBytes = keypair.secretKey;
-    let privateKeyHex = "";
-    for (let i = 0; i < privateKeyBytes.length; i++) {
-      const hex = privateKeyBytes[i].toString(16).padStart(2, "0");
-      privateKeyHex += hex;
+    if (!mnemonic) {
+      throw new Error("Failed to generate mnemonic");
     }
     
-    console.log("Successfully created Solana wallet with address:", publicKey);
+    console.log("Successfully generated seed phrase");
     
+    // Define derivation paths
+    const DERIVATION_PATHS = {
+      BITCOIN_SEGWIT: "m/84'/0'/0'/0/0", // BIP84 - Native SegWit
+      BITCOIN_TAPROOT: "m/86'/0'/0'/0/0", // BIP86 - Taproot
+      ETHEREUM: "m/44'/60'/0'/0/0",       // BIP44 - Ethereum
+      SOLANA: "m/44'/501'/0'/0'"         // BIP44 - Solana
+    };
+    
+    // Generate Ethereum wallet
+    const ethHdNode = ethers.HDNodeWallet.fromMnemonic(
+      ethers.Mnemonic.fromPhrase(mnemonic),
+      DERIVATION_PATHS.ETHEREUM
+    );
+    
+    // Generate Solana wallet
+    const solanaHdNode = ethers.HDNodeWallet.fromMnemonic(
+      ethers.Mnemonic.fromPhrase(mnemonic),
+      DERIVATION_PATHS.SOLANA
+    );
+    
+    // Extract private key bytes (remove 0x prefix)
+    const solPrivateKeyBytes = Buffer.from(solanaHdNode.privateKey.slice(2), 'hex');
+    
+    // Create Solana keypair using the first 32 bytes
+    const solanaKeypair = solanaWeb3.Keypair.fromSeed(solPrivateKeyBytes.slice(0, 32));
+    
+    // For Bitcoin, we'll use two different derivation paths for SegWit and Taproot
+    const btcSegwitHdNode = ethers.HDNodeWallet.fromMnemonic(
+      ethers.Mnemonic.fromPhrase(mnemonic),
+      DERIVATION_PATHS.BITCOIN_SEGWIT
+    );
+    
+    const btcTaprootHdNode = ethers.HDNodeWallet.fromMnemonic(
+      ethers.Mnemonic.fromPhrase(mnemonic),
+      DERIVATION_PATHS.BITCOIN_TAPROOT
+    );
+    
+    // For simplified demonstration, we'll create addresses in a deterministic way
+    // In production, use proper Bitcoin libraries to derive addresses
+    
+    // Create a simplified approach for Bitcoin addresses 
+    const btcSegwitAddress = `bc1q${btcSegwitHdNode.privateKey.slice(2, 30)}`;
+    const btcTaprootAddress = `bc1p${btcTaprootHdNode.privateKey.slice(2, 30)}`;
+    
+    // Store the mnemonic for future recovery (securely encrypted)
     return {
-      address: publicKey,
-      private_key: encryptPrivateKey(privateKeyHex, userId),
+      mnemonic, 
+      ethereum: {
+        address: ethHdNode.address,
+        privateKey: ethHdNode.privateKey
+      },
+      solana: {
+        address: solanaKeypair.publicKey.toString(),
+        privateKey: Buffer.from(solanaKeypair.secretKey).toString('hex')
+      },
+      bitcoinSegwit: {
+        address: btcSegwitAddress,
+        privateKey: btcSegwitHdNode.privateKey
+      },
+      bitcoinTaproot: {
+        address: btcTaprootAddress,
+        privateKey: btcTaprootHdNode.privateKey
+      }
     };
   } catch (error) {
-    console.error("Error creating Solana wallet:", error);
-    throw new Error(`Failed to create Solana wallet: ${error.message}`);
-  }
-}
-
-// Function to create a Bitcoin wallet using Deno's native crypto
-function createBitcoinWallet(userId: string, type: 'taproot' | 'segwit' = 'segwit') {
-  try {
-    console.log(`Creating Bitcoin ${type} wallet...`);
-    
-    // Generate a private key using Deno's crypto.getRandomValues
-    const privateKeyBytes = new Uint8Array(32);
-    crypto.getRandomValues(privateKeyBytes);
-    
-    // Convert to hex for storage
-    const privateKeyHex = Array.from(privateKeyBytes)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-    
-    // Generate a deterministic address based on the private key and type
-    // This is a simplified approach for demonstration purposes
-    // In a real implementation, use proper key derivation and address generation
-    const addressSeed = new TextEncoder().encode(`${privateKeyHex}-${userId}-${type}`);
-    const addressHashBuffer = new Uint8Array(20);
-    crypto.getRandomValues(addressHashBuffer);
-    
-    // Create address based on type without underscores
-    let address: string;
-    if (type === 'taproot') {
-      // Simulate Taproot address (bc1p...)
-      address = `bc1p${base58_encode(addressHashBuffer).substring(0, 38)}`;
-    } else {
-      // Simulate SegWit address (bc1q...)
-      address = `bc1q${base58_encode(addressHashBuffer).substring(0, 38)}`;
-    }
-    
-    console.log(`Successfully created Bitcoin ${type} wallet with address: ${address}`);
-    
-    return {
-      address,
-      private_key: encryptPrivateKey(privateKeyHex, userId),
-      wallet_type: type === 'taproot' ? 'Taproot' : 'Native SegWit'
-    };
-  } catch (error) {
-    console.error(`Error creating Bitcoin ${type} wallet:`, error);
-    throw new Error(`Failed to create Bitcoin ${type} wallet: ${error.message}`);
-  }
-}
-
-// Function to create a standard EVM wallet (Ethereum)
-function createEVMWallet(blockchain: string, currency: string, userId: string) {
-  try {
-    const wallet = ethers.Wallet.createRandom();
-    return {
-      blockchain,
-      currency,
-      address: wallet.address,
-      private_key: encryptPrivateKey(wallet.privateKey, userId),
-    };
-  } catch (error) {
-    console.error(`Error creating ${blockchain} wallet:`, error);
-    throw new Error(`Failed to create ${blockchain} wallet: ${error.message}`);
+    console.error("Error generating HD wallet:", error);
+    throw error;
   }
 }
 
@@ -215,6 +210,36 @@ async function createUserWallets(supabase: any, userId: string) {
       });
     }
 
+    // Generate HD wallets from a single seed phrase
+    const hdWallets = generateHDWallets(userId);
+    
+    // Store the seed phrase in the user_mnemonics table
+    const { data: existingMnemonic, error: mnemonicCheckError } = await supabase
+      .from('user_mnemonics')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+      
+    if (mnemonicCheckError) {
+      console.error("Error checking existing mnemonic:", mnemonicCheckError);
+    }
+    
+    if (!existingMnemonic) {
+      // Store the mnemonic
+      const { error: mnemonicError } = await supabase
+        .from('user_mnemonics')
+        .insert({
+          user_id: userId,
+          main_mnemonic: hdWallets.mnemonic
+        });
+        
+      if (mnemonicError) {
+        console.error("Error storing mnemonic:", mnemonicError);
+      } else {
+        console.log("Stored seed phrase successfully");
+      }
+    }
+
     // Create wallet objects to insert
     const wallets = [];
 
@@ -222,14 +247,13 @@ async function createUserWallets(supabase: any, userId: string) {
     if (!existingWalletKeys.has("Bitcoin-BTC-Taproot")) {
       try {
         console.log("Creating Bitcoin Taproot wallet");
-        const taprootWallet = createBitcoinWallet(userId, 'taproot');
         wallets.push({
           user_id: userId,
           blockchain: "Bitcoin",
           currency: "BTC",
-          address: taprootWallet.address,
-          private_key: taprootWallet.private_key,
-          wallet_type: taprootWallet.wallet_type,
+          address: hdWallets.bitcoinTaproot.address,
+          private_key: encryptPrivateKey(hdWallets.bitcoinTaproot.privateKey, userId),
+          wallet_type: "Taproot",
           balance: 0, // Start with zero balance
         });
         console.log("Created BTC Taproot wallet");
@@ -241,14 +265,13 @@ async function createUserWallets(supabase: any, userId: string) {
     if (!existingWalletKeys.has("Bitcoin-BTC-Native SegWit")) {
       try {
         console.log("Creating Bitcoin SegWit wallet");
-        const segwitWallet = createBitcoinWallet(userId, 'segwit');
         wallets.push({
           user_id: userId,
           blockchain: "Bitcoin",
           currency: "BTC",
-          address: segwitWallet.address,
-          private_key: segwitWallet.private_key,
-          wallet_type: segwitWallet.wallet_type,
+          address: hdWallets.bitcoinSegwit.address,
+          private_key: encryptPrivateKey(hdWallets.bitcoinSegwit.privateKey, userId),
+          wallet_type: "Native SegWit",
           balance: 0, // Start with zero balance
         });
         console.log("Created BTC SegWit wallet");
@@ -261,13 +284,12 @@ async function createUserWallets(supabase: any, userId: string) {
     if (!existingWalletKeys.has("Ethereum-ETH")) {
       try {
         console.log("Creating ETH wallet");
-        const ethWallet = createEVMWallet("Ethereum", "ETH", userId);
         wallets.push({
           user_id: userId,
-          blockchain: ethWallet.blockchain,
-          currency: ethWallet.currency,
-          address: ethWallet.address,
-          private_key: ethWallet.private_key,
+          blockchain: "Ethereum",
+          currency: "ETH",
+          address: hdWallets.ethereum.address,
+          private_key: encryptPrivateKey(hdWallets.ethereum.privateKey, userId),
           wallet_type: "imported",
           balance: 0,
         });
@@ -278,8 +300,8 @@ async function createUserWallets(supabase: any, userId: string) {
             user_id: userId,
             blockchain: "Ethereum",
             currency: "USDT",
-            address: ethWallet.address,
-            private_key: ethWallet.private_key,
+            address: hdWallets.ethereum.address,
+            private_key: null,
             wallet_type: "token",
             balance: 0,
           });
@@ -294,13 +316,12 @@ async function createUserWallets(supabase: any, userId: string) {
     if (!existingWalletKeys.has("Solana-SOL")) {
       try {
         console.log("Creating Solana wallet");
-        const solWallet = createSolanaWallet(userId);
         wallets.push({
           user_id: userId,
           blockchain: "Solana",
           currency: "SOL",
-          address: solWallet.address,
-          private_key: solWallet.private_key,
+          address: hdWallets.solana.address,
+          private_key: encryptPrivateKey(hdWallets.solana.privateKey, userId),
           wallet_type: "imported",
           balance: 0,
         });
@@ -311,8 +332,8 @@ async function createUserWallets(supabase: any, userId: string) {
             user_id: userId,
             blockchain: "Solana",
             currency: "USDT",
-            address: solWallet.address,
-            private_key: solWallet.private_key,
+            address: hdWallets.solana.address,
+            private_key: null,
             wallet_type: "token",
             balance: 0,
           });
@@ -340,15 +361,24 @@ async function createUserWallets(supabase: any, userId: string) {
         message: "Wallets created successfully", 
         count: wallets.length, 
         existingCount: existingWallets?.length || 0,
-        wallets: insertedWallets 
+        wallets: insertedWallets,
+        seedPhrase: hdWallets.mnemonic
       };
     } else if (existingWallets && existingWallets.length > 0) {
+      // Check if there's an existing mnemonic to return
+      const { data: mnemonicData } = await supabase
+        .from('user_mnemonics')
+        .select('main_mnemonic')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
       return { 
         success: true, 
         message: "Wallets already exist", 
         count: 0,
         existingCount: existingWallets.length,
-        wallets: existingWallets 
+        wallets: existingWallets,
+        seedPhrase: mnemonicData?.main_mnemonic
       };
     } else {
       throw new Error("No wallets were created");

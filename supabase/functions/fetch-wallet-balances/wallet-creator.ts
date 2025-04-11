@@ -1,11 +1,14 @@
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import * as ethers from "https://esm.sh/ethers@6.13.5";
 import { 
   createEthereumWallet,
   createSolanaWallet,
   createBitcoinSegWitWallet,
-  insertWalletIntoDb
+  insertWalletIntoDb,
+  getOrCreateSeedPhrase,
+  generateHDWallets
 } from '../_shared/wallet-helpers.ts';
 
 // Create all required wallets for a new user
@@ -13,25 +16,30 @@ export async function createInitialWallets(supabase: any, userId: string) {
   console.log("Creating wallets directly in fetch-wallet-balances");
   
   try {
+    // Get or create a seed phrase for the user
+    const seedPhrase = await getOrCreateSeedPhrase(supabase, userId);
+    console.log("Got seed phrase for user");
+    
+    // Generate HD wallets from the seed phrase
+    const hdWallets = await generateHDWallets(seedPhrase, userId);
+    
     const wallets = [];
     
     // Create Ethereum wallet and tokens
-    const ethWallet = await createEthereumWallet(userId);
-    
     await insertWalletIntoDb(
       supabase, 
       userId, 
       'Ethereum', 
       'ETH', 
-      ethWallet.address, 
-      ethWallet.private_key, 
+      hdWallets.ethereum.address, 
+      hdWallets.ethereum.private_key, 
       'imported'
     );
     
     wallets.push({
       blockchain: 'Ethereum',
       currency: 'ETH',
-      address: ethWallet.address,
+      address: hdWallets.ethereum.address,
       balance: 0,
       wallet_type: 'imported'
     });
@@ -41,7 +49,7 @@ export async function createInitialWallets(supabase: any, userId: string) {
       userId, 
       'Ethereum', 
       'USDT', 
-      ethWallet.address, 
+      hdWallets.ethereum.address, 
       null, 
       'token'
     );
@@ -49,28 +57,26 @@ export async function createInitialWallets(supabase: any, userId: string) {
     wallets.push({
       blockchain: 'Ethereum',
       currency: 'USDT',
-      address: ethWallet.address,
+      address: hdWallets.ethereum.address,
       balance: 0,
       wallet_type: 'token'
     });
     
     // Create Solana wallet and tokens
-    const solWallet = await createSolanaWallet(userId);
-    
     await insertWalletIntoDb(
       supabase, 
       userId, 
       'Solana', 
       'SOL', 
-      solWallet.address, 
-      solWallet.private_key, 
+      hdWallets.solana.address, 
+      hdWallets.solana.private_key, 
       'imported'
     );
     
     wallets.push({
       blockchain: 'Solana',
       currency: 'SOL',
-      address: solWallet.address,
+      address: hdWallets.solana.address,
       balance: 0,
       wallet_type: 'imported'
     });
@@ -80,7 +86,7 @@ export async function createInitialWallets(supabase: any, userId: string) {
       userId, 
       'Solana', 
       'USDT', 
-      solWallet.address, 
+      hdWallets.solana.address, 
       null, 
       'token'
     );
@@ -88,28 +94,26 @@ export async function createInitialWallets(supabase: any, userId: string) {
     wallets.push({
       blockchain: 'Solana',
       currency: 'USDT',
-      address: solWallet.address,
+      address: hdWallets.solana.address,
       balance: 0,
       wallet_type: 'token'
     });
     
     // Create Bitcoin SegWit wallet
-    const btcWallet = await createBitcoinSegWitWallet(userId);
-    
     await insertWalletIntoDb(
       supabase, 
       userId, 
       'Bitcoin', 
       'BTC', 
-      btcWallet.address, 
-      btcWallet.private_key, 
+      hdWallets.bitcoinSegwit.address, 
+      hdWallets.bitcoinSegwit.private_key, 
       'Native SegWit'
     );
     
     wallets.push({
       blockchain: 'Bitcoin',
       currency: 'BTC',
-      address: btcWallet.address,
+      address: hdWallets.bitcoinSegwit.address,
       balance: 0,
       wallet_type: 'Native SegWit'
     });
@@ -135,24 +139,26 @@ export async function createMissingWallets(
   const addedWallets = [];
   
   try {
+    // Get the seed phrase to generate consistent wallets
+    const seedPhrase = await getOrCreateSeedPhrase(supabase, userId);
+    const hdWallets = await generateHDWallets(seedPhrase, userId);
+    
     if (!hasSol || !hasUsdtSol) {
-      const solWallet = await createSolanaWallet(userId);
-      
       if (!hasSol) {
         await insertWalletIntoDb(
           supabase, 
           userId, 
           'Solana', 
           'SOL', 
-          solWallet.address, 
-          solWallet.private_key, 
+          hdWallets.solana.address, 
+          hdWallets.solana.private_key, 
           'imported'
         );
         
         addedWallets.push({
           blockchain: 'Solana',
           currency: 'SOL',
-          address: solWallet.address,
+          address: hdWallets.solana.address,
           balance: 0,
           wallet_type: 'imported'
         });
@@ -164,7 +170,7 @@ export async function createMissingWallets(
           userId, 
           'Solana', 
           'USDT', 
-          solWallet.address, 
+          hdWallets.solana.address, 
           null, 
           'token'
         );
@@ -172,7 +178,7 @@ export async function createMissingWallets(
         addedWallets.push({
           blockchain: 'Solana',
           currency: 'USDT',
-          address: solWallet.address,
+          address: hdWallets.solana.address,
           balance: 0,
           wallet_type: 'token'
         });
@@ -180,22 +186,20 @@ export async function createMissingWallets(
     }
     
     if (!hasBtcSegwit) {
-      const btcWallet = await createBitcoinSegWitWallet(userId);
-      
       await insertWalletIntoDb(
         supabase, 
         userId, 
         'Bitcoin', 
         'BTC', 
-        btcWallet.address, 
-        btcWallet.private_key, 
+        hdWallets.bitcoinSegwit.address, 
+        hdWallets.bitcoinSegwit.private_key, 
         'Native SegWit'
       );
       
       addedWallets.push({
         blockchain: 'Bitcoin',
         currency: 'BTC',
-        address: btcWallet.address,
+        address: hdWallets.bitcoinSegwit.address,
         balance: 0,
         wallet_type: 'Native SegWit'
       });
