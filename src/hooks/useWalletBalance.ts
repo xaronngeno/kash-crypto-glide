@@ -49,7 +49,7 @@ export const fetchWalletBalances = async ({
         toast({
           title: "Connection issue",
           description: "Using cached wallet data while we try to reconnect",
-          variant: "warning"
+          variant: "default"
         });
         
         return cachedWallets;

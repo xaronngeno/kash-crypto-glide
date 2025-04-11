@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -20,16 +19,12 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   
-  // Get crypto prices
   const { prices, error: pricesError } = useCryptoPrices();
   
-  // Get wallet assets
   const { assets, error: walletsError, reload } = useWallets({ prices });
   
-  // Combined error state
   const error = pricesError || walletsError;
 
-  // Redirect to auth if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       console.log("User not authenticated, redirecting to auth");
@@ -37,29 +32,25 @@ const Dashboard = () => {
     }
   }, [navigate, isAuthenticated, authLoading]);
 
-  // Calculate total balance
   const totalBalance = assets.reduce((acc, asset) => {
     const value = typeof asset.value === 'number' ? asset.value : 0;
     return acc + value;
   }, 0);
 
-  // Handle manual refresh
   const handleRefresh = async () => {
     if (!user?.id || refreshing) return;
     
     setRefreshing(true);
     try {
       await refreshWalletBalances(user.id);
-      reload(); // Reload wallet data after refresh
+      reload();
     } catch (error) {
       console.error("Error refreshing wallet balances:", error);
-      // Error toast is already shown in refreshWalletBalances
     } finally {
       setRefreshing(false);
     }
   };
 
-  // Show loading state if still authenticating
   if (authLoading) {
     return (
       <MainLayout title="Portfolio">
@@ -91,7 +82,7 @@ const Dashboard = () => {
             <span>Total Balance</span>
             <KashButton 
               variant="ghost" 
-              size="icon" 
+              size="sm"
               onClick={handleRefresh}
               className="ml-2 h-6 w-6"
               disabled={refreshing}
