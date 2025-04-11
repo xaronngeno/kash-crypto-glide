@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Asset } from '@/types/assets';
@@ -11,6 +10,7 @@ interface UseWalletsProps {
 
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
 
   // Reference for tracking if wallets are already created
@@ -134,6 +134,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
       }
     } catch (processError) {
       console.error("Error processing wallet data:", processError);
+      setError("Error processing wallet data");
     }
   }, [prices]);
 
@@ -144,13 +145,13 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     try {
       console.log("Attempting to create wallets for user:", user.id);
       
-      const { data, error } = await supabase.functions.invoke('create-wallets', {
+      const { data, error: walletError } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
         body: { userId: user.id }
       });
       
-      if (error) {
-        throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
+      if (walletError) {
+        throw new Error(`Wallet creation failed: ${walletError.message || "Unknown error"}`);
       }
       
       console.log("Wallets created successfully:", data);
@@ -161,6 +162,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
       console.error("Error creating wallets:", errorMessage);
+      setError(errorMessage);
       return null;
     }
   }, [user, session?.access_token]);
@@ -174,6 +176,8 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           console.log("No user or session available");
           return;
         }
+        
+        setError(null);
         
         try {
           console.log("Fetching wallets for user in background:", user.id);
@@ -219,6 +223,7 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
           console.error('Error fetching wallets:', errorMessage);
+          setError(errorMessage);
         }
       };
   
@@ -235,6 +240,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   return { 
     assets, 
     loading: false, // Always return false to never show loading state
-    error: null // Don't surface errors to UI
+    error // Now exposing error state
   };
 };

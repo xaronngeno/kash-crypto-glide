@@ -106,6 +106,7 @@ const LOCALSTORAGE_CACHE_KEY = 'kash_crypto_prices_cache';
 export function useCryptoPrices() {
   // Start with fallback prices immediately - no loading state
   const [prices, setPrices] = useState<CryptoPrices>(fallbackPrices);
+  const [error, setError] = useState<string | null>(null);
   
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef<number>(0);
@@ -153,6 +154,7 @@ export function useCryptoPrices() {
     
     try {
       isFetchingRef.current = true;
+      setError(null);
       
       console.log('Fetching crypto prices in background...');
       
@@ -191,6 +193,7 @@ export function useCryptoPrices() {
       }
     } catch (err) {
       console.error('Failed to fetch prices:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch cryptocurrency prices');
       retryCountRef.current += 1;
       
       if (cachedPricesRef.current) {
@@ -229,7 +232,7 @@ export function useCryptoPrices() {
   return { 
     prices, 
     loading: false, // Always return false to never show loading state
-    error: null, // Don't surface errors to UI
+    error, // Now exposing the error state
     refetch: () => fetchPrices(true) 
   };
 }

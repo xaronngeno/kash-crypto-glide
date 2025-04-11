@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { ActionButtons } from '@/components/dashboard/ActionButtons';
@@ -9,14 +9,16 @@ import { PromoCard } from '@/components/dashboard/PromoCard';
 import { useWallets } from '@/hooks/useWallets';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { useAuth } from '@/components/AuthProvider';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [hideBalance, setHideBalance] = useState(false);
   const [currency, setCurrency] = useState('USD');
-  const { prices } = useCryptoPrices();
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const { prices, error: pricesError } = useCryptoPrices();
   const { user, profile, isAuthenticated, loading: authLoading } = useAuth();
-  const { assets } = useWallets({ prices });
+  const { assets, error: walletsError } = useWallets({ prices });
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -24,6 +26,19 @@ const Dashboard = () => {
       navigate('/auth');
     }
   }, [navigate, isAuthenticated, authLoading]);
+
+  // Handle any fetch errors
+  useEffect(() => {
+    if (pricesError) {
+      console.error('Error fetching crypto prices:', pricesError);
+      setFetchError('Unable to load cryptocurrency prices. Please try again later.');
+    } else if (walletsError) {
+      console.error('Error fetching wallets:', walletsError);
+      setFetchError('Unable to load wallet information. Please try again later.');
+    } else {
+      setFetchError(null);
+    }
+  }, [pricesError, walletsError]);
 
   // Calculate total balance immediately
   const totalBalance = assets.reduce((acc, asset) => {
@@ -34,6 +49,14 @@ const Dashboard = () => {
   return (
     <MainLayout title="Portfolio">
       <div className="space-y-6">
+        {fetchError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{fetchError}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex flex-col items-center justify-center pt-4">
           <div className="text-gray-500 text-sm mb-1">Total Balance</div>
           <div className="flex items-center">
