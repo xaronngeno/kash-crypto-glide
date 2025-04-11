@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, QrCode, Info, Wallet, ArrowRight, Search } from 'lucide-react';
@@ -45,7 +44,6 @@ enum ReceiveStep {
   VIEW_ADDRESS = 'view_address'
 }
 
-// Helper functions
 const getNetworkLogo = (blockchain: string) => {
   switch (blockchain.toLowerCase()) {
     case 'bitcoin':
@@ -87,7 +85,7 @@ const getCurrencyLogo = (symbol: string) => {
 };
 
 const NetworkBadge = ({ network }: { network: string }) => {
-  let color = "bg-gray-100 text-gray-600";
+  let color = "bg-gray-100 text-gray-500";
   
   switch (network.toLowerCase()) {
     case 'bitcoin':
@@ -135,23 +133,19 @@ const Receive = () => {
   const [noWalletsFound, setNoWalletsFound] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
 
-  // Initialize available tokens by grouping wallets
   useEffect(() => {
     if (walletAddresses.length > 0) {
-      // Group wallets by symbol to create token list
       const tokenMap = new Map<string, Token>();
       
       walletAddresses.forEach(wallet => {
         const existingToken = tokenMap.get(wallet.symbol);
         
         if (existingToken) {
-          // Add network to existing token if not already present
           if (!existingToken.networks?.includes(wallet.blockchain)) {
             existingToken.networks = [...(existingToken.networks || []), wallet.blockchain];
             tokenMap.set(wallet.symbol, existingToken);
           }
         } else {
-          // Create new token
           tokenMap.set(wallet.symbol, {
             id: wallet.symbol,
             name: wallet.symbol,
@@ -166,14 +160,12 @@ const Receive = () => {
       
       setAvailableTokens(Array.from(tokenMap.values()));
       
-      // Auto-select first token if none selected
       if (!selectedToken && tokenMap.size > 0) {
         setSelectedToken(Array.from(tokenMap.values())[0]);
       }
     }
   }, [walletAddresses]);
 
-  // Fetch wallet addresses
   useEffect(() => {
     const fetchWalletAddresses = async () => {
       if (!user) {
@@ -196,7 +188,6 @@ const Receive = () => {
         if (data && data.length > 0) {
           console.log("Fetched wallet addresses:", data);
           
-          // Format wallet addresses
           const addresses: WalletAddress[] = data.map(wallet => ({
             blockchain: wallet.blockchain,
             symbol: wallet.currency,
@@ -227,14 +218,11 @@ const Receive = () => {
     fetchWalletAddresses();
   }, [user, toast]);
 
-  // Update available networks when token changes
   useEffect(() => {
     if (selectedToken && currentStep === ReceiveStep.SELECT_NETWORK) {
-      // Auto-select network if there's only one available
       if (selectedToken.networks?.length === 1) {
         setSelectedNetwork(selectedToken.networks[0]);
         
-        // Find the wallet for this token and network
         const wallet = walletAddresses.find(
           w => w.symbol === selectedToken.symbol && w.blockchain === selectedToken.networks[0]
         );
@@ -247,7 +235,6 @@ const Receive = () => {
     }
   }, [selectedToken, currentStep, walletAddresses]);
 
-  // Create wallets function
   const createWallets = async () => {
     if (!user || creatingWallets) return;
     
@@ -266,7 +253,6 @@ const Receive = () => {
       
       console.log("Wallets created successfully:", data);
       
-      // Fetch the newly created wallets
       const { data: wallets, error: fetchError } = await supabase
         .from('wallets')
         .select('blockchain, currency, address')
@@ -277,7 +263,6 @@ const Receive = () => {
       }
       
       if (wallets && wallets.length > 0) {
-        // Format wallet addresses
         const addresses: WalletAddress[] = wallets.map(wallet => ({
           blockchain: wallet.blockchain,
           symbol: wallet.currency,
@@ -309,7 +294,6 @@ const Receive = () => {
     }
   };
 
-  // Handle token selection
   const handleTokenSelect = (token: Token) => {
     setSelectedToken(token);
     setSelectedNetwork(null);
@@ -317,11 +301,9 @@ const Receive = () => {
     setCurrentStep(ReceiveStep.SELECT_NETWORK);
   };
 
-  // Handle network selection
   const handleNetworkSelect = (network: string) => {
     setSelectedNetwork(network);
     
-    // Find the wallet address for the selected token and network
     const wallet = walletAddresses.find(
       w => w.symbol === selectedToken?.symbol && w.blockchain === network
     );
@@ -338,7 +320,6 @@ const Receive = () => {
     }
   };
 
-  // Copy address to clipboard
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
@@ -347,14 +328,12 @@ const Receive = () => {
     });
   };
 
-  // Reset flow
   const resetFlow = () => {
     setCurrentStep(ReceiveStep.SELECT_COIN);
     setSelectedNetwork(null);
     setSelectedWallet(null);
   };
 
-  // Loading state
   if (loading) {
     return (
       <MainLayout title="Receive" showBack>
@@ -367,7 +346,6 @@ const Receive = () => {
     );
   }
 
-  // Creating wallets state
   if (creatingWallets) {
     return (
       <MainLayout title="Receive" showBack>
@@ -380,7 +358,6 @@ const Receive = () => {
     );
   }
 
-  // No wallets found state
   if (noWalletsFound) {
     return (
       <MainLayout title="Receive" showBack>
@@ -402,7 +379,6 @@ const Receive = () => {
     );
   }
 
-  // Main flow
   return (
     <MainLayout title="Receive" showBack>
       <div className="space-y-6">
@@ -421,11 +397,9 @@ const Receive = () => {
           )}
         </div>
 
-        {/* Step 1: Select Coin */}
         {currentStep === ReceiveStep.SELECT_COIN && (
           <KashCard className="p-5">
             <div className="mb-4">
-              {/* Search input */}
               <div className="relative mb-4">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search size={16} className="text-gray-400" />
@@ -439,7 +413,6 @@ const Receive = () => {
                 />
               </div>
               
-              {/* Token list */}
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {availableTokens
                   .filter(token => 
@@ -487,7 +460,6 @@ const Receive = () => {
           </KashCard>
         )}
 
-        {/* Step 2: Select Network */}
         {currentStep === ReceiveStep.SELECT_NETWORK && selectedToken && (
           <KashCard className="p-5">
             <div className="flex items-center mb-6">
@@ -522,8 +494,9 @@ const Receive = () => {
                       <AvatarImage src={getNetworkLogo(network)} alt={network} />
                       <AvatarFallback>{network[0]}</AvatarFallback>
                     </Avatar>
-                    <div>
+                    <div className="flex items-center">
                       <h3 className="font-medium">{network}</h3>
+                      <NetworkBadge network={network} className="ml-2" />
                     </div>
                   </div>
                   <ArrowRight size={18} className="text-gray-400" />
@@ -542,7 +515,6 @@ const Receive = () => {
           </KashCard>
         )}
 
-        {/* Step 3: Show Address */}
         {currentStep === ReceiveStep.VIEW_ADDRESS && selectedWallet && (
           <KashCard className="p-5">
             <div className="flex items-center mb-6">
@@ -568,6 +540,9 @@ const Receive = () => {
             </div>
 
             <div className="text-center">
+              <div className="inline-block mb-3">
+                <NetworkBadge network={selectedWallet.blockchain} />
+              </div>
               {showQR ? (
                 <div className="mb-4 flex justify-center">
                   <div className="p-4 bg-white rounded-lg border border-gray-100 shadow-sm">
@@ -578,15 +553,25 @@ const Receive = () => {
                       includeMargin={true}
                       className="w-full h-full"
                     />
-                    <p className="text-xs text-gray-500 mt-2 break-all px-2">
-                      {selectedWallet.address}
-                    </p>
+                    <div className="mt-2 text-xs text-center">
+                      <NetworkBadge network={selectedWallet.blockchain} />
+                      <p className="text-gray-500 mt-1 break-all px-2">
+                        {selectedWallet.address}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 p-4 rounded-lg mb-4 break-all text-sm font-mono border border-gray-100">
-                  {selectedWallet.address}
-                </div>
+                <>
+                  <div className="bg-gray-50 p-4 rounded-lg mb-4 relative">
+                    <div className="absolute top-0 right-0 mt-2 mr-2">
+                      <NetworkBadge network={selectedWallet.blockchain} />
+                    </div>
+                    <p className="break-all text-sm font-mono border-gray-100 pt-4">
+                      {selectedWallet.address}
+                    </p>
+                  </div>
+                </>
               )}
               
               <div className="flex space-x-2">
@@ -610,9 +595,12 @@ const Receive = () => {
             </div>
             
             <div className="mt-6 bg-yellow-50 p-4 rounded-lg border border-yellow-100">
-              <h4 className="font-medium text-amber-700 mb-1">Important</h4>
+              <h4 className="font-medium text-amber-700 flex items-center mb-1">
+                <Info size={16} className="mr-1" />
+                Important Network Information
+              </h4>
               <ul className="text-sm text-amber-700 space-y-1 list-disc pl-5">
-                <li>Only send {selectedWallet.symbol} on the {selectedWallet.blockchain} network to this address</li>
+                <li>Only send {selectedWallet.symbol} on the <strong>{selectedWallet.blockchain}</strong> network to this address</li>
                 <li>Sending any other cryptocurrency or using the wrong network may result in permanent loss</li>
                 <li>Always verify the entire address before sending any funds</li>
               </ul>
