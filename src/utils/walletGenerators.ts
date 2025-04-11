@@ -16,9 +16,9 @@ export interface WalletData {
 
 // Generate all wallets for a user - unified approach with fallback to individual generators
 export const generateAllWallets = async (): Promise<WalletData[]> => {
-  // Try the unified approach first (HD wallet from same seed)
   try {
-    console.log('Attempting unified wallet generation');
+    console.log('Starting unified wallet generation');
+    // Try the unified approach first (HD wallet from same seed)
     const unifiedWallets = await generateUnifiedWallets();
     console.log(`Successfully generated ${unifiedWallets.length} unified wallets`);
     return unifiedWallets;
