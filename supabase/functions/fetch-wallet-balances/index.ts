@@ -1,17 +1,68 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
+import { createInitialWallets, createMissingWallets } from './wallet-creator.ts';
 
+// Fetch all wallets for a specific user
+async function fetchUserWallets(supabase: any, userId: string) {
+  console.log(`Fetching wallets for user ${userId}`);
+
+  const { data: wallets, error: walletsError } = await supabase
+    .from('wallets')
+    .select('blockchain, currency, address, balance, wallet_type')
+    .eq('user_id', userId);
+  
+  if (walletsError) {
+    console.error('Error fetching wallets:', walletsError.message);
+    throw walletsError;
+  }
+
+  console.log(`Found ${wallets?.length || 0} wallets for user ${userId}`);
+  return wallets;
+}
+
+// Process wallets to ensure consistent balance format
+function processWalletBalances(wallets) {
+  return wallets.map(wallet => ({
+    ...wallet,
+    balance: parseFloat(wallet.balance as any) || 0
+  }));
+}
+
+// Check if user has specific wallet types
+function checkWalletTypes(wallets) {
+  const hasSol = wallets.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
+  const hasUsdtSol = wallets.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
+  const hasBtcSegwit = wallets.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Native SegWit');
+  
+  console.log(`Has SOL wallet: ${hasSol}, Has USDT on Solana: ${hasUsdtSol}`);
+  console.log(`Has BTC SegWit: ${hasBtcSegwit}`);
+  
+  return { hasSol, hasUsdtSol, hasBtcSegwit };
+}
+
+// Remove any Taproot wallets (if present)
+function filterTaprootWallets(wallets) {
+  return wallets.filter(w => 
+    !(w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Taproot')
+  );
+}
+
+// Main handler
 serve(async (req: Request) => {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get user ID from request
     const { userId } = await req.json();
 
     if (!userId) {
@@ -21,106 +72,35 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log(`Fetching wallets for user ${userId}`);
-
-    const { data: wallets, error: walletsError } = await supabase
-      .from('wallets')
-      .select('blockchain, currency, address, balance, wallet_type')
-      .eq('user_id', userId);
-    
-    if (walletsError) {
-      console.error('Error fetching wallets:', walletsError.message);
-      throw walletsError;
+    // Fetch user wallets
+    let wallets;
+    try {
+      wallets = await fetchUserWallets(supabase, userId);
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: error.message || 'Failed to fetch wallets',
+          wallets: [] 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
 
-    console.log(`Found ${wallets?.length || 0} wallets for user ${userId}`);
-
+    // Create wallets if none exist
     if (!wallets || wallets.length === 0) {
-      console.log('No wallets found, triggering wallet creation');
-      
       try {
-        console.log("Creating wallets directly in fetch-wallet-balances");
-        
-        const ethWallet = await createEthereumWallet(userId);
-        
-        const { error: insertError } = await supabase.from('wallets').insert([
-          {
-            user_id: userId,
-            blockchain: 'Ethereum',
-            currency: 'ETH',
-            address: ethWallet.address,
-            private_key: ethWallet.private_key,
-            balance: 0,
-            wallet_type: 'imported'
-          },
-          {
-            user_id: userId,
-            blockchain: 'Ethereum',
-            currency: 'USDT',
-            address: ethWallet.address,
-            balance: 0,
-            wallet_type: 'token'
-          }
-        ]);
-        
-        if (insertError) {
-          console.error('Error creating wallets:', insertError);
-          throw insertError;
-        }
-        
-        const solWallet = await createSolanaWallet(userId);
-        
-        await supabase.from('wallets').insert([
-          {
-            user_id: userId,
-            blockchain: 'Solana',
-            currency: 'SOL',
-            address: solWallet.address,
-            private_key: solWallet.private_key,
-            balance: 0,
-            wallet_type: 'imported'
-          },
-          {
-            user_id: userId,
-            blockchain: 'Solana',
-            currency: 'USDT',
-            address: solWallet.address,
-            balance: 0,
-            wallet_type: 'token'
-          }
-        ]);
-        
-        const btcWallet = await createBitcoinSegWitWallet(userId);
-        
-        await supabase.from('wallets').insert([
-          {
-            user_id: userId,
-            blockchain: 'Bitcoin',
-            currency: 'BTC',
-            address: btcWallet.address,
-            private_key: btcWallet.private_key,
-            balance: 0,
-            wallet_type: 'Native SegWit'
-          }
-        ]);
-        
-        console.log("Created wallets directly");
-        
-        const { data: freshWallets } = await supabase
-          .from('wallets')
-          .select('blockchain, currency, address, balance, wallet_type')
-          .eq('user_id', userId);
+        const newWallets = await createInitialWallets(supabase, userId);
         
         return new Response(
           JSON.stringify({ 
             success: true, 
             message: 'Wallets created successfully',
-            wallets: freshWallets || []
+            wallets: newWallets || []
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
         );
       } catch (createError) {
-        console.error('Error in wallet creation:', createError);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -133,93 +113,29 @@ serve(async (req: Request) => {
       }
     }
 
-    const walletsWithBalances = wallets.map(wallet => ({
-      ...wallet,
-      balance: parseFloat(wallet.balance as any) || 0
-    }));
+    // Process wallet balances
+    const walletsWithBalances = processWalletBalances(wallets);
     
-    const hasSol = walletsWithBalances.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
-    const hasUsdtSol = walletsWithBalances.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
-    const hasBtcSegwit = walletsWithBalances.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Native SegWit');
+    // Check wallet types
+    const { hasSol, hasUsdtSol, hasBtcSegwit } = checkWalletTypes(walletsWithBalances);
     
-    console.log(`Has SOL wallet: ${hasSol}, Has USDT on Solana: ${hasUsdtSol}`);
-    console.log(`Has BTC SegWit: ${hasBtcSegwit}`);
+    // Filter out Taproot wallets
+    const noTaprootWallets = filterTaprootWallets(walletsWithBalances);
     
-    const noTaprootWallets = walletsWithBalances.filter(w => 
-      !(w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Taproot')
-    );
-    
+    // Create any missing wallets if needed
     if (!hasSol || !hasUsdtSol || !hasBtcSegwit) {
-      console.log("Adding missing wallets");
+      const addedWallets = await createMissingWallets(
+        supabase, 
+        userId, 
+        hasSol, 
+        hasUsdtSol, 
+        hasBtcSegwit
+      );
       
-      try {
-        if (!hasSol || !hasUsdtSol) {
-          const solWallet = await createSolanaWallet(userId);
-          
-          if (!hasSol) {
-            await supabase.from('wallets').insert({
-              user_id: userId,
-              blockchain: 'Solana',
-              currency: 'SOL',
-              address: solWallet.address,
-              private_key: solWallet.private_key,
-              balance: 0,
-              wallet_type: 'imported'
-            });
-            
-            noTaprootWallets.push({
-              blockchain: 'Solana',
-              currency: 'SOL',
-              address: solWallet.address,
-              balance: 0,
-              wallet_type: 'imported'
-            });
-          }
-          
-          if (!hasUsdtSol) {
-            await supabase.from('wallets').insert({
-              user_id: userId,
-              blockchain: 'Solana',
-              currency: 'USDT',
-              address: solWallet.address,
-              balance: 0,
-              wallet_type: 'token'
-            });
-            
-            noTaprootWallets.push({
-              blockchain: 'Solana',
-              currency: 'USDT',
-              address: solWallet.address,
-              balance: 0,
-              wallet_type: 'token'
-            });
-          }
-        }
-        
-        if (!hasBtcSegwit) {
-          const btcWallet = await createBitcoinSegWitWallet(userId);
-          
-          await supabase.from('wallets').insert({
-            user_id: userId,
-            blockchain: 'Bitcoin',
-            currency: 'BTC',
-            address: btcWallet.address,
-            private_key: btcWallet.private_key,
-            balance: 0,
-            wallet_type: 'Native SegWit'
-          });
-          
-          noTaprootWallets.push({
-            blockchain: 'Bitcoin',
-            currency: 'BTC',
-            address: btcWallet.address,
-            balance: 0,
-            wallet_type: 'Native SegWit'
-          });
-        }
-      } catch (err) {
-        console.error("Error creating missing wallets:", err);
-      }
+      // Add any newly created wallets to the results
+      addedWallets.forEach(wallet => {
+        noTaprootWallets.push(wallet);
+      });
     }
 
     console.log(`Returning ${noTaprootWallets.length} wallets with balances`);
@@ -246,75 +162,3 @@ serve(async (req: Request) => {
     );
   }
 });
-
-async function generatePrivateKey(): Promise<string> {
-  const buffer = new Uint8Array(32);
-  crypto.getRandomValues(buffer);
-  return Array.from(buffer)
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function deriveEthAddress(privateKey: string): Promise<string> {
-  try {
-    return "0x" + privateKey.substring(0, 40);
-  } catch (error) {
-    console.error("Error deriving ETH address:", error);
-    throw error;
-  }
-}
-
-async function deriveSolAddress(privateKey: string): Promise<string> {
-  try {
-    const buffer = new TextEncoder().encode(privateKey);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hashHex.substring(0, 44);
-  } catch (error) {
-    console.error("Error deriving SOL address:", error);
-    throw error;
-  }
-}
-
-async function createEthereumWallet(userId: string) {
-  const privateKey = await generatePrivateKey();
-  const address = await deriveEthAddress(privateKey);
-  
-  return {
-    address,
-    private_key: privateKey
-  };
-}
-
-async function createSolanaWallet(userId: string) {
-  const privateKey = await generatePrivateKey();
-  const address = await deriveSolAddress(privateKey);
-  
-  return {
-    address,
-    private_key: privateKey
-  };
-}
-
-async function createBaseWallet(userId: string) {
-  // Base uses the same wallet format as Ethereum
-  const privateKey = await generatePrivateKey();
-  const address = await deriveEthAddress(privateKey);
-  
-  return {
-    address,
-    private_key: privateKey
-  };
-}
-
-async function createBitcoinSegWitWallet(userId: string) {
-  const privateKey = await generatePrivateKey();
-  const address = `bc1q${privateKey.substring(0, 38)}`;
-  
-  return {
-    address,
-    private_key: privateKey,
-    wallet_type: 'Native SegWit'
-  };
-}
