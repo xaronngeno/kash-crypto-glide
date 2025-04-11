@@ -1,14 +1,42 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+
+// Flag to prevent multiple wallet creation attempts
+let walletCreationInProgress = false;
 
 /**
  * Creates wallets for a user if they don't exist
+ * With added protection against duplicate wallet creation requests
  */
 export const createUserWallets = async (userId: string): Promise<any[] | null> => {
   if (!userId) return null;
   
+  // Prevent multiple simultaneous wallet creation attempts
+  if (walletCreationInProgress) {
+    console.log("Wallet creation already in progress, skipping duplicate request");
+    return null;
+  }
+  
   try {
+    walletCreationInProgress = true;
     console.log("Creating wallets for user:", userId);
+    
+    // First check if user already has wallets to avoid duplicates
+    const { data: existingWallets, error: checkError } = await supabase
+      .from('wallets')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1);
+      
+    if (checkError) {
+      console.error("Error checking existing wallets:", checkError);
+    }
+    
+    if (existingWallets && existingWallets.length > 0) {
+      console.log("User already has wallets, skipping creation");
+      return existingWallets;
+    }
     
     const { data, error } = await supabase.functions.invoke('create-wallets', {
       method: 'POST',
@@ -24,6 +52,16 @@ export const createUserWallets = async (userId: string): Promise<any[] | null> =
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
     console.error("Error creating wallets:", errorMessage);
+    toast({
+      title: "Error creating wallets",
+      description: "Please try again later",
+      variant: "destructive"
+    });
     return null;
+  } finally {
+    // Reset the flag when done, with a small delay to prevent race conditions
+    setTimeout(() => {
+      walletCreationInProgress = false;
+    }, 2000);
   }
 };

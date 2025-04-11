@@ -1,74 +1,59 @@
-import { useCallback } from 'react';
+
+import { useState } from 'react';
 import { Asset } from '@/types/assets';
 
 /**
- * Hook for processing wallet data into assets
+ * Process wallet data from the API into a format usable by the UI
  */
-export const useWalletProcessor = (prices: Record<string, { price: number; change_24h: number; logo?: string; name?: string }>) => {
-  const processWallets = useCallback((wallets: any[]): Asset[] => {
-    try {
-      console.log("Processing wallets:", wallets.length);
-      
-      // Group wallets by currency, keeping track of network
-      const currencyNetworkBalances: Record<string, { 
-        totalBalance: number, 
-        networks: Record<string, { address: string, balance: number }>
-      }> = {};
-
-      wallets.forEach(wallet => {
-        const { currency, blockchain, address, balance: walletBalance } = wallet;
-        const balance = typeof walletBalance === 'number' 
-          ? walletBalance 
-          : parseFloat(String(walletBalance)) || 0;
-        
-        if (!isNaN(balance)) {
-          // Initialize currency entry if it doesn't exist
-          if (!currencyNetworkBalances[currency]) {
-            currencyNetworkBalances[currency] = { 
-              totalBalance: 0, 
-              networks: {} 
-            };
-          }
-          
-          // Add to total balance for this currency
-          currencyNetworkBalances[currency].totalBalance += balance;
-          
-          // Add network-specific data
-          currencyNetworkBalances[currency].networks[blockchain] = {
-            address,
-            balance
-          };
-        }
-      });
-      
-      // Convert to assets array
-      const assets: Asset[] = [];
-      
-      Object.entries(currencyNetworkBalances).forEach(([symbol, data]) => {
-        const priceData = prices?.[symbol];
-        const assetPrice = priceData?.price || 0;
-        
-        assets.push({
-          id: symbol,
-          name: priceData?.name || symbol,
-          symbol: symbol,
-          price: assetPrice,
-          amount: data.totalBalance,
-          value: data.totalBalance * assetPrice,
-          change: priceData?.change_24h || 0,
-          icon: symbol[0],
-          logo: priceData?.logo || undefined,
-          networks: data.networks || {}
-        });
-      });
-      
-      // Sort by value (highest first)
-      return assets.sort((a, b) => b.value - a.value);
-    } catch (error) {
-      console.error("Error processing wallet data:", error);
+export const useWalletProcessor = (prices: Record<string, { price: number; change_24h: number }>) => {
+  // Track if wallets have been processed already to avoid duplicates
+  const [processedWalletIds, setProcessedWalletIds] = useState<Set<string>>(new Set());
+  
+  /**
+   * Process raw wallet data into Assets
+   */
+  const processWallets = (wallets: any[]): Asset[] => {
+    if (!wallets || wallets.length === 0) {
       return [];
     }
-  }, [prices]);
-
+    
+    // Create a deduplication key for each wallet
+    const uniqueWallets = wallets.filter(wallet => {
+      const walletKey = `${wallet.blockchain}-${wallet.currency}-${wallet.address}`;
+      if (processedWalletIds.has(walletKey)) {
+        // Skip this wallet if we've already processed it
+        return false;
+      }
+      
+      // Add to processed set
+      processedWalletIds.add(walletKey);
+      return true;
+    });
+    
+    console.log(`Processing ${uniqueWallets.length} unique wallets out of ${wallets.length} total`);
+    
+    // Convert wallets to assets
+    const assets: Asset[] = uniqueWallets.map(wallet => {
+      const priceData = prices[wallet.currency];
+      const price = priceData ? priceData.price : 0;
+      const change = priceData ? priceData.change_24h : 0;
+      
+      return {
+        id: `${wallet.blockchain}-${wallet.currency}`,
+        blockchain: wallet.blockchain,
+        symbol: wallet.currency,
+        name: wallet.currency,
+        amount: parseFloat(wallet.balance) || 0,
+        price: price,
+        change: change,
+        value: (parseFloat(wallet.balance) || 0) * (price || 0),
+        address: wallet.address,
+        logo: `/coins/${wallet.currency.toLowerCase()}.png`
+      };
+    });
+    
+    return assets;
+  };
+  
   return { processWallets };
 };

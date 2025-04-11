@@ -138,6 +138,36 @@ async function createUserWallets(supabase: any, userId: string) {
   try {
     console.log(`Creating wallets for user: ${userId}`);
     
+    // Check if user already has wallets to prevent duplicates
+    const { data: existingWalletsCheck, error: existingWalletsError } = await supabase
+      .from("wallets")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1);
+      
+    if (existingWalletsError) {
+      console.error("Error checking existing wallets:", existingWalletsError);
+    } else if (existingWalletsCheck && existingWalletsCheck.length > 0) {
+      console.log(`User ${userId} already has wallets, skipping creation`);
+      
+      // Return existing wallets instead of creating new ones
+      const { data: userWallets, error: walletsError } = await supabase
+        .from("wallets")
+        .select("blockchain, currency, address, wallet_type")
+        .eq("user_id", userId);
+        
+      if (walletsError) {
+        console.error("Error fetching existing wallets:", walletsError);
+      } else {
+        return {
+          success: true,
+          message: "Using existing wallets",
+          count: userWallets.length,
+          wallets: userWallets
+        };
+      }
+    }
+    
     // Get user profile to check numeric ID
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -213,7 +243,7 @@ async function createUserWallets(supabase: any, userId: string) {
     // Generate HD wallets from a single seed phrase
     const hdWallets = generateHDWallets(userId);
     
-    // Store the seed phrase in the user_mnemonics table
+    // Check if there's already a mnemonic saved to prevent duplicates
     const { data: existingMnemonic, error: mnemonicCheckError } = await supabase
       .from('user_mnemonics')
       .select('id')
@@ -224,6 +254,7 @@ async function createUserWallets(supabase: any, userId: string) {
       console.error("Error checking existing mnemonic:", mnemonicCheckError);
     }
     
+    // Only store seed phrase if it doesn't exist
     if (!existingMnemonic) {
       // Store the mnemonic
       const { error: mnemonicError } = await supabase
@@ -240,28 +271,10 @@ async function createUserWallets(supabase: any, userId: string) {
       }
     }
 
-    // Create wallet objects to insert
+    // Create wallet objects to insert - only create what's needed
     const wallets = [];
 
-    // 1. Create Bitcoin wallets if they don't exist
-    if (!existingWalletKeys.has("Bitcoin-BTC-Taproot")) {
-      try {
-        console.log("Creating Bitcoin Taproot wallet");
-        wallets.push({
-          user_id: userId,
-          blockchain: "Bitcoin",
-          currency: "BTC",
-          address: hdWallets.bitcoinTaproot.address,
-          private_key: encryptPrivateKey(hdWallets.bitcoinTaproot.privateKey, userId),
-          wallet_type: "Taproot",
-          balance: 0, // Start with zero balance
-        });
-        console.log("Created BTC Taproot wallet");
-      } catch (btcError) {
-        console.error("Error creating BTC Taproot wallet:", btcError);
-      }
-    }
-
+    // 1. Create Bitcoin wallets if they don't exist - ONLY SegWit to reduce duplicates
     if (!existingWalletKeys.has("Bitcoin-BTC-Native SegWit")) {
       try {
         console.log("Creating Bitcoin SegWit wallet");

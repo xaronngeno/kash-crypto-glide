@@ -53,30 +53,38 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
   
   // Update asset prices when prices change
   useEffect(() => {
-    if (prices && Object.keys(prices).length > 0 && assets.length > 0) {
-      const updatedAssets = assets.map(asset => {
-        const priceData = prices[asset.symbol];
-        if (priceData) {
-          return {
-            ...asset,
-            price: priceData.price,
-            change: priceData.change_24h,
-            value: asset.amount * priceData.price
-          };
-        }
-        return asset;
-      });
-      
-      setAssets(updatedAssets);
-      
-      // Update global cache with new prices
-      globalAssetCache.assets = updatedAssets;
-      globalAssetCache.timestamp = Date.now();
+    if (!prices || Object.keys(prices).length === 0 || assets.length === 0) {
+      return; // Skip if no prices or assets
     }
-  }, [prices, assets]);
+      
+    const updatedAssets = assets.map(asset => {
+      const priceData = prices[asset.symbol];
+      if (priceData) {
+        return {
+          ...asset,
+          price: priceData.price,
+          change: priceData.change_24h,
+          value: asset.amount * priceData.price
+        };
+      }
+      return asset;
+    });
+    
+    setAssets(updatedAssets);
+    
+    // Update global cache with new prices
+    globalAssetCache.assets = updatedAssets;
+    globalAssetCache.timestamp = Date.now();
+  }, [prices]);  // Removed assets dependency to prevent infinite updates
 
   // Fetch user assets with a small delay to allow UI to render first
   useEffect(() => {
+    // Skip if no user or session
+    if (!user || !session?.access_token) {
+      console.log("No user or session available");
+      return;
+    }
+    
     // Skip loading if we have cached assets and skipInitialLoad is true
     const now = Date.now();
     const cacheIsValid = (now - globalAssetCache.timestamp) < CACHE_DURATION;
@@ -88,84 +96,80 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
       return;
     }
     
+    // Prevent multiple simultaneous API calls
+    if (initialLoadDone.current && !refreshCounter) {
+      return;
+    }
+    
     // Small timeout to let React render first
-    const timeoutId = setTimeout(() => {
-      const loadUserAssets = async () => {
-        if (!user || !session?.access_token) {
-          console.log("No user or session available");
+    const timeoutId = setTimeout(async () => {
+      setError(null);
+      if (!skipInitialLoad || !cacheIsValid || globalAssetCache.assets.length === 0) {
+        setLoading(true);
+      }
+      
+      try {
+        // Fetch wallet balances
+        const wallets = await fetchWalletBalances({
+          userId: user.id,
+          onError: (err) => {
+            setError(err.message);
+            toast({
+              title: "Error",
+              description: "Failed to load wallet data",
+              variant: "destructive"
+            });
+          }
+        });
+        
+        if (!wallets || wallets.length === 0) {
+          console.log("No wallets found, creating initial wallets");
+          
+          // Only create wallets once and only if not created before
+          if (!walletsCreated && !walletCreationAttempted.current) {
+            walletCreationAttempted.current = true;
+            
+            try {
+              const newWallets = await createUserWallets(user.id);
+              if (newWallets && newWallets.length > 0) {
+                markWalletsAsCreated();
+                const processedAssets = processWallets(newWallets);
+                setAssets(processedAssets);
+                
+                // Update global cache
+                globalAssetCache.assets = processedAssets;
+                globalAssetCache.timestamp = Date.now();
+              }
+            } catch (createError) {
+              console.error("Error creating wallets:", createError);
+              // Don't show toast here as the fetchWalletBalances already shows one
+            }
+          }
+          
           return;
         }
         
-        setError(null);
-        if (!skipInitialLoad || !cacheIsValid || globalAssetCache.assets.length === 0) {
-          setLoading(true);
-        }
+        // Process the wallet data into assets
+        const processedAssets = processWallets(wallets);
+        setAssets(processedAssets);
+        initialLoadDone.current = true;
         
-        try {
-          // Fetch wallet balances
-          const wallets = await fetchWalletBalances({
-            userId: user.id,
-            onError: (err) => {
-              setError(err.message);
-              toast({
-                title: "Error",
-                description: "Failed to load wallet data",
-                variant: "destructive"
-              });
-            }
-          });
-          
-          if (!wallets || wallets.length === 0) {
-            console.log("No wallets found, creating initial wallets");
-            
-            // Only create wallets once and only if not created before
-            if (!walletsCreated && !walletCreationAttempted.current) {
-              walletCreationAttempted.current = true;
-              
-              try {
-                const newWallets = await createUserWallets(user.id);
-                if (newWallets && newWallets.length > 0) {
-                  markWalletsAsCreated();
-                  const processedAssets = processWallets(newWallets);
-                  setAssets(processedAssets);
-                  
-                  // Update global cache
-                  globalAssetCache.assets = processedAssets;
-                  globalAssetCache.timestamp = Date.now();
-                }
-              } catch (createError) {
-                console.error("Error creating wallets:", createError);
-                // Don't show toast here as the fetchWalletBalances already shows one
-              }
-            }
-            
-            return;
-          }
-          
-          // Process the wallet data into assets
-          const processedAssets = processWallets(wallets);
-          setAssets(processedAssets);
-          initialLoadDone.current = true;
-          
-          // Update global cache
-          globalAssetCache.assets = processedAssets;
-          globalAssetCache.timestamp = Date.now();
-          
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : "Unknown error";
-          console.error('Error in useWallets:', errorMessage);
-          setError(errorMessage);
-        } finally {
-          setLoading(false);
-        }
-      };
-  
-      loadUserAssets();
-      
+        // Update global cache
+        globalAssetCache.assets = processedAssets;
+        globalAssetCache.timestamp = Date.now();
+        
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        console.error('Error in useWallets:', errorMessage);
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
     }, 10); // Small delay
     
     return () => clearTimeout(timeoutId);
-  }, [user, session, processWallets, walletsCreated, markWalletsAsCreated, refreshCounter, skipInitialLoad]);
+  }, [user?.id, session, processWallets, walletsCreated, markWalletsAsCreated, refreshCounter, skipInitialLoad]); 
+  // Fixed dependencies array to include only what's needed
 
   return { 
     assets, 
