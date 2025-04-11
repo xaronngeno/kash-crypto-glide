@@ -17,20 +17,27 @@ export const useWalletProcessor = (prices: Record<string, { price: number; chang
       return [];
     }
     
+    // Reset the processed wallets on each call to avoid maintaining state between calls
+    // This fixes the issue where all wallets were being filtered out
+    const currentProcessed = new Set<string>();
+    
     // Create a deduplication key for each wallet
     const uniqueWallets = wallets.filter(wallet => {
       const walletKey = `${wallet.blockchain}-${wallet.currency}-${wallet.address}`;
-      if (processedWalletIds.has(walletKey)) {
-        // Skip this wallet if we've already processed it
+      if (currentProcessed.has(walletKey)) {
+        // Skip this wallet if we've already processed it in this batch
         return false;
       }
       
       // Add to processed set
-      processedWalletIds.add(walletKey);
+      currentProcessed.add(walletKey);
       return true;
     });
     
     console.log(`Processing ${uniqueWallets.length} unique wallets out of ${wallets.length} total`);
+    
+    // Update the state with new processed wallets
+    setProcessedWalletIds(currentProcessed);
     
     // Convert wallets to assets
     const assets: Asset[] = uniqueWallets.map(wallet => {
