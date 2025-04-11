@@ -100,6 +100,11 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
     }
   } catch (error) {
     console.error("Error refreshing wallet balances:", error);
+    toast({
+      title: "Error",
+      description: "Failed to refresh wallet balances. Please try again later.",
+      variant: "destructive"
+    });
     return false;
   }
 };

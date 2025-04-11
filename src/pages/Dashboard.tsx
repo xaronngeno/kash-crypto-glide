@@ -71,7 +71,7 @@ const Dashboard = () => {
             <span>Total Balance</span>
             <KashButton 
               variant="ghost" 
-              size="icon" 
+              size="sm" 
               onClick={handleRefresh}
               className="ml-2 h-6 w-6"
               disabled={refreshing}
