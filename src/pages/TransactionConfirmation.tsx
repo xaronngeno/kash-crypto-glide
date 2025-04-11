@@ -1,10 +1,13 @@
 
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
+import { validateAddressForNetwork } from '@/utils/addressValidator';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 const TransactionConfirmation = () => {
   const location = useLocation();
@@ -14,6 +17,10 @@ const TransactionConfirmation = () => {
   
   // Get transaction details from location state
   const transactionData = location.state || {};
+  
+  // Validate the address one more time
+  const addressValid = transactionData.type === 'send' ? 
+    validateAddressForNetwork(transactionData.recipient, transactionData.network) : true;
   
   const handleConfirm = () => {
     setLoading(true);
@@ -43,6 +50,17 @@ const TransactionConfirmation = () => {
           </p>
         </div>
         
+        {!addressValid && transactionData.type === 'send' && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Network Mismatch Warning</AlertTitle>
+            <AlertDescription>
+              The recipient address format doesn't match the {transactionData.network} network. 
+              Proceeding may result in permanent loss of funds.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <KashCard>
           <div className="space-y-4">
             <h3 className="font-semibold text-center capitalize">{transactionData.type} Transaction</h3>
@@ -68,6 +86,10 @@ const TransactionConfirmation = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Network Fee</span>
                     <span className="font-medium">{transactionData.fee} {transactionData.asset?.symbol}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Network</span>
+                    <span className="font-medium">{transactionData.network}</span>
                   </div>
                   <div className="border-t border-gray-100 pt-2 mt-2"></div>
                   <div className="flex justify-between">
@@ -107,8 +129,10 @@ const TransactionConfirmation = () => {
             fullWidth
             onClick={handleConfirm}
             disabled={loading}
+            variant={!addressValid && transactionData.type === 'send' ? "destructive" : "default"}
           >
-            {loading ? 'Processing...' : 'Confirm Transaction'}
+            {loading ? 'Processing...' : !addressValid && transactionData.type === 'send' ? 
+              'Proceed Anyway (Not Recommended)' : 'Confirm Transaction'}
           </KashButton>
           
           <KashButton
@@ -125,6 +149,11 @@ const TransactionConfirmation = () => {
           <h4 className="font-medium text-amber-700 mb-1">Important</h4>
           <p className="text-sm text-amber-700">
             By confirming this transaction, you agree that it cannot be reversed once processed.
+            {!addressValid && transactionData.type === 'send' && (
+              <strong className="block mt-1">
+                WARNING: The address format doesn't match the selected network. This transaction is likely to fail or result in lost funds.
+              </strong>
+            )}
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Search, ArrowRight, Info } from 'lucide-react';
+import { Wallet, Search, ArrowRight, Info, AlertTriangle } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { useWallets } from '@/hooks/useWallets';
+import { validateAddressForNetwork, detectNetworkFromAddress } from '@/utils/addressValidator';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 enum SendStep {
   SELECT_COIN = 'select_coin',
@@ -135,6 +137,8 @@ const Send = () => {
   const [recipient, setRecipient] = useState('');
   const [memo, setMemo] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const [possibleNetwork, setPossibleNetwork] = useState<string | null>(null);
   
   useEffect(() => {
     if (assets.length > 0) {
@@ -203,8 +207,41 @@ const Send = () => {
     }
   };
   
+  const handleRecipientChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const address = e.target.value;
+    setRecipient(address);
+    setAddressError(null);
+    setPossibleNetwork(null);
+    
+    if (address.length > 10 && selectedNetwork) {
+      const isValid = validateAddressForNetwork(address, selectedNetwork);
+      
+      if (!isValid) {
+        const detectedNetwork = detectNetworkFromAddress(address);
+        
+        if (detectedNetwork) {
+          setPossibleNetwork(detectedNetwork);
+          setAddressError(`This appears to be a ${detectedNetwork} address, not a ${selectedNetwork} address.`);
+        } else {
+          setAddressError(`This doesn't appear to be a valid ${selectedNetwork} address.`);
+        }
+      }
+    }
+  };
+  
   const handleContinue = () => {
     if (!selectedToken || !selectedNetwork || !amount || !recipient) return;
+    
+    const isValidAddress = validateAddressForNetwork(recipient, selectedNetwork);
+    
+    if (!isValidAddress) {
+      toast({
+        title: "Invalid Address",
+        description: `The address you entered doesn't match the ${selectedNetwork} network format.`,
+        variant: "destructive"
+      });
+      return;
+    }
     
     const fee = calculateFee(selectedToken.symbol, selectedNetwork);
     
@@ -388,13 +425,25 @@ const Send = () => {
             </div>
 
             <div className="space-y-5">
-              <KashInput
-                label="Recipient Address"
-                placeholder={`Enter ${selectedToken.symbol} address for ${selectedNetwork}`}
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-                icon={<Wallet size={18} className="text-gray-400" />}
-              />
+              <div>
+                <KashInput
+                  label="Recipient Address"
+                  placeholder={`Enter ${selectedToken.symbol} address for ${selectedNetwork}`}
+                  value={recipient}
+                  onChange={handleRecipientChange}
+                  icon={<Wallet size={18} className="text-gray-400" />}
+                  error={addressError || undefined}
+                />
+                
+                {possibleNetwork && addressError && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      {addressError} Sending to the wrong network may result in permanent loss of funds.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1">
@@ -445,7 +494,7 @@ const Send = () => {
 
               <KashButton
                 fullWidth
-                disabled={!amount || !recipient || parseFloat(amount) <= 0 || parseFloat(amount) > (selectedToken.balance || 0)}
+                disabled={!amount || !recipient || parseFloat(amount) <= 0 || parseFloat(amount) > (selectedToken.balance || 0) || !!addressError}
                 onClick={handleContinue}
               >
                 Continue
