@@ -1,123 +1,51 @@
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import * as ethers from "https://esm.sh/ethers@6.13.5";
+import { generateUserHDWallets } from './utils/hd-wallet-utils.ts';
 import { 
-  createEthereumWallet,
-  createSolanaWallet,
-  createBitcoinSegWitWallet,
-  insertWalletIntoDb,
-  getOrCreateSeedPhrase,
-  generateHDWallets
-} from '../_shared/wallet-helpers.ts';
+  createEthereumWallets, 
+  createSolanaWallets, 
+  createBitcoinWallet 
+} from './utils/wallet-db-ops.ts';
 
-// Create all required wallets for a new user using HD derivation from a seed phrase
+/**
+ * Create all required wallets for a new user using HD derivation from a seed phrase
+ */
 export async function createInitialWallets(supabase: any, userId: string) {
   console.log("Creating wallets directly in fetch-wallet-balances");
   
   try {
-    // Get or create a seed phrase for the user
-    const seedPhrase = await getOrCreateSeedPhrase(supabase, userId);
-    console.log("Got seed phrase for user");
-    
     // Generate HD wallets from the seed phrase
-    // This ensures addresses are derived consistently and will work with other wallet apps
-    const hdWallets = await generateHDWallets(seedPhrase, userId);
+    const hdWallets = await generateUserHDWallets(supabase, userId);
     
     const wallets = [];
     
     // Create Ethereum wallet and tokens
-    await insertWalletIntoDb(
+    const ethereumWallets = await createEthereumWallets(
       supabase, 
-      userId, 
-      'Ethereum', 
-      'ETH', 
+      userId,
       hdWallets.ethereum.address, 
-      hdWallets.ethereum.private_key, 
-      'imported'
+      hdWallets.ethereum.private_key
     );
-    
-    wallets.push({
-      blockchain: 'Ethereum',
-      currency: 'ETH',
-      address: hdWallets.ethereum.address,
-      balance: 0,
-      wallet_type: 'imported'
-    });
-    
-    await insertWalletIntoDb(
-      supabase, 
-      userId, 
-      'Ethereum', 
-      'USDT', 
-      hdWallets.ethereum.address, 
-      null, 
-      'token'
-    );
-    
-    wallets.push({
-      blockchain: 'Ethereum',
-      currency: 'USDT',
-      address: hdWallets.ethereum.address,
-      balance: 0,
-      wallet_type: 'token'
-    });
+    wallets.push(...ethereumWallets);
     
     // Create Solana wallet and tokens
-    await insertWalletIntoDb(
+    const solanaWallets = await createSolanaWallets(
       supabase, 
-      userId, 
-      'Solana', 
-      'SOL', 
+      userId,
       hdWallets.solana.address, 
-      hdWallets.solana.private_key, 
-      'imported'
+      hdWallets.solana.private_key
     );
-    
-    wallets.push({
-      blockchain: 'Solana',
-      currency: 'SOL',
-      address: hdWallets.solana.address,
-      balance: 0,
-      wallet_type: 'imported'
-    });
-    
-    await insertWalletIntoDb(
-      supabase, 
-      userId, 
-      'Solana', 
-      'USDT', 
-      hdWallets.solana.address, 
-      null, 
-      'token'
-    );
-    
-    wallets.push({
-      blockchain: 'Solana',
-      currency: 'USDT',
-      address: hdWallets.solana.address,
-      balance: 0,
-      wallet_type: 'token'
-    });
+    wallets.push(...solanaWallets);
     
     // Create Bitcoin SegWit wallet
-    await insertWalletIntoDb(
+    const bitcoinWallet = await createBitcoinWallet(
       supabase, 
-      userId, 
-      'Bitcoin', 
-      'BTC', 
+      userId,
       hdWallets.bitcoinSegwit.address, 
-      hdWallets.bitcoinSegwit.private_key, 
-      'Native SegWit'
+      hdWallets.bitcoinSegwit.private_key
     );
-    
-    wallets.push({
-      blockchain: 'Bitcoin',
-      currency: 'BTC',
-      address: hdWallets.bitcoinSegwit.address,
-      balance: 0,
-      wallet_type: 'Native SegWit'
-    });
+    wallets.push(bitcoinWallet);
     
     console.log("Created wallets directly with proper HD derivation");
     
@@ -128,7 +56,9 @@ export async function createInitialWallets(supabase: any, userId: string) {
   }
 }
 
-// Create missing wallets for a user that already has some wallets
+/**
+ * Create missing wallets for a user that already has some wallets
+ */
 export async function createMissingWallets(
   supabase: any, 
   userId: string, 
@@ -140,9 +70,8 @@ export async function createMissingWallets(
   const addedWallets = [];
   
   try {
-    // Get the seed phrase to generate consistent wallets
-    const seedPhrase = await getOrCreateSeedPhrase(supabase, userId);
-    const hdWallets = await generateHDWallets(seedPhrase, userId);
+    // Generate HD wallets to ensure consistent addresses
+    const hdWallets = await generateUserHDWallets(supabase, userId);
     
     if (!hasSol || !hasUsdtSol) {
       if (!hasSol) {
