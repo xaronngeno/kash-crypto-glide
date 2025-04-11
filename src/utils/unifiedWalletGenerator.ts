@@ -9,11 +9,7 @@ import { Keypair } from '@solana/web3.js';
 const DERIVATION_PATHS = {
   BITCOIN: "m/84'/0'/0'/0/0", // Native SegWit (BIP84)
   ETHEREUM: "m/44'/60'/0'/0/0",
-  SOLANA: "m/44'/501'/0'/0'",
-  BASE: "m/44'/60'/0'/0/0", // Same as Ethereum
-  POLYGON: "m/44'/60'/0'/0/0", // Same as Ethereum
-  MONAD: "m/44'/60'/0'/0/0", // Same as Ethereum
-  SUI: "m/44'/784'/0'/0'/0'" // Sui derivation path
+  SOLANA: "m/44'/501'/0'/0'"
 };
 
 // Interface for wallet data
@@ -45,7 +41,7 @@ export const generateUnifiedWallets = async (): Promise<UnifiedWalletData[]> => 
     
     const wallets: UnifiedWalletData[] = [];
     
-    // Generate Ethereum and EVM-compatible wallets
+    // Generate Ethereum wallet
     const ethHdNode = ethers.HDNodeWallet.fromMnemonic(
       ethers.Mnemonic.fromPhrase(mnemonic),
       DERIVATION_PATHS.ETHEREUM
@@ -55,30 +51,6 @@ export const generateUnifiedWallets = async (): Promise<UnifiedWalletData[]> => 
     wallets.push({
       blockchain: "Ethereum",
       platform: "Ethereum",
-      address: ethHdNode.address,
-      privateKey: ethHdNode.privateKey
-    });
-    
-    // Base wallet (same derivation as Ethereum)
-    wallets.push({
-      blockchain: "Base",
-      platform: "Base",
-      address: ethHdNode.address,
-      privateKey: ethHdNode.privateKey
-    });
-    
-    // Polygon wallet (same derivation as Ethereum)
-    wallets.push({
-      blockchain: "Polygon",
-      platform: "Polygon",
-      address: ethHdNode.address,
-      privateKey: ethHdNode.privateKey
-    });
-    
-    // Monad Testnet wallet (same derivation as Ethereum)
-    wallets.push({
-      blockchain: "Monad",
-      platform: "Monad Testnet",
       address: ethHdNode.address,
       privateKey: ethHdNode.privateKey
     });
@@ -142,25 +114,6 @@ export const generateUnifiedWallets = async (): Promise<UnifiedWalletData[]> => 
       }
     } catch (error) {
       console.error("Failed to generate Bitcoin wallet:", error);
-    }
-    
-    // Generate Sui wallet
-    try {
-      // For Sui, we'll generate a keypair using tweetnacl
-      // (This is simplified; production code would use the proper Sui SDK)
-      const seed = Buffer.from(mnemonic, 'utf-8');
-      const keyPair = tweetnacl.sign.keyPair.fromSeed(seed.slice(0, 32));
-      
-      wallets.push({
-        blockchain: "Sui",
-        platform: "Sui",
-        address: Buffer.from(keyPair.publicKey).toString('hex'),
-        privateKey: Buffer.from(keyPair.secretKey).toString('hex')
-      });
-      
-      console.log("Generated Sui wallet successfully");
-    } catch (error) {
-      console.error("Failed to generate Sui wallet:", error);
     }
     
     console.log(`Generated ${wallets.length} unified wallets`);
