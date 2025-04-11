@@ -38,13 +38,11 @@ interface Token {
   decimals: number;
   logo?: string;
   networks?: string[];
-  wallet_types?: Record<string, string[]>;
 }
 
 enum ReceiveStep {
   SELECT_COIN = 'select_coin',
   SELECT_NETWORK = 'select_network',
-  SELECT_WALLET_TYPE = 'select_wallet_type',
   VIEW_ADDRESS = 'view_address'
 }
 
@@ -143,7 +141,6 @@ const Receive = () => {
   const [availableTokens, setAvailableTokens] = useState<Token[]>([]);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
-  const [selectedWalletType, setSelectedWalletType] = useState<string | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<WalletAddress | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showQR, setShowQR] = useState(false);
@@ -151,7 +148,6 @@ const Receive = () => {
   const [noWalletsFound, setNoWalletsFound] = useState(false);
   const [creatingWallets, setCreatingWallets] = useState(false);
 
-  // A list of networks we should support - ensures Solana and Bitcoin are included
   const supportedNetworks = [
     'Bitcoin', 
     'Ethereum', 
@@ -161,10 +157,7 @@ const Receive = () => {
     'Polygon'
   ];
   
-  // Token symbols we know we should support with Solana network
   const solanaCompatibleTokens = ['SOL', 'USDT', 'USDC'];
-  
-  // Token symbols we know we should support with Bitcoin network
   const bitcoinCompatibleTokens = ['BTC'];
 
   useEffect(() => {
@@ -209,22 +202,13 @@ const Receive = () => {
       if (selectedToken.networks?.length === 1) {
         setSelectedNetwork(selectedToken.networks[0]);
         
-        // Check if this token on this network has multiple wallet types
-        if (selectedToken.symbol === 'BTC' && 
-            selectedToken.networks[0] === 'Bitcoin' && 
-            selectedToken.wallet_types?.Bitcoin?.length) {
-          // If it has wallet types, go to wallet type selection
-          setCurrentStep(ReceiveStep.SELECT_WALLET_TYPE);
-        } else {
-          // Otherwise find the wallet and go straight to the view
-          const wallet = walletAddresses.find(
-            w => w.symbol === selectedToken.symbol && w.blockchain === selectedToken.networks[0]
-          );
-          
-          if (wallet) {
-            setSelectedWallet(wallet);
-            setCurrentStep(ReceiveStep.VIEW_ADDRESS);
-          }
+        const wallet = walletAddresses.find(
+          w => w.symbol === selectedToken.symbol && w.blockchain === selectedToken.networks[0]
+        );
+        
+        if (wallet) {
+          setSelectedWallet(wallet);
+          setCurrentStep(ReceiveStep.VIEW_ADDRESS);
         }
       }
     }
@@ -248,7 +232,6 @@ const Receive = () => {
       
       console.log("Wallets created successfully:", data);
       
-      // Fetch the newly created wallets
       const { data: wallets, error: fetchError } = await supabase.functions.invoke('fetch-wallet-balances', {
         method: 'POST',
         body: { userId: user.id }
@@ -259,7 +242,6 @@ const Receive = () => {
       }
       
       if (wallets && wallets.success && wallets.wallets && wallets.wallets.length > 0) {
-        // Add debug log for BTC wallets after creation
         const btcWallets = wallets.wallets.filter(w => w.currency === 'BTC');
         console.log("BTC wallets after creation:", btcWallets);
         
@@ -267,7 +249,6 @@ const Receive = () => {
           blockchain: wallet.blockchain,
           symbol: wallet.currency,
           address: wallet.address,
-          wallet_type: wallet.wallet_type,
           logo: getCurrencyLogo(wallet.currency)
         }));
         
@@ -298,7 +279,6 @@ const Receive = () => {
   const handleTokenSelect = (token: Token) => {
     setSelectedToken(token);
     setSelectedNetwork(null);
-    setSelectedWalletType(null);
     setSelectedWallet(null);
     setCurrentStep(ReceiveStep.SELECT_NETWORK);
   };
@@ -306,7 +286,6 @@ const Receive = () => {
   const handleNetworkSelect = (network: string) => {
     setSelectedNetwork(network);
     
-    // For all tokens, directly find the wallet
     const wallet = walletAddresses.find(
       w => w.symbol === selectedToken?.symbol && w.blockchain === network
     );
@@ -334,11 +313,9 @@ const Receive = () => {
   const resetFlow = () => {
     setCurrentStep(ReceiveStep.SELECT_COIN);
     setSelectedNetwork(null);
-    setSelectedWalletType(null);
     setSelectedWallet(null);
   };
 
-  // Search filtering logic that properly handles BTC
   const filterTokens = (tokens: Token[]) => {
     if (!searchTerm) {
       return tokens;
@@ -346,11 +323,9 @@ const Receive = () => {
     
     const lowercaseSearch = searchTerm.toLowerCase();
     return tokens.filter(token => {
-      // Match by name or symbol
       const nameMatch = token.name.toLowerCase().includes(lowercaseSearch);
       const symbolMatch = token.symbol.toLowerCase().includes(lowercaseSearch);
       
-      // Special case for Bitcoin/BTC
       const isBitcoinSearch = 
         lowercaseSearch === 'bitcoin' || 
         lowercaseSearch === 'btc' || 
@@ -387,7 +362,6 @@ const Receive = () => {
         if (data && data.success && data.wallets && data.wallets.length > 0) {
           console.log("Fetched wallet addresses:", data.wallets);
           
-          // Add debug log for BTC wallets
           const btcWallets = data.wallets.filter(w => w.currency === 'BTC');
           console.log("BTC wallets found:", btcWallets);
           
@@ -395,18 +369,15 @@ const Receive = () => {
             blockchain: wallet.blockchain,
             symbol: wallet.currency,
             address: wallet.address,
-            wallet_type: wallet.wallet_type,
             logo: getCurrencyLogo(wallet.currency)
           }));
           
-          // Check if we have BTC on Bitcoin network
           const hasBitcoinBTC = addresses.some(
             wallet => wallet.symbol === 'BTC' && wallet.blockchain === 'Bitcoin'
           );
           
           console.log("Has Bitcoin BTC:", hasBitcoinBTC);
           
-          // If it's missing, we should recreate wallets
           if (!hasBitcoinBTC) {
             console.log("Missing Bitcoin tokens, creating wallets");
             await createWallets();
@@ -491,11 +462,6 @@ const Receive = () => {
           )}
           {currentStep === ReceiveStep.SELECT_NETWORK && (
             <p className="text-gray-600">Select network for {selectedToken?.symbol}</p>
-          )}
-          {currentStep === ReceiveStep.SELECT_WALLET_TYPE && (
-            <p className="text-gray-600">
-              Select {selectedToken?.symbol} wallet type on {selectedNetwork}
-            </p>
           )}
           {currentStep === ReceiveStep.VIEW_ADDRESS && (
             <p className="text-gray-600">
