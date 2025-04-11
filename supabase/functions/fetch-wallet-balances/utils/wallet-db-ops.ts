@@ -10,44 +10,49 @@ export async function createEthereumWallets(
   address: string,
   privateKey: string
 ) {
-  // Create Ethereum wallet and tokens
-  await insertWalletIntoDb(
-    supabase, 
-    userId, 
-    'Ethereum', 
-    'ETH', 
-    address, 
-    privateKey, 
-    'imported'
-  );
-  
-  const ethWallet = {
-    blockchain: 'Ethereum',
-    currency: 'ETH',
-    address: address,
-    balance: 0,
-    wallet_type: 'imported'
-  };
-  
-  await insertWalletIntoDb(
-    supabase, 
-    userId, 
-    'Ethereum', 
-    'USDT', 
-    address, 
-    null, 
-    'token'
-  );
-  
-  const usdtWallet = {
-    blockchain: 'Ethereum',
-    currency: 'USDT',
-    address: address,
-    balance: 0,
-    wallet_type: 'token'
-  };
-  
-  return [ethWallet, usdtWallet];
+  try {
+    // Create Ethereum wallet and tokens
+    await insertWalletIntoDb(
+      supabase, 
+      userId, 
+      'Ethereum', 
+      'ETH', 
+      address, 
+      privateKey, 
+      'imported'
+    );
+    
+    const ethWallet = {
+      blockchain: 'Ethereum',
+      currency: 'ETH',
+      address: address,
+      balance: 0,
+      wallet_type: 'imported'
+    };
+    
+    await insertWalletIntoDb(
+      supabase, 
+      userId, 
+      'Ethereum', 
+      'USDT', 
+      address, 
+      null, 
+      'token'
+    );
+    
+    const usdtWallet = {
+      blockchain: 'Ethereum',
+      currency: 'USDT',
+      address: address,
+      balance: 0,
+      wallet_type: 'token'
+    };
+    
+    return [ethWallet, usdtWallet];
+  } catch (error) {
+    console.error("Error creating Ethereum wallets:", error);
+    return [];
+  }
 }
 
 /**
@@ -59,44 +64,49 @@ export async function createSolanaWallets(
   address: string,
   privateKey: string
 ) {
-  // Create Solana wallet and tokens
-  await insertWalletIntoDb(
-    supabase, 
-    userId, 
-    'Solana', 
-    'SOL', 
-    address, 
-    privateKey, 
-    'imported'
-  );
-  
-  const solWallet = {
-    blockchain: 'Solana',
-    currency: 'SOL',
-    address: address,
-    balance: 0,
-    wallet_type: 'imported'
-  };
-  
-  await insertWalletIntoDb(
-    supabase, 
-    userId, 
-    'Solana', 
-    'USDT', 
-    address, 
-    null, 
-    'token'
-  );
-  
-  const usdtSolWallet = {
-    blockchain: 'Solana',
-    currency: 'USDT',
-    address: address,
-    balance: 0,
-    wallet_type: 'token'
-  };
-  
-  return [solWallet, usdtSolWallet];
+  try {
+    // Create Solana wallet and tokens
+    await insertWalletIntoDb(
+      supabase, 
+      userId, 
+      'Solana', 
+      'SOL', 
+      address, 
+      privateKey, 
+      'imported'
+    );
+    
+    const solWallet = {
+      blockchain: 'Solana',
+      currency: 'SOL',
+      address: address,
+      balance: 0,
+      wallet_type: 'imported'
+    };
+    
+    await insertWalletIntoDb(
+      supabase, 
+      userId, 
+      'Solana', 
+      'USDT', 
+      address, 
+      null, 
+      'token'
+    );
+    
+    const usdtSolWallet = {
+      blockchain: 'Solana',
+      currency: 'USDT',
+      address: address,
+      balance: 0,
+      wallet_type: 'token'
+    };
+    
+    return [solWallet, usdtSolWallet];
+  } catch (error) {
+    console.error("Error creating Solana wallets:", error);
+    return [];
+  }
 }
 
 /**
@@ -108,22 +118,27 @@ export async function createBitcoinWallet(
   address: string,
   privateKey: string
 ) {
-  // Create Bitcoin SegWit wallet
-  await insertWalletIntoDb(
-    supabase, 
-    userId, 
-    'Bitcoin', 
-    'BTC', 
-    address, 
-    privateKey, 
-    'Native SegWit'
-  );
-  
-  return {
-    blockchain: 'Bitcoin',
-    currency: 'BTC',
-    address: address,
-    balance: 0,
-    wallet_type: 'Native SegWit'
-  };
+  try {
+    // Create Bitcoin SegWit wallet
+    await insertWalletIntoDb(
+      supabase, 
+      userId, 
+      'Bitcoin', 
+      'BTC', 
+      address, 
+      privateKey, 
+      'Native SegWit'
+    );
+    
+    return {
+      blockchain: 'Bitcoin',
+      currency: 'BTC',
+      address: address,
+      balance: 0,
+      wallet_type: 'Native SegWit'
+    };
+  } catch (error) {
+    console.error("Error creating Bitcoin wallet:", error);
+    throw error;
+  }
 }

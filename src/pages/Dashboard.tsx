@@ -32,6 +32,7 @@ const Dashboard = () => {
   // Redirect to auth if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
+      console.log("User not authenticated, redirecting to auth");
       navigate('/auth');
     }
   }, [navigate, isAuthenticated, authLoading]);
@@ -50,10 +51,27 @@ const Dashboard = () => {
     try {
       await refreshWalletBalances(user.id);
       reload(); // Reload wallet data after refresh
+    } catch (error) {
+      console.error("Error refreshing wallet balances:", error);
+      // Error toast is already shown in refreshWalletBalances
     } finally {
       setRefreshing(false);
     }
   };
+
+  // Show loading state if still authenticating
+  if (authLoading) {
+    return (
+      <MainLayout title="Portfolio">
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kash-green mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading your portfolio...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout title="Portfolio">
@@ -62,7 +80,9 @@ const Dashboard = () => {
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {typeof error === 'string' ? error : 'Failed to load wallet data. Please try again later.'}
+            </AlertDescription>
           </Alert>
         )}
 
