@@ -1,5 +1,6 @@
 
-import { verifySolanaAddress } from './wallet/chains';
+import { verifySolanaAddress } from './wallet/chains/solana';
+import { verifyPolygonAddress } from './wallet/chains/polygon';
 
 /**
  * Validates cryptocurrency addresses for different blockchain networks
@@ -42,7 +43,7 @@ export const isBaseAddress = (address: string): boolean => {
 
 // Polygon address validation (same format as Ethereum)
 export const isPolygonAddress = (address: string): boolean => {
-  return isEthereumAddress(address); // Polygon uses the same address format as Ethereum
+  return verifyPolygonAddress(address); // Using the specialized validator
 };
 
 // Check if address matches the selected network

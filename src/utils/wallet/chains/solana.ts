@@ -1,32 +1,44 @@
 
-import { Keypair } from '@solana/web3.js';
-import { Buffer } from '../../globalPolyfills';
+import { ethers } from 'ethers';
 import { DERIVATION_PATHS } from '../derivationPaths';
 import { UnifiedWalletData } from '../types';
-import { ethers } from 'ethers';
+import { Buffer } from '../../globalPolyfills';
+
+// Try to import tweetnacl dynamically
+const getTweetNaCl = async () => {
+  try {
+    return await import('tweetnacl');
+  } catch (error) {
+    console.error('Error importing tweetnacl:', error);
+    throw error;
+  }
+};
 
 /**
  * Generate a Solana wallet from a mnemonic
  */
-export const generateSolanaWallet = (mnemonicObj: ethers.Mnemonic): UnifiedWalletData => {
+export const generateSolanaWallet = async (mnemonicObj: ethers.Mnemonic): Promise<UnifiedWalletData> => {
   try {
     // Use HDNodeWallet.fromMnemonic with the Solana path
-    const solanaSeedNode = ethers.HDNodeWallet.fromMnemonic(
+    const solanaHdNode = ethers.HDNodeWallet.fromMnemonic(
       mnemonicObj,
       DERIVATION_PATHS.SOLANA
     );
     
-    // Extract private key bytes (remove 0x prefix)
-    const privateKeyBytes = Buffer.from(solanaSeedNode.privateKey.slice(2), 'hex');
+    // Get private key bytes from the HD node
+    const privateKeyBytes = Buffer.from(solanaHdNode.privateKey.slice(2), 'hex').slice(0, 32);
     
-    // Create Solana keypair using the first 32 bytes of the private key bytes
-    // This matches how Phantom and other Solana wallets derive their keypair
-    const keypair = Keypair.fromSeed(privateKeyBytes.slice(0, 32));
+    // Create a keypair using those bytes
+    const nacl = await getTweetNaCl();
+    const keypair = nacl.sign.keyPair.fromSeed(privateKeyBytes);
+    
+    // Get the public key as base58
+    const publicKeyBase58 = await encodeBase58(Buffer.from(keypair.publicKey));
     
     return {
       blockchain: "Solana",
       platform: "Solana",
-      address: keypair.publicKey.toBase58(),
+      address: publicKeyBase58,
       privateKey: Buffer.from(keypair.secretKey).toString('hex')
     };
   } catch (error) {
@@ -38,57 +50,48 @@ export const generateSolanaWallet = (mnemonicObj: ethers.Mnemonic): UnifiedWalle
 /**
  * Generate a random Solana wallet (not derived from mnemonic)
  */
-export const generateRandomSolanaWallet = (privateKeyHex?: string): UnifiedWalletData => {
+export const generateRandomSolanaWallet = async (): Promise<UnifiedWalletData> => {
   try {
-    let keypair: Keypair;
+    // Create random bytes for the seed
+    const seed = crypto.getRandomValues(new Uint8Array(32));
     
-    if (privateKeyHex) {
-      // Convert hex string to Uint8Array for Solana keypair
-      const privateKeyBytes = Buffer.from(privateKeyHex, 'hex');
-      keypair = Keypair.fromSecretKey(privateKeyBytes);
-      console.log("Created Solana wallet from provided private key");
-    } else {
-      // Generate a random keypair
-      keypair = Keypair.generate();
-      console.log("Generated random Solana wallet");
-    }
+    // Generate keypair from the random seed
+    const nacl = await getTweetNaCl();
+    const keypair = nacl.sign.keyPair.fromSeed(seed);
     
-    const address = keypair.publicKey.toString();
-    console.log("Generated Solana address:", address);
+    // Get the public key as base58
+    const publicKeyBase58 = await encodeBase58(Buffer.from(keypair.publicKey));
     
     return {
-      blockchain: 'Solana',
-      platform: 'Solana',
-      address: address,
-      privateKey: Buffer.from(keypair.secretKey).toString('hex'),
+      blockchain: "Solana",
+      platform: "Solana",
+      address: publicKeyBase58,
+      privateKey: Buffer.from(keypair.secretKey).toString('hex')
     };
   } catch (error) {
-    console.error('Error generating Solana wallet:', error);
-    throw new Error('Failed to generate Solana wallet');
+    console.error('Error generating random Solana wallet:', error);
+    throw new Error('Failed to generate random Solana wallet');
   }
 };
 
+// Helper function to encode base58
+async function encodeBase58(buffer: Uint8Array): Promise<string> {
+  try {
+    const bs58Module = await import('bs58');
+    return bs58Module.default.encode(buffer);
+  } catch (error) {
+    console.error('Error encoding to base58:', error);
+    throw error;
+  }
+}
+
 /**
- * Verify a Solana address is valid
+ * Verify if an address is a valid Solana address
  */
 export const verifySolanaAddress = (address: string): boolean => {
-  try {
-    // Basic validation - Solana addresses are base58 encoded and typically around 44 chars
-    if (!address || typeof address !== 'string') return false;
-    
-    // Solana addresses are base58 encoded strings, typically 32-44 characters
-    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-    if (!base58Regex.test(address)) {
-      console.log("Address failed base58 regex validation:", address);
-      return false;
-    }
-    
-    // For more thorough validation, in a real implementation,
-    // we would use PublicKey class from @solana/web3.js
-    
-    return true;
-  } catch (error) {
-    console.error('Error validating Solana address:', error);
-    return false;
-  }
+  if (!address || typeof address !== 'string') return false;
+  
+  // Solana addresses are base58 encoded strings, typically 32-44 characters
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+  return base58Regex.test(address);
 };
