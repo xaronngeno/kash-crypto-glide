@@ -17,7 +17,7 @@ interface UseWalletsProps {
 export const useWallets = ({ prices }: UseWalletsProps) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const { user, session } = useAuth();
   
@@ -55,82 +55,74 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
     }
   }, [prices]);
 
-  // Fetch user assets with a small delay to allow UI to render first
+  // Fetch user assets
   useEffect(() => {
-    // Small timeout to let React render first
-    const timeoutId = setTimeout(() => {
-      const loadUserAssets = async () => {
-        if (!user || !session?.access_token) {
-          console.log("No user or session available");
+    // Don't attempt to load if no user
+    if (!user || !session?.access_token) {
+      console.log("No user or session available");
+      setLoading(false);
+      return;
+    }
+      
+    setError(null);
+    setLoading(true);
+    
+    const loadUserAssets = async () => {
+      try {
+        // Fetch wallet balances with robust error handling
+        const wallets = await fetchWalletBalances({
+          userId: user.id,
+          useLocalCache: true,
+          onError: (err) => {
+            setError(err.message);
+            toast({
+              title: "Error",
+              description: "Failed to load wallet data",
+              variant: "destructive"
+            });
+          }
+        });
+        
+        if (!wallets || wallets.length === 0) {
+          console.log("No wallets found, creating initial wallets");
+          
+          // Only create wallets once and only if not created before
+          if (!walletsCreated && !walletCreationAttempted.current) {
+            walletCreationAttempted.current = true;
+            
+            try {
+              const newWallets = await createUserWallets(user.id);
+              if (newWallets && newWallets.length > 0) {
+                markWalletsAsCreated();
+                const processedAssets = processWallets(newWallets);
+                setAssets(processedAssets);
+              }
+            } catch (createError) {
+              console.error("Error creating wallets:", createError);
+            }
+          }
+          
+          setLoading(false);
           return;
         }
         
-        setError(null);
-        setLoading(true);
+        // Process the wallet data into assets
+        const processedAssets = processWallets(wallets);
+        setAssets(processedAssets);
+        setLoading(false);
         
-        try {
-          // Fetch wallet balances
-          const wallets = await fetchWalletBalances({
-            userId: user.id,
-            onError: (err) => {
-              setError(err.message);
-              toast({
-                title: "Error",
-                description: "Failed to load wallet data",
-                variant: "destructive"
-              });
-            }
-          });
-          
-          if (!wallets || wallets.length === 0) {
-            console.log("No wallets found, creating initial wallets");
-            
-            // Only create wallets once and only if not created before
-            if (!walletsCreated && !walletCreationAttempted.current) {
-              walletCreationAttempted.current = true;
-              
-              try {
-                const newWallets = await createUserWallets(user.id);
-                if (newWallets && newWallets.length > 0) {
-                  markWalletsAsCreated();
-                  const processedAssets = processWallets(newWallets);
-                  setAssets(processedAssets);
-                }
-              } catch (createError) {
-                console.error("Error creating wallets:", createError);
-                // Don't show toast here as the fetchWalletBalances already shows one
-              }
-            }
-            
-            return;
-          }
-          
-          // Process the wallet data into assets
-          const processedAssets = processWallets(wallets);
-          setAssets(processedAssets);
-          
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : "Unknown error";
-          console.error('Error in useWallets:', errorMessage);
-          setError(errorMessage);
-        } finally {
-          setLoading(false);
-        }
-      };
-  
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        console.error('Error in useWallets:', errorMessage);
+        setError(errorMessage);
+        setLoading(false);
+      }
+    };
+
+    // Add a small delay to let the UI render first
+    const timeoutId = setTimeout(() => {
       loadUserAssets();
-      
-      // Set up periodic refresh in the background
-      const refreshInterval = setInterval(() => {
-        if (user?.id) {
-          loadUserAssets();
-        }
-      }, 60000); // Every 60 seconds
-      
-      return () => {
-        clearInterval(refreshInterval);
-      };
-    }, 10); // Small delay
+    }, 10);
     
     return () => clearTimeout(timeoutId);
   }, [user, session, processWallets, walletsCreated, markWalletsAsCreated, refreshCounter]);

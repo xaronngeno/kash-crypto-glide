@@ -24,7 +24,7 @@ const Dashboard = () => {
   const { prices, error: pricesError } = useCryptoPrices();
   
   // Get wallet assets
-  const { assets, error: walletsError, reload } = useWallets({ prices });
+  const { assets, error: walletsError, loading: assetsLoading, reload } = useWallets({ prices });
   
   // Combined error state
   const error = pricesError || walletsError;
@@ -74,9 +74,9 @@ const Dashboard = () => {
               size="sm" 
               onClick={handleRefresh}
               className="ml-2 h-6 w-6"
-              disabled={refreshing}
+              disabled={refreshing || assetsLoading}
             >
-              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              <RefreshCw size={14} className={refreshing || assetsLoading ? "animate-spin" : ""} />
             </KashButton>
           </div>
           <div className="flex items-center">

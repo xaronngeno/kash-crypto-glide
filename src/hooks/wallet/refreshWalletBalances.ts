@@ -17,6 +17,7 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
     const wallets = await fetchWalletBalances({ 
       userId, 
       forceRefresh: true,
+      retryCount: 3,
       onError: (err) => {
         toast({
           title: "Refresh failed",

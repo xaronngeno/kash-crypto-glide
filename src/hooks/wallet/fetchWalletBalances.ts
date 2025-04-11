@@ -23,7 +23,7 @@ export const fetchWalletBalances = async ({
   onSuccess, 
   onError,
   forceRefresh = false,
-  retryCount = 2,
+  retryCount = 3, // Increased retries
   useLocalCache = true
 }: FetchWalletsOptions): Promise<any[] | null> => {
   if (!userId) {
@@ -57,19 +57,29 @@ export const fetchWalletBalances = async ({
     while (attempt <= retryCount) {
       if (attempt > 0) {
         // Exponential backoff: wait 500ms, then 1000ms, then 2000ms, etc.
-        const backoffTime = Math.min(500 * Math.pow(2, attempt - 1), 5000);
+        const backoffTime = Math.min(500 * Math.pow(2, attempt - 1), 8000);
         console.log(`Retry attempt ${attempt} after ${backoffTime}ms delay`);
         await new Promise(resolve => setTimeout(resolve, backoffTime));
       }
       
       try {
-        const response = await supabase.functions.invoke('fetch-wallet-balances', {
-          method: 'POST',
-          body: { userId, forceRefresh }
-        });
+        // Configure the request with a longer timeout
+        const response = await Promise.race([
+          supabase.functions.invoke('fetch-wallet-balances', {
+            method: 'POST',
+            body: { userId, forceRefresh },
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Request timeout")), 15000)
+          )
+        ]);
         
-        data = response.data;
-        error = response.error;
+        // Type assertion for TypeScript
+        data = (response as any).data;
+        error = (response as any).error;
         
         // If successful, break the retry loop
         if (!error) {
@@ -78,6 +88,7 @@ export const fetchWalletBalances = async ({
         
         lastError = new Error(`Failed to fetch wallets: ${error.message}`);
       } catch (err) {
+        console.error(`Attempt ${attempt + 1}/${retryCount + 1} failed:`, err);
         lastError = err instanceof Error ? err : new Error("Unknown fetch error");
       }
       

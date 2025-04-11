@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -45,6 +46,7 @@ function filterTaprootWallets(wallets) {
 }
 
 serve(async (req: Request) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -52,9 +54,22 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase credentials');
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { userId, forceRefresh = false } = await req.json();
+    // Parse the request body
+    let requestData = {};
+    try {
+      requestData = await req.json();
+    } catch (e) {
+      console.error('Error parsing request body:', e);
+    }
+
+    const { userId, forceRefresh = false } = requestData;
 
     if (!userId) {
       return new Response(
@@ -157,12 +172,12 @@ serve(async (req: Request) => {
     
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        message: 'Processing wallet data',
-        wallets: [],
-        debug: error.message || 'Unknown error'
+        success: false, 
+        message: 'An error occurred',
+        error: error.message || 'Unknown error',
+        wallets: []
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
