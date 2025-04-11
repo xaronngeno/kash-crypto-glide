@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +12,10 @@ import { useWallets } from '@/hooks/useWallets';
 import { refreshWalletBalances } from '@/hooks/useWalletBalance';
 import { KashButton } from '@/components/ui/KashButton';
 
+const isDashboardInitialized = {
+  value: false
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [hideBalance, setHideBalance] = useState(false);
@@ -25,21 +28,19 @@ const Dashboard = () => {
   
   const { prices, error: pricesError } = useCryptoPrices();
   
-  // Only skip initial load if we're not on first mount - manage this with sessionStorage
-  const isFirstLoad = !sessionStorage.getItem('dashboardLoaded');
   const { assets, error: walletsError, reload, loading } = useWallets({ 
     prices,
-    skipInitialLoad: !isFirstLoad
+    skipInitialLoad: isDashboardInitialized.value
   });
   
   const error = pricesError || walletsError;
 
-  // Mark dashboard as loaded after first successful load
   useEffect(() => {
-    if (!loading && assets.length > 0 && !sessionStorage.getItem('dashboardLoaded')) {
-      sessionStorage.setItem('dashboardLoaded', 'true');
+    if (assets.length > 0 && !isDashboardInitialized.value) {
+      console.log("Setting dashboard as initialized");
+      isDashboardInitialized.value = true;
     }
-  }, [loading, assets]);
+  }, [assets]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -48,13 +49,11 @@ const Dashboard = () => {
     }
   }, [navigate, isAuthenticated, authLoading]);
 
-  // Handle pull-to-refresh gesture
   useEffect(() => {
     const content = contentRef.current;
     if (!content) return;
 
     const handleTouchStart = (e: TouchEvent) => {
-      // Only enable pull to refresh when at top of page
       if (window.scrollY === 0) {
         pullStartY.current = e.touches[0].clientY;
       }
@@ -64,7 +63,6 @@ const Dashboard = () => {
       const currentY = e.touches[0].clientY;
       const pullDistance = currentY - pullStartY.current;
       
-      // Only activate pull to refresh when pulling down from top of page
       if (window.scrollY === 0 && pullDistance > 50 && !refreshing) {
         setPullToRefreshActive(true);
       }
@@ -182,7 +180,13 @@ const Dashboard = () => {
             </button>
           </div>
           
-          <AssetsList assets={assets} currency={currency} />
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kash-green"></div>
+            </div>
+          ) : (
+            <AssetsList assets={assets} currency={currency} />
+          )}
         </div>
         
         <PromoCard />

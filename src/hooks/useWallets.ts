@@ -15,10 +15,22 @@ interface UseWalletsProps {
   skipInitialLoad?: boolean;
 }
 
+// Global cache to store asset data across component instances
+const globalAssetCache: {
+  assets: Asset[];
+  timestamp: number;
+} = {
+  assets: [],
+  timestamp: 0
+};
+
+// Cache duration in milliseconds (10 minutes)
+const CACHE_DURATION = 10 * 60 * 1000;
+
 export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps) => {
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<Asset[]>(globalAssetCache.assets);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!skipInitialLoad);
+  const [loading, setLoading] = useState(globalAssetCache.assets.length === 0 && !skipInitialLoad);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const { user, session } = useAuth();
   
@@ -31,7 +43,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
   // Flag to prevent multiple wallet creation attempts
   const walletCreationAttempted = useRef(false);
   // Flag to track if initial load has been done
-  const initialLoadDone = useRef(false);
+  const initialLoadDone = useRef(globalAssetCache.assets.length > 0);
   
   // Function to manually reload wallet data
   const reload = useCallback(() => {
@@ -41,28 +53,38 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
   
   // Update asset prices when prices change
   useEffect(() => {
-    if (prices && Object.keys(prices).length > 0) {
-      setAssets(prevAssets => 
-        prevAssets.map(asset => {
-          const priceData = prices[asset.symbol];
-          if (priceData) {
-            return {
-              ...asset,
-              price: priceData.price,
-              change: priceData.change_24h,
-              value: asset.amount * priceData.price
-            };
-          }
-          return asset;
-        })
-      );
+    if (prices && Object.keys(prices).length > 0 && assets.length > 0) {
+      const updatedAssets = assets.map(asset => {
+        const priceData = prices[asset.symbol];
+        if (priceData) {
+          return {
+            ...asset,
+            price: priceData.price,
+            change: priceData.change_24h,
+            value: asset.amount * priceData.price
+          };
+        }
+        return asset;
+      });
+      
+      setAssets(updatedAssets);
+      
+      // Update global cache with new prices
+      globalAssetCache.assets = updatedAssets;
+      globalAssetCache.timestamp = Date.now();
     }
-  }, [prices]);
+  }, [prices, assets]);
 
   // Fetch user assets with a small delay to allow UI to render first
   useEffect(() => {
-    // Skip loading if skipInitialLoad is true and initialLoadDone is true
-    if (skipInitialLoad && initialLoadDone.current) {
+    // Skip loading if we have cached assets and skipInitialLoad is true
+    const now = Date.now();
+    const cacheIsValid = (now - globalAssetCache.timestamp) < CACHE_DURATION;
+    
+    if (skipInitialLoad && cacheIsValid && globalAssetCache.assets.length > 0) {
+      console.log("Using cached assets, skipping load");
+      initialLoadDone.current = true;
+      setLoading(false);
       return;
     }
     
@@ -75,7 +97,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
         }
         
         setError(null);
-        if (!skipInitialLoad || !initialLoadDone.current) {
+        if (!skipInitialLoad || !cacheIsValid || globalAssetCache.assets.length === 0) {
           setLoading(true);
         }
         
@@ -106,6 +128,10 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
                   markWalletsAsCreated();
                   const processedAssets = processWallets(newWallets);
                   setAssets(processedAssets);
+                  
+                  // Update global cache
+                  globalAssetCache.assets = processedAssets;
+                  globalAssetCache.timestamp = Date.now();
                 }
               } catch (createError) {
                 console.error("Error creating wallets:", createError);
@@ -120,6 +146,10 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
           const processedAssets = processWallets(wallets);
           setAssets(processedAssets);
           initialLoadDone.current = true;
+          
+          // Update global cache
+          globalAssetCache.assets = processedAssets;
+          globalAssetCache.timestamp = Date.now();
           
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : "Unknown error";
