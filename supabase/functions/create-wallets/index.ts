@@ -45,6 +45,8 @@ function encryptPrivateKey(privateKey: string, userId: string): string {
   }
 }
 
+// WALLET GENERATION FUNCTIONS
+
 // Function to create a Solana wallet that works in Deno
 function createSolanaWallet(userId: string) {
   try {

@@ -1,10 +1,8 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req: Request) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -25,7 +23,6 @@ serve(async (req: Request) => {
 
     console.log(`Fetching wallets for user ${userId}`);
 
-    // Get wallets from database
     const { data: wallets, error: walletsError } = await supabase
       .from('wallets')
       .select('blockchain, currency, address, balance, wallet_type')
@@ -41,22 +38,18 @@ serve(async (req: Request) => {
     if (!wallets || wallets.length === 0) {
       console.log('No wallets found, triggering wallet creation');
       
-      // Create wallets directly here to avoid calling the failing edge function
       try {
         console.log("Creating wallets directly in fetch-wallet-balances");
         
-        // Generate a basic Ethereum wallet
-        const ethPrivateKey = await generatePrivateKey();
-        const ethAddress = await deriveEthAddress(ethPrivateKey);
+        const ethWallet = await createEthereumWallet(userId);
         
-        // Insert the Ethereum wallet
         const { error: insertError } = await supabase.from('wallets').insert([
           {
             user_id: userId,
             blockchain: 'Ethereum',
             currency: 'ETH',
-            address: ethAddress,
-            private_key: ethPrivateKey,
+            address: ethWallet.address,
+            private_key: ethWallet.private_key,
             balance: 0,
             wallet_type: 'imported'
           },
@@ -64,7 +57,7 @@ serve(async (req: Request) => {
             user_id: userId,
             blockchain: 'Ethereum',
             currency: 'USDT',
-            address: ethAddress,
+            address: ethWallet.address,
             balance: 0,
             wallet_type: 'token'
           }
@@ -75,18 +68,15 @@ serve(async (req: Request) => {
           throw insertError;
         }
         
-        // Generate a Solana wallet
-        const solPrivateKey = await generatePrivateKey();
-        const solAddress = await deriveSolAddress(solPrivateKey);
+        const solWallet = await createSolanaWallet(userId);
         
-        // Insert the Solana wallet
         await supabase.from('wallets').insert([
           {
             user_id: userId,
             blockchain: 'Solana',
             currency: 'SOL',
-            address: solAddress,
-            private_key: solPrivateKey,
+            address: solWallet.address,
+            private_key: solWallet.private_key,
             balance: 0,
             wallet_type: 'imported'
           },
@@ -94,24 +84,21 @@ serve(async (req: Request) => {
             user_id: userId,
             blockchain: 'Solana',
             currency: 'USDT',
-            address: solAddress,
+            address: solWallet.address,
             balance: 0,
             wallet_type: 'token'
           }
         ]);
         
-        // Generate Bitcoin wallet (only Native SegWit)
-        const btcPrivateKey = await generatePrivateKey();
-        const btcAddress = `btc_sg_${btcPrivateKey.substring(0, 30)}`;
+        const btcWallet = await createBitcoinSegWitWallet(userId);
         
-        // Insert Bitcoin wallet
         await supabase.from('wallets').insert([
           {
             user_id: userId,
             blockchain: 'Bitcoin',
             currency: 'BTC',
-            address: btcAddress,
-            private_key: btcPrivateKey,
+            address: btcWallet.address,
+            private_key: btcWallet.private_key,
             balance: 0,
             wallet_type: 'Native SegWit'
           }
@@ -119,7 +106,6 @@ serve(async (req: Request) => {
         
         console.log("Created wallets directly");
         
-        // Get the newly created wallets
         const { data: freshWallets } = await supabase
           .from('wallets')
           .select('blockchain, currency, address, balance, wallet_type')
@@ -147,13 +133,11 @@ serve(async (req: Request) => {
       }
     }
 
-    // Process wallets efficiently
     const walletsWithBalances = wallets.map(wallet => ({
       ...wallet,
       balance: parseFloat(wallet.balance as any) || 0
     }));
     
-    // Check if we're missing Solana or Bitcoin wallets
     const hasSol = walletsWithBalances.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
     const hasUsdtSol = walletsWithBalances.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
     const hasBtcSegwit = walletsWithBalances.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Native SegWit');
@@ -161,28 +145,24 @@ serve(async (req: Request) => {
     console.log(`Has SOL wallet: ${hasSol}, Has USDT on Solana: ${hasUsdtSol}`);
     console.log(`Has BTC SegWit: ${hasBtcSegwit}`);
     
-    // Remove any Taproot wallets that may exist in the database
     const noTaprootWallets = walletsWithBalances.filter(w => 
       !(w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Taproot')
     );
     
-    // Add missing wallets if needed
     if (!hasSol || !hasUsdtSol || !hasBtcSegwit) {
       console.log("Adding missing wallets");
       
       try {
-        // Create missing Solana wallets if needed
         if (!hasSol || !hasUsdtSol) {
-          const solPrivateKey = await generatePrivateKey();
-          const solAddress = await deriveSolAddress(solPrivateKey);
+          const solWallet = await createSolanaWallet(userId);
           
           if (!hasSol) {
             await supabase.from('wallets').insert({
               user_id: userId,
               blockchain: 'Solana',
               currency: 'SOL',
-              address: solAddress,
-              private_key: solPrivateKey,
+              address: solWallet.address,
+              private_key: solWallet.private_key,
               balance: 0,
               wallet_type: 'imported'
             });
@@ -190,7 +170,7 @@ serve(async (req: Request) => {
             noTaprootWallets.push({
               blockchain: 'Solana',
               currency: 'SOL',
-              address: solAddress,
+              address: solWallet.address,
               balance: 0,
               wallet_type: 'imported'
             });
@@ -201,7 +181,7 @@ serve(async (req: Request) => {
               user_id: userId,
               blockchain: 'Solana',
               currency: 'USDT',
-              address: solAddress,
+              address: solWallet.address,
               balance: 0,
               wallet_type: 'token'
             });
@@ -209,24 +189,22 @@ serve(async (req: Request) => {
             noTaprootWallets.push({
               blockchain: 'Solana',
               currency: 'USDT',
-              address: solAddress,
+              address: solWallet.address,
               balance: 0,
               wallet_type: 'token'
             });
           }
         }
         
-        // Create missing Bitcoin wallet if needed
         if (!hasBtcSegwit) {
-          const btcPrivateKey = await generatePrivateKey();
-          const btcAddress = `btc_sg_${btcPrivateKey.substring(0, 30)}`;
+          const btcWallet = await createBitcoinSegWitWallet(userId);
           
           await supabase.from('wallets').insert({
             user_id: userId,
             blockchain: 'Bitcoin',
             currency: 'BTC',
-            address: btcAddress,
-            private_key: btcPrivateKey,
+            address: btcWallet.address,
+            private_key: btcWallet.private_key,
             balance: 0,
             wallet_type: 'Native SegWit'
           });
@@ -234,7 +212,7 @@ serve(async (req: Request) => {
           noTaprootWallets.push({
             blockchain: 'Bitcoin',
             currency: 'BTC',
-            address: btcAddress,
+            address: btcWallet.address,
             balance: 0,
             wallet_type: 'Native SegWit'
           });
@@ -257,8 +235,6 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error('Unexpected error:', error);
     
-    // Even with errors, return a success response with empty wallets
-    // This keeps the UI responsive while logging errors for debugging
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -271,7 +247,6 @@ serve(async (req: Request) => {
   }
 });
 
-// Helper functions for wallet generation
 async function generatePrivateKey(): Promise<string> {
   const buffer = new Uint8Array(32);
   crypto.getRandomValues(buffer);
@@ -282,8 +257,6 @@ async function generatePrivateKey(): Promise<string> {
 
 async function deriveEthAddress(privateKey: string): Promise<string> {
   try {
-    // For demo purposes, create a deterministic address from private key
-    // In production, use proper derivation
     return "0x" + privateKey.substring(0, 40);
   } catch (error) {
     console.error("Error deriving ETH address:", error);
@@ -293,8 +266,6 @@ async function deriveEthAddress(privateKey: string): Promise<string> {
 
 async function deriveSolAddress(privateKey: string): Promise<string> {
   try {
-    // For demo purposes, create a deterministic address from private key
-    // In production, use proper derivation
     const buffer = new TextEncoder().encode(privateKey);
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -304,4 +275,35 @@ async function deriveSolAddress(privateKey: string): Promise<string> {
     console.error("Error deriving SOL address:", error);
     throw error;
   }
+}
+
+async function createEthereumWallet(userId: string) {
+  const privateKey = await generatePrivateKey();
+  const address = await deriveEthAddress(privateKey);
+  
+  return {
+    address,
+    private_key: privateKey
+  };
+}
+
+async function createSolanaWallet(userId: string) {
+  const privateKey = await generatePrivateKey();
+  const address = await deriveSolAddress(privateKey);
+  
+  return {
+    address,
+    private_key: privateKey
+  };
+}
+
+async function createBitcoinSegWitWallet(userId: string) {
+  const privateKey = await generatePrivateKey();
+  const address = `btc_sg_${privateKey.substring(0, 30)}`;
+  
+  return {
+    address,
+    private_key: privateKey,
+    wallet_type: 'Native SegWit'
+  };
 }
