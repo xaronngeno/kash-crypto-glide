@@ -65,9 +65,9 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       privateKey: ethHdNode.privateKey
     });
     
-    // Generate Solana wallet
+    // Generate Solana wallet using the proper derivation method
     try {
-      // Use ethers mnemonics to derive seed for Solana
+      // Use standard Solana derivation path to get the keypair
       const solanaHdNode = ethers.HDNodeWallet.fromMnemonic(
         ethers.Mnemonic.fromPhrase(mnemonic),
         DERIVATION_PATHS.SOLANA
