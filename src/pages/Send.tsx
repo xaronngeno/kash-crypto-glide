@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Wallet, Search, ArrowRight, Info } from 'lucide-react';
@@ -101,6 +100,27 @@ const NetworkBadge = ({ network }: { network: string }) => {
   );
 };
 
+const getNetworksForCurrency = (symbol: string): string[] => {
+  switch(symbol.toUpperCase()) {
+    case 'BTC':
+      return ['Bitcoin'];
+    case 'ETH':
+      return ['Ethereum'];
+    case 'USDT':
+      return ['Ethereum', 'Tron', 'Binance Smart Chain', 'Solana', 'Polygon'];
+    case 'SOL':
+      return ['Solana'];
+    case 'TRX':
+      return ['Tron'];
+    case 'BNB':
+      return ['Binance Smart Chain'];
+    case 'MATIC':
+      return ['Polygon'];
+    default:
+      return ['Ethereum'];
+  }
+};
+
 const Send = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -116,13 +136,10 @@ const Send = () => {
   const [memo, setMemo] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Format assets as tokens
   useEffect(() => {
     if (assets.length > 0) {
-      // Create token list from assets
       const tokens: Token[] = assets.map(asset => {
-        // Extract network information from asset
-        const networks = asset.blockchain ? [asset.blockchain] : ['Ethereum'];
+        const networks = getNetworksForCurrency(asset.symbol);
         
         return {
           id: asset.symbol,
@@ -131,7 +148,7 @@ const Send = () => {
           icon: asset.symbol[0],
           decimals: 8,
           networks,
-          balance: asset.balance,
+          balance: asset.amount,
           value: asset.value,
           logo: getCurrencyLogo(asset.symbol)
         };
@@ -141,7 +158,6 @@ const Send = () => {
     }
   }, [assets]);
   
-  // Calculate fee (this would be dynamic in a real app)
   const calculateFee = (symbol: string, network: string) => {
     const feeMap: Record<string, Record<string, number>> = {
       BTC: { Bitcoin: 0.0001 },
@@ -159,20 +175,17 @@ const Send = () => {
     return feeMap[symbol]?.[network] || 0.001;
   };
   
-  // Handle token selection
   const handleTokenSelect = (token: Token) => {
     setSelectedToken(token);
     setSelectedNetwork(null);
     setCurrentStep(SendStep.SELECT_NETWORK);
   };
   
-  // Handle network selection
   const handleNetworkSelect = (network: string) => {
     setSelectedNetwork(network);
     setCurrentStep(SendStep.ENTER_DETAILS);
   };
   
-  // Reset flow
   const resetFlow = () => {
     setCurrentStep(SendStep.SELECT_COIN);
     setSelectedToken(null);
@@ -182,7 +195,6 @@ const Send = () => {
     setMemo('');
   };
   
-  // Handle max amount
   const handleSetMax = () => {
     if (selectedToken && selectedNetwork) {
       const fee = calculateFee(selectedToken.symbol, selectedNetwork);
@@ -191,7 +203,6 @@ const Send = () => {
     }
   };
   
-  // Handle continue to confirmation
   const handleContinue = () => {
     if (!selectedToken || !selectedNetwork || !amount || !recipient) return;
     
@@ -231,11 +242,9 @@ const Send = () => {
           )}
         </div>
 
-        {/* Step 1: Select Coin */}
         {currentStep === SendStep.SELECT_COIN && (
           <KashCard className="p-5">
             <div className="mb-4">
-              {/* Search input */}
               <div className="relative mb-4">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search size={16} className="text-gray-400" />
@@ -249,7 +258,6 @@ const Send = () => {
                 />
               </div>
               
-              {/* Token list */}
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {availableTokens
                   .filter(token => 
@@ -298,7 +306,6 @@ const Send = () => {
           </KashCard>
         )}
 
-        {/* Step 2: Select Network */}
         {currentStep === SendStep.SELECT_NETWORK && selectedToken && (
           <KashCard className="p-5">
             <div className="flex items-center mb-6">
@@ -356,7 +363,6 @@ const Send = () => {
           </KashCard>
         )}
 
-        {/* Step 3: Enter Details */}
         {currentStep === SendStep.ENTER_DETAILS && selectedToken && selectedNetwork && (
           <KashCard className="p-5">
             <div className="flex items-center mb-6">
@@ -382,7 +388,6 @@ const Send = () => {
             </div>
 
             <div className="space-y-5">
-              {/* Recipient Address */}
               <KashInput
                 label="Recipient Address"
                 placeholder={`Enter ${selectedToken.symbol} address for ${selectedNetwork}`}
@@ -391,7 +396,6 @@ const Send = () => {
                 icon={<Wallet size={18} className="text-gray-400" />}
               />
 
-              {/* Amount */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-sm font-medium text-gray-700">
@@ -417,7 +421,6 @@ const Send = () => {
                 </div>
               </div>
 
-              {/* Memo/Tag (optional) */}
               <KashInput
                 label="Memo (Optional)"
                 placeholder="Add a note to this transaction"
@@ -425,7 +428,6 @@ const Send = () => {
                 onChange={(e) => setMemo(e.target.value)}
               />
               
-              {/* Fee Information */}
               <div className="bg-gray-50 p-3 rounded-lg">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600">Network Fee</span>
