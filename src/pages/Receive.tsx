@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, QrCode, Info, Wallet, ArrowRight, Search } from 'lucide-react';
@@ -140,6 +141,7 @@ const Receive = () => {
 
   useEffect(() => {
     if (walletAddresses.length > 0) {
+      console.log("Processing wallet addresses:", walletAddresses);
       const tokenMap = new Map<string, Token>();
       
       walletAddresses.forEach(wallet => {
@@ -163,7 +165,9 @@ const Receive = () => {
         }
       });
       
-      setAvailableTokens(Array.from(tokenMap.values()));
+      const processedTokens = Array.from(tokenMap.values());
+      console.log("Processed tokens:", processedTokens);
+      setAvailableTokens(processedTokens);
       
       if (!selectedToken && tokenMap.size > 0) {
         setSelectedToken(Array.from(tokenMap.values())[0]);
@@ -192,6 +196,10 @@ const Receive = () => {
 
         if (data && data.length > 0) {
           console.log("Fetched wallet addresses:", data);
+          
+          // Add debug log for SOL wallets
+          const solWallets = data.filter(w => w.currency === 'SOL');
+          console.log("SOL wallets found:", solWallets);
           
           const addresses: WalletAddress[] = data.map(wallet => ({
             blockchain: wallet.blockchain,
@@ -268,6 +276,10 @@ const Receive = () => {
       }
       
       if (wallets && wallets.length > 0) {
+        // Add debug log for SOL wallets after creation
+        const solWallets = wallets.filter(w => w.currency === 'SOL');
+        console.log("SOL wallets after creation:", solWallets);
+        
         const addresses: WalletAddress[] = wallets.map(wallet => ({
           blockchain: wallet.blockchain,
           symbol: wallet.currency,
@@ -298,6 +310,52 @@ const Receive = () => {
       setCreatingWallets(false);
     }
   };
+
+  // Manually add Solana if it's missing from walletAddresses but the token exists
+  useEffect(() => {
+    if (walletAddresses.length > 0) {
+      // Check if we have tokens but no Solana network
+      const hasSOLToken = availableTokens.some(token => token.symbol === 'SOL');
+      const hasSOLWallet = walletAddresses.some(wallet => wallet.symbol === 'SOL' && wallet.blockchain === 'Solana');
+      
+      // If we have a SOL token but no SOL wallet, create one
+      if (hasSOLToken && !hasSOLWallet) {
+        console.log("SOL token exists but no SOL wallet on Solana network, adding it");
+        
+        // Find if any SOL wallet exists (to get the address)
+        const existingSolWallet = walletAddresses.find(wallet => wallet.symbol === 'SOL');
+        if (existingSolWallet) {
+          const solanaWallet: WalletAddress = {
+            blockchain: 'Solana',
+            symbol: 'SOL',
+            address: existingSolWallet.address,
+            logo: getCurrencyLogo('SOL')
+          };
+          
+          // Update the tokens to include Solana network for SOL
+          setAvailableTokens(prev => 
+            prev.map(token => {
+              if (token.symbol === 'SOL') {
+                return {
+                  ...token,
+                  networks: [...(token.networks || []), 'Solana'].filter((v, i, a) => a.indexOf(v) === i)
+                };
+              }
+              return token;
+            })
+          );
+          
+          // Add the Solana wallet if it doesn't exist
+          setWalletAddresses(prev => {
+            if (!prev.some(w => w.symbol === 'SOL' && w.blockchain === 'Solana')) {
+              return [...prev, solanaWallet];
+            }
+            return prev;
+          });
+        }
+      }
+    }
+  }, [walletAddresses, availableTokens]);
 
   const handleTokenSelect = (token: Token) => {
     setSelectedToken(token);
