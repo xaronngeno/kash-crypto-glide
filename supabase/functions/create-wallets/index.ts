@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as bitcoinjs from "https://esm.sh/bitcoinjs-lib@6.1.5";
@@ -451,8 +450,6 @@ serve(async (req) => {
     // Get environment variables
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-
-    // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse the request body safely

@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -56,48 +57,51 @@ serve(async (req: Request) => {
       balance: parseFloat(wallet.balance as any) || 0
     }));
     
-    // Check if we're missing Solana wallets
+    // Check if we're missing Solana or Bitcoin wallets
     const hasSol = walletsWithBalances.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
     const hasUsdtSol = walletsWithBalances.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
+    const hasBtcTaproot = walletsWithBalances.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Taproot');
+    const hasBtcSegwit = walletsWithBalances.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Native SegWit');
     
     console.log(`Has SOL wallet: ${hasSol}, Has USDT on Solana: ${hasUsdtSol}`);
+    console.log(`Has BTC Taproot: ${hasBtcTaproot}, Has BTC SegWit: ${hasBtcSegwit}`);
     
-    // Add missing Solana wallets if needed
-    if (!hasSol || !hasUsdtSol) {
-      console.log("Adding missing Solana wallets");
+    // Add missing wallets if needed
+    if (!hasSol || !hasUsdtSol || !hasBtcTaproot || !hasBtcSegwit) {
+      console.log("Adding missing wallets");
       
       // Find any existing wallets to use their addresses
       const existingSolWallet = walletsWithBalances.find(w => w.blockchain === 'Solana');
       const existingEthWallet = walletsWithBalances.find(w => w.blockchain === 'Ethereum');
       
-      // If no Solana wallet exists at all, but we have other wallets, create a Solana entry in the database
-      if (!existingSolWallet && existingEthWallet) {
+      // If missing wallets and we have other wallets, create entries in the database
+      if ((!existingSolWallet || !hasBtcTaproot || !hasBtcSegwit) && existingEthWallet) {
         try {
-          console.log("No Solana wallet found, creating one");
-          // Call create-wallets edge function to generate proper Solana wallets
+          console.log("Creating missing wallets");
+          // Call create-wallets edge function to generate proper wallets
           const { data: createWalletsResponse, error: createError } = await supabase.functions.invoke('create-wallets', {
             method: 'POST',
             body: { userId }
           });
           
           if (createError) {
-            console.error("Error creating Solana wallets:", createError);
+            console.error("Error creating wallets:", createError);
           } else {
-            console.log("Solana wallet creation response:", createWalletsResponse);
+            console.log("Wallet creation response:", createWalletsResponse);
             
             // Refresh wallet data after creation
             const { data: freshWallets } = await supabase
               .from('wallets')
               .select('blockchain, currency, address, balance, wallet_type')
-              .eq('user_id', userId)
-              .in('blockchain', ['Solana']);
+              .eq('user_id', userId);
             
             if (freshWallets && freshWallets.length > 0) {
-              // Add the newly created Solana wallets
+              // Add the newly created wallets
               freshWallets.forEach(wallet => {
                 if (!walletsWithBalances.some(w => 
                   w.blockchain === wallet.blockchain && 
-                  w.currency === wallet.currency
+                  w.currency === wallet.currency &&
+                  w.wallet_type === wallet.wallet_type
                 )) {
                   walletsWithBalances.push({
                     ...wallet,
@@ -106,7 +110,7 @@ serve(async (req: Request) => {
                 }
               });
               
-              console.log(`Added ${freshWallets.length} Solana wallets to response`);
+              console.log(`Added ${freshWallets.length} wallets to response`);
             }
           }
         } catch (err) {
