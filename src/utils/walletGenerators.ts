@@ -1,5 +1,4 @@
 
-
 import { Keypair } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
@@ -14,7 +13,7 @@ export interface WalletData {
   platform: string;
   address: string;
   privateKey?: string; // Only passed temporarily, never stored on frontend
-  walletType?: string; // For different wallet types like "Taproot" or "Native Segwit"
+  walletType?: string; // For different wallet types like "Native Segwit"
 }
 
 // Generate a Solana wallet
@@ -66,8 +65,8 @@ export const generateSuiWallet = (): WalletData => {
   }
 };
 
-// Generate Bitcoin wallets with fallback
-export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise<WalletData> => {
+// Generate Bitcoin wallet (Native SegWit only)
+export const generateBitcoinWallet = async (): Promise<WalletData> => {
   try {
     console.log('Initializing Bitcoin wallet generation');
     
@@ -97,23 +96,13 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
         throw new Error('Failed to generate Bitcoin key pair: publicKey is missing');
       }
       
-      let address: string | undefined;
+      console.log('Creating Native SegWit payment');
+      const payment = bitcoinLib.payments.p2wpkh({ 
+        pubkey: keyPair.publicKey, 
+        network: bitcoinLib.networks.bitcoin 
+      });
       
-      if (type === 'taproot') {
-        console.log('Creating Taproot payment');
-        const payment = bitcoinLib.payments.p2tr({ 
-          internalPubkey: keyPair.publicKey.slice(1, 33),
-          network: bitcoinLib.networks.bitcoin 
-        });
-        address = payment.address;
-      } else {
-        console.log('Creating SegWit payment');
-        const payment = bitcoinLib.payments.p2wpkh({ 
-          pubkey: keyPair.publicKey, 
-          network: bitcoinLib.networks.bitcoin 
-        });
-        address = payment.address;
-      }
+      const address = payment.address;
       
       if (!address) {
         throw new Error('Failed to generate Bitcoin address');
@@ -124,7 +113,7 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
         platform: 'Bitcoin',
         address: address,
         privateKey: keyPair.privateKey?.toString('hex'),
-        walletType: type === 'taproot' ? 'Taproot' : 'Native SegWit'
+        walletType: 'Native SegWit'
       };
     } catch (bitcoinLibError) {
       // Fallback to simplified approach if bitcoinjs-lib approach fails
@@ -132,7 +121,7 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
       throw bitcoinLibError; 
     }
   } catch (error) {
-    console.error(`Error generating Bitcoin ${type} wallet:`, error);
+    console.error('Error generating Bitcoin wallet:', error);
     
     // Final fallback: Generate a placeholder address for development
     const randomBytes = new Uint8Array(32);
@@ -141,15 +130,14 @@ export const generateBitcoinWallet = async (type: 'taproot' | 'segwit'): Promise
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
       
-    const prefix = type === 'taproot' ? 'btc_tp_' : 'btc_sg_';
-    const mockAddress = `${prefix}${randomHex.substring(0, 30)}`;
+    const mockAddress = `btc_sg_${randomHex.substring(0, 30)}`;
     
     return {
       blockchain: 'Bitcoin',
       platform: 'Bitcoin',
       address: mockAddress,
       privateKey: randomHex,
-      walletType: type === 'taproot' ? 'Taproot' : 'Native SegWit'
+      walletType: 'Native SegWit'
     };
   }
 };
@@ -176,19 +164,14 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
     wallets.push(generateEthWallet('Polygon', 'Polygon'));
     
     try {
-      // Try to generate Bitcoin wallets, but don't fail the entire function if they fail
-      console.log('Attempting to generate Bitcoin wallets');
-      
-      const taprootWallet = await generateBitcoinWallet('taproot');
-      wallets.push(taprootWallet);
-      
-      const segwitWallet = await generateBitcoinWallet('segwit');
+      // Add Bitcoin wallet (Native SegWit only)
+      console.log('Attempting to generate Bitcoin wallet');
+      const segwitWallet = await generateBitcoinWallet();
       wallets.push(segwitWallet);
-      
-      console.log('Successfully generated Bitcoin wallets');
+      console.log('Successfully generated Bitcoin wallet');
     } catch (bitcoinError) {
-      console.error('Failed to generate Bitcoin wallets:', bitcoinError);
-      // Continue without Bitcoin wallets
+      console.error('Failed to generate Bitcoin wallet:', bitcoinError);
+      // Continue without Bitcoin wallet
     }
     
     // Add TRX wallet here if tronweb is installed

@@ -99,30 +99,18 @@ serve(async (req: Request) => {
           }
         ]);
         
-        // Generate Bitcoin wallets (simplified without using bs58)
-        const btcPrivateKey1 = await generatePrivateKey();
-        const btcAddress1 = `btc_tp_${btcPrivateKey1.substring(0, 30)}`;
+        // Generate Bitcoin wallet (only Native SegWit)
+        const btcPrivateKey = await generatePrivateKey();
+        const btcAddress = `btc_sg_${btcPrivateKey.substring(0, 30)}`;
         
-        const btcPrivateKey2 = await generatePrivateKey();
-        const btcAddress2 = `btc_sg_${btcPrivateKey2.substring(0, 30)}`;
-        
-        // Insert Bitcoin wallets
+        // Insert Bitcoin wallet
         await supabase.from('wallets').insert([
           {
             user_id: userId,
             blockchain: 'Bitcoin',
             currency: 'BTC',
-            address: btcAddress1,
-            private_key: btcPrivateKey1,
-            balance: 0,
-            wallet_type: 'Taproot'
-          },
-          {
-            user_id: userId,
-            blockchain: 'Bitcoin',
-            currency: 'BTC',
-            address: btcAddress2,
-            private_key: btcPrivateKey2,
+            address: btcAddress,
+            private_key: btcPrivateKey,
             balance: 0,
             wallet_type: 'Native SegWit'
           }
@@ -167,14 +155,13 @@ serve(async (req: Request) => {
     // Check if we're missing Solana or Bitcoin wallets
     const hasSol = walletsWithBalances.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
     const hasUsdtSol = walletsWithBalances.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
-    const hasBtcTaproot = walletsWithBalances.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Taproot');
     const hasBtcSegwit = walletsWithBalances.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Native SegWit');
     
     console.log(`Has SOL wallet: ${hasSol}, Has USDT on Solana: ${hasUsdtSol}`);
-    console.log(`Has BTC Taproot: ${hasBtcTaproot}, Has BTC SegWit: ${hasBtcSegwit}`);
+    console.log(`Has BTC SegWit: ${hasBtcSegwit}`);
     
     // Add missing wallets if needed
-    if (!hasSol || !hasUsdtSol || !hasBtcTaproot || !hasBtcSegwit) {
+    if (!hasSol || !hasUsdtSol || !hasBtcSegwit) {
       console.log("Adding missing wallets");
       
       try {
@@ -223,30 +210,7 @@ serve(async (req: Request) => {
           }
         }
         
-        // Create missing Bitcoin wallets if needed
-        if (!hasBtcTaproot) {
-          const btcPrivateKey = await generatePrivateKey();
-          const btcAddress = `btc_tp_${btcPrivateKey.substring(0, 30)}`;
-          
-          await supabase.from('wallets').insert({
-            user_id: userId,
-            blockchain: 'Bitcoin',
-            currency: 'BTC',
-            address: btcAddress,
-            private_key: btcPrivateKey,
-            balance: 0,
-            wallet_type: 'Taproot'
-          });
-          
-          walletsWithBalances.push({
-            blockchain: 'Bitcoin',
-            currency: 'BTC',
-            address: btcAddress,
-            balance: 0,
-            wallet_type: 'Taproot'
-          });
-        }
-        
+        // Create missing Bitcoin wallet if needed
         if (!hasBtcSegwit) {
           const btcPrivateKey = await generatePrivateKey();
           const btcAddress = `btc_sg_${btcPrivateKey.substring(0, 30)}`;

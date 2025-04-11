@@ -8,8 +8,8 @@ export const isBitcoinAddress = (address: string): boolean => {
   // Standard Bitcoin address formats
   const standardBitcoinRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,62}$/;
   
-  // Our special format for test wallets
-  const testBitcoinRegex = /^btc_(tp|sg)_[a-zA-Z0-9]{27,34}$/;
+  // Our special format for test wallets (only SegWit format now)
+  const testBitcoinRegex = /^btc_sg_[a-zA-Z0-9]{27,34}$/;
   
   return standardBitcoinRegex.test(address) || testBitcoinRegex.test(address);
 };
