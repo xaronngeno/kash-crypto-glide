@@ -26,7 +26,7 @@ const SellUsdtSection = ({ asset, balance, onSellComplete }: SellUsdtSectionProp
   const [processing, setProcessing] = useState(false);
   
   // Fixed rate for KES/USDT conversion
-  const usdtToKesRate = 133; // Example rate: 1 USDT = 145 KES
+  const usdtToKesRate = 133; // Example rate: 1 USDT = 133 KES
   // Maximum limit for USDT transactions
   const maxUsdtLimit = 1000;
   
