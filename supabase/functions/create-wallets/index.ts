@@ -180,7 +180,6 @@ async function createUserWallets(supabase: any, userId: string) {
     
     if (!profile || !profile.numeric_id) {
       // Assign a numeric ID if not already present
-      console.log("User doesn't have a numeric ID yet, generating one");
       let numeric_id;
       let idUnique = false;
       
@@ -433,6 +432,34 @@ async function createUserWallets(supabase: any, userId: string) {
             currency: "USDT",
             address: polygonWallet.address,
             private_key: polygonWallet.private_key,
+            wallet_type: "token",
+            balance: 0,
+          });
+        }
+      }
+      
+      // Base
+      if (!existingWalletKeys.has("Base-BASE")) {
+        console.log("Creating Base wallet");
+        const baseWallet = createEVMWallet("Base", "BASE", userId);
+        wallets.push({
+          user_id: userId,
+          blockchain: baseWallet.blockchain,
+          currency: baseWallet.currency,
+          address: baseWallet.address,
+          private_key: baseWallet.private_key,
+          wallet_type: "imported",
+          balance: 0,
+        });
+        
+        // Add USDT on Base if it doesn't exist
+        if (!existingWalletKeys.has("Base-USDT")) {
+          wallets.push({
+            user_id: userId,
+            blockchain: "Base",
+            currency: "USDT",
+            address: baseWallet.address,
+            private_key: baseWallet.private_key,
             wallet_type: "token",
             balance: 0,
           });

@@ -297,6 +297,17 @@ async function createSolanaWallet(userId: string) {
   };
 }
 
+async function createBaseWallet(userId: string) {
+  // Base uses the same wallet format as Ethereum
+  const privateKey = await generatePrivateKey();
+  const address = await deriveEthAddress(privateKey);
+  
+  return {
+    address,
+    private_key: privateKey
+  };
+}
+
 async function createBitcoinSegWitWallet(userId: string) {
   const privateKey = await generatePrivateKey();
   const address = `bc1q${privateKey.substring(0, 38)}`;

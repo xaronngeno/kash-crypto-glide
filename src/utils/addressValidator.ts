@@ -38,6 +38,11 @@ export const isBscAddress = (address: string): boolean => {
   return isEthereumAddress(address); // BSC uses the same address format as Ethereum
 };
 
+// Base network validation (same format as Ethereum)
+export const isBaseAddress = (address: string): boolean => {
+  return isEthereumAddress(address); // Base uses the same address format as Ethereum
+};
+
 // Polygon address validation (same format as Ethereum)
 export const isPolygonAddress = (address: string): boolean => {
   return isEthereumAddress(address); // Polygon uses the same address format as Ethereum
@@ -60,6 +65,8 @@ export const validateAddressForNetwork = (address: string, network: string): boo
       return isBscAddress(address);
     case 'polygon':
       return isPolygonAddress(address);
+    case 'base':
+      return isBaseAddress(address);
     default:
       return false;
   }
@@ -70,7 +77,7 @@ export const detectNetworkFromAddress = (address: string): string | null => {
   if (!address) return null;
   
   if (isBitcoinAddress(address)) return 'Bitcoin';
-  if (isEthereumAddress(address)) return 'Ethereum/BSC/Polygon'; // These share the same format
+  if (isEthereumAddress(address)) return 'Ethereum/BSC/Polygon/Base'; // These share the same format
   if (isTronAddress(address)) return 'Tron';
   if (isSolanaAddress(address)) return 'Solana';
   
