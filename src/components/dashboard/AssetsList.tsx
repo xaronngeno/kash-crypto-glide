@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { KashCard } from '@/components/ui/KashCard';
 import { Asset } from '@/types/assets';
 import Image from '@/components/ui/Image';
+import { ExternalLink } from 'lucide-react';
 
 interface AssetsListProps {
   assets: Asset[];
@@ -18,13 +19,34 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
             <div className="flex items-center">
               <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
                 {asset.logo ? (
-                  <Image src={asset.logo} alt={asset.name} className="w-full h-full object-cover" />
+                  <Image 
+                    src={asset.logo} 
+                    alt={asset.name} 
+                    className="w-full h-full object-cover" 
+                    onError={(e: any) => {
+                      e.target.onerror = null;
+                      e.target.src = `/coins/${asset.symbol.toLowerCase()}.png`;
+                      // If that fails too, show the text fallback
+                      e.target.onerror = () => {
+                        e.target.onerror = null;
+                        e.target.style.display = "none";
+                        e.target.parentNode.innerHTML = `<div class="text-xl font-bold">${asset.icon}</div>`;
+                      };
+                    }}
+                  />
                 ) : (
                   <div className="text-xl font-bold">{asset.icon}</div>
                 )}
               </div>
               <div className="ml-3">
-                <h3 className="font-medium">{asset.name}</h3>
+                <div className="flex items-center gap-1">
+                  <h3 className="font-medium">{asset.name}</h3>
+                  {asset.platform && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                      {asset.platform.name}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-500">
                   {asset.amount.toLocaleString('en-US', { 
                     maximumFractionDigits: asset.symbol === 'BTC' ? 8 : 6,

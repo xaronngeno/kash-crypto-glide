@@ -9,5 +9,11 @@ export interface Asset {
   change: number;
   icon: string;
   logo?: string;
+  address?: string;
+  blockchain?: string;
+  platform?: {
+    name: string;
+    logo: string;
+  };
   networks?: Record<string, { address: string, balance: number }>;
 }

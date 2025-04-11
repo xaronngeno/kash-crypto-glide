@@ -5,7 +5,13 @@ import { Asset } from '@/types/assets';
 /**
  * Process wallet data from the API into a format usable by the UI
  */
-export const useWalletProcessor = (prices: Record<string, { price: number; change_24h: number }>) => {
+export const useWalletProcessor = (prices: Record<string, { 
+  price: number; 
+  change_24h: number;
+  logo?: string;
+  name?: string;
+  platform?: { name: string; logo: string };
+}>) => {
   // Track if wallets have been processed already to avoid duplicates
   const [processedWalletIds, setProcessedWalletIds] = useState<Set<string>>(new Set());
   
@@ -45,19 +51,29 @@ export const useWalletProcessor = (prices: Record<string, { price: number; chang
       const price = priceData ? priceData.price : 0;
       const change = priceData ? priceData.change_24h : 0;
       
+      // Use CoinMarketCap logo if available
+      const coinmarketcapLogo = priceData?.logo;
+      const fallbackLogo = `/coins/${wallet.currency.toLowerCase()}.png`;
+      
       return {
         id: `${wallet.blockchain}-${wallet.currency}`,
         blockchain: wallet.blockchain,
         symbol: wallet.currency,
-        name: wallet.currency,
+        name: priceData?.name || wallet.currency,
         amount: parseFloat(wallet.balance) || 0,
         price: price,
         change: change,
         value: (parseFloat(wallet.balance) || 0) * (price || 0),
         address: wallet.address,
-        logo: `/coins/${wallet.currency.toLowerCase()}.png`,
+        // Use CoinMarketCap logo if available, otherwise fallback to local logo
+        logo: coinmarketcapLogo || fallbackLogo,
         // Add the required icon property
-        icon: wallet.currency.charAt(0).toUpperCase() // Use first character of currency as fallback icon
+        icon: wallet.currency.charAt(0).toUpperCase(), // Use first character of currency as fallback icon
+        // Add network information if available from CMC
+        platform: priceData?.platform ? {
+          name: priceData.platform.name,
+          logo: priceData.platform.logo
+        } : undefined
       };
     });
     
