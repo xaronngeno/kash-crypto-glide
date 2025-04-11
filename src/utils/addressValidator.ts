@@ -8,10 +8,7 @@ export const isBitcoinAddress = (address: string): boolean => {
   // Standard Bitcoin address formats - only SegWit (bc1...)
   const segwitBitcoinRegex = /^(bc1)[a-zA-Z0-9]{25,62}$/;
   
-  // Our special format for test wallets (only SegWit format)
-  const testBitcoinRegex = /^btc_sg_[a-zA-Z0-9]{27,34}$/;
-  
-  return segwitBitcoinRegex.test(address) || testBitcoinRegex.test(address);
+  return segwitBitcoinRegex.test(address);
 };
 
 // Ethereum address validation (0x followed by 40 hex chars)

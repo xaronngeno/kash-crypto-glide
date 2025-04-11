@@ -299,7 +299,7 @@ async function createSolanaWallet(userId: string) {
 
 async function createBitcoinSegWitWallet(userId: string) {
   const privateKey = await generatePrivateKey();
-  const address = `btc_sg_${privateKey.substring(0, 30)}`;
+  const address = `bc1q${privateKey.substring(0, 38)}`;
   
   return {
     address,

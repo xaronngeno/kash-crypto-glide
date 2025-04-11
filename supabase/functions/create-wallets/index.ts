@@ -99,7 +99,7 @@ function createBitcoinWallet(userId: string, type: 'taproot' | 'segwit' = 'segwi
     const addressHashBuffer = new Uint8Array(20);
     crypto.getRandomValues(addressHashBuffer);
     
-    // Create address based on type
+    // Create address based on type without underscores
     let address: string;
     if (type === 'taproot') {
       // Simulate Taproot address (bc1p...)

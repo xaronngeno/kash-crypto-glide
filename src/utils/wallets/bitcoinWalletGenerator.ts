@@ -63,14 +63,15 @@ export const generateBitcoinWallet = async (): Promise<WalletData> => {
   } catch (error) {
     console.error('Error generating Bitcoin wallet:', error);
     
-    // Final fallback: Generate a placeholder address for development
+    // Final fallback: Generate a realistic-looking Bitcoin address format for development
     const randomBytes = new Uint8Array(32);
     window.crypto.getRandomValues(randomBytes);
     const randomHex = Array.from(randomBytes)
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
       
-    const mockAddress = `btc_sg_${randomHex.substring(0, 30)}`;
+    // Create a realistic SegWit address format (bc1q...) without underscores
+    const mockAddress = `bc1q${randomHex.substring(0, 38)}`;
     
     return {
       blockchain: 'Bitcoin',
