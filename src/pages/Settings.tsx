@@ -15,6 +15,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
+import { useWalletSeedPhrase } from '@/hooks/useWalletSeedPhrase';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -31,8 +32,8 @@ const Settings = () => {
   const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   
-  // Mock seed phrase - in a real app, this would be securely stored and retrieved
-  const mockSeedPhrase = "point coffee twist knock deposit differ yard adjust battle reason million elite";
+  // Use the wallet seed phrase hook
+  const { seedPhrase, loading: seedPhraseLoading, fetchSeedPhrase } = useWalletSeedPhrase(user?.id);
   
   useEffect(() => {
     // Immediately redirect if not authenticated and not loading
@@ -121,10 +122,10 @@ const Settings = () => {
   });
   
   const onAuthSubmit = async (data: z.infer<typeof authFormSchema>) => {
-    // In a real app, verify password with Supabase or your auth provider
     try {
-      // Mock authentication - in real app, verify with Supabase
-      setTimeout(() => {
+      const result = await fetchSeedPhrase(data.password);
+      
+      if (result) {
         setIsAuthDialogOpen(false);
         setShowSeedPhrase(true);
         
@@ -132,7 +133,7 @@ const Settings = () => {
           title: "Authentication successful",
           description: "You can now view your secure information.",
         });
-      }, 1000);
+      }
     } catch (error) {
       toast({
         title: "Authentication failed",
@@ -144,6 +145,16 @@ const Settings = () => {
   
   const handleViewSecureInfo = () => {
     setIsAuthDialogOpen(true);
+  };
+
+  const handleCopySeedPhrase = () => {
+    if (seedPhrase) {
+      navigator.clipboard.writeText(seedPhrase);
+      toast({
+        title: "Seed phrase copied",
+        description: "Seed phrase has been copied to clipboard.",
+      });
+    }
   };
 
   // Loading state
@@ -244,24 +255,42 @@ const Settings = () => {
                 <ChevronRight size={18} className="text-gray-400" />
               </button>
               
-              {showSeedPhrase && (
+              {showSeedPhrase && seedPhrase && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-md">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-gray-700">Seed Phrase</span>
-                    <button 
-                      onClick={() => setShowSeedPhrase(false)}
-                      className="text-sm text-kash-green flex items-center"
-                    >
-                      <EyeOff size={16} className="mr-1" />
-                      Hide
-                    </button>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={handleCopySeedPhrase}
+                        className="text-sm text-kash-green flex items-center"
+                      >
+                        <Copy size={16} className="mr-1" />
+                        Copy
+                      </button>
+                      <button 
+                        onClick={() => setShowSeedPhrase(false)}
+                        className="text-sm text-kash-green flex items-center"
+                      >
+                        <EyeOff size={16} className="mr-1" />
+                        Hide
+                      </button>
+                    </div>
                   </div>
                   <div className="p-3 bg-white border border-gray-200 rounded text-sm font-mono">
-                    {mockSeedPhrase}
+                    {seedPhrase}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     This seed phrase gives access to all your individual wallet addresses. Never share it with anyone.
                   </p>
+                </div>
+              )}
+
+              {showSeedPhrase && seedPhraseLoading && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                  <div className="flex justify-center items-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-kash-green mr-2" />
+                    <span className="text-sm text-gray-600">Loading your seed phrase...</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -368,8 +397,15 @@ const Settings = () => {
               />
               
               <div className="flex justify-end">
-                <KashButton type="submit">
-                  Authenticate
+                <KashButton type="submit" disabled={seedPhraseLoading}>
+                  {seedPhraseLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Authenticating...
+                    </>
+                  ) : (
+                    "Authenticate"
+                  )}
                 </KashButton>
               </div>
             </form>
