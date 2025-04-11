@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -160,6 +161,11 @@ serve(async (req: Request) => {
     console.log(`Has SOL wallet: ${hasSol}, Has USDT on Solana: ${hasUsdtSol}`);
     console.log(`Has BTC SegWit: ${hasBtcSegwit}`);
     
+    // Remove any Taproot wallets that may exist in the database
+    const noTaprootWallets = walletsWithBalances.filter(w => 
+      !(w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Taproot')
+    );
+    
     // Add missing wallets if needed
     if (!hasSol || !hasUsdtSol || !hasBtcSegwit) {
       console.log("Adding missing wallets");
@@ -181,7 +187,7 @@ serve(async (req: Request) => {
               wallet_type: 'imported'
             });
             
-            walletsWithBalances.push({
+            noTaprootWallets.push({
               blockchain: 'Solana',
               currency: 'SOL',
               address: solAddress,
@@ -200,7 +206,7 @@ serve(async (req: Request) => {
               wallet_type: 'token'
             });
             
-            walletsWithBalances.push({
+            noTaprootWallets.push({
               blockchain: 'Solana',
               currency: 'USDT',
               address: solAddress,
@@ -225,7 +231,7 @@ serve(async (req: Request) => {
             wallet_type: 'Native SegWit'
           });
           
-          walletsWithBalances.push({
+          noTaprootWallets.push({
             blockchain: 'Bitcoin',
             currency: 'BTC',
             address: btcAddress,
@@ -238,13 +244,13 @@ serve(async (req: Request) => {
       }
     }
 
-    console.log(`Returning ${walletsWithBalances.length} wallets with balances`);
+    console.log(`Returning ${noTaprootWallets.length} wallets with balances`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Wallet balances fetched successfully',
-        wallets: walletsWithBalances
+        wallets: noTaprootWallets
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
