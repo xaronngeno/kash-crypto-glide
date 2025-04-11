@@ -85,17 +85,25 @@ serve(async (req) => {
       });
     }
 
-    // Verify the password by attempting to sign in
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: "", // We don't actually know the email, but we'll check it in a different way
-      password,
-    });
-
-    // Try to find the user by ID and verify
+    // Get the user's email from the auth.users table
     const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
 
     if (userError || !userData.user) {
       console.error("User verification error:", userError);
+      return new Response(JSON.stringify({ error: "User not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
+    }
+
+    // Verify the password by attempting to sign in with the user's email
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: userData.user.email || "",
+      password,
+    });
+
+    if (signInError || !signInData.user) {
+      console.error("Password verification error:", signInError);
       return new Response(JSON.stringify({ error: "Invalid credentials" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
