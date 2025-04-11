@@ -1,9 +1,12 @@
 
 import { Buffer } from './globalPolyfills';
-import { generateSolanaWallet as generateSingleSolanaWallet } from './wallets/solanaWalletGenerator';
-import { generateEthWallet } from './wallets/ethWalletGenerator';
-import { generateBitcoinWallet as generateSingleBitcoinWallet } from './wallets/bitcoinWalletGenerator';
-import { generateTronWallet as generateSingleTronWallet } from './wallets/tronWalletGenerator';
+import { 
+  generateRandomSolanaWallet,
+  generateRandomEthereumWallet,
+  generateRandomBitcoinWallet,
+  generateRandomTronWallet,
+  generateRandomPolygonWallet 
+} from './wallet/chains';
 import { 
   generateUnifiedWallets,
   generateWalletsFromSeedPhrase 
@@ -59,15 +62,19 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
     const wallets: WalletData[] = [];
     
     try {
-      // Add Solana wallet
-      wallets.push(generateSingleSolanaWallet());
+      // Get Ethereum wallet first - we'll use it to derive Polygon wallet
+      const ethWallet = generateRandomEthereumWallet();
+      wallets.push(ethWallet);
       
-      // Add Ethereum wallet
-      wallets.push(generateEthWallet('Ethereum', 'Ethereum'));
+      // Generate Polygon wallet based on Ethereum wallet
+      wallets.push(generateRandomPolygonWallet(ethWallet));
+      
+      // Add Solana wallet
+      wallets.push(generateRandomSolanaWallet());
       
       // Add Tron wallet
       try {
-        wallets.push(generateSingleTronWallet());
+        wallets.push(generateRandomTronWallet());
       } catch (tronError) {
         console.error('Failed to generate Tron wallet:', tronError);
       }
@@ -75,7 +82,7 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
       // Add Bitcoin wallet (Native SegWit only)
       try {
         console.log('Attempting to generate Bitcoin wallet');
-        const segwitWallet = await generateSingleBitcoinWallet();
+        const segwitWallet = await generateRandomBitcoinWallet();
         wallets.push(segwitWallet);
         console.log('Successfully generated Bitcoin wallet');
       } catch (bitcoinError) {

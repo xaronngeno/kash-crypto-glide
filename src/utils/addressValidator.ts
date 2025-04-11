@@ -1,4 +1,6 @@
 
+import { verifySolanaAddress } from './wallet/chains';
+
 /**
  * Validates cryptocurrency addresses for different blockchain networks
  */
@@ -25,25 +27,7 @@ export const isTronAddress = (address: string): boolean => {
 
 // Solana address validation (base58 encoded, 32-44 chars)
 export const isSolanaAddress = (address: string): boolean => {
-  // Enhanced validation for Solana addresses
-  if (!address || typeof address !== 'string') return false;
-  
-  try {
-    // Solana addresses are base58 encoded public keys, typically 32-44 characters
-    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-    
-    // Check basic format
-    if (!base58Regex.test(address)) return false;
-    
-    // In a real-world scenario, we could perform additional validation:
-    // 1. Try decoding the base58 string and check if it's 32 bytes
-    // 2. Verify with Solana web3.js if it's a valid public key
-    
-    return true;
-  } catch (error) {
-    console.error("Error validating Solana address:", error);
-    return false;
-  }
+  return verifySolanaAddress(address);
 };
 
 // Binance Smart Chain validation (same format as Ethereum)

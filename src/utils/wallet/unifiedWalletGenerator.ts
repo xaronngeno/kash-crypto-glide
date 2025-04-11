@@ -2,10 +2,13 @@
 import { ethers } from 'ethers';
 import { UnifiedWalletData } from './types';
 import { generateSeedPhrase, validateMnemonic } from './seedGenerator';
-import { generateEthereumWallet, generatePolygonWallet } from './ethWalletGenerator';
-import { generateSolanaWallet } from './solanaWalletGenerator';
-import { generateBitcoinWallet } from './bitcoinWalletGenerator';
-import { generateTronWallet } from './tronWalletGenerator';
+import { 
+  generateEthereumWallet,
+  generateSolanaWallet,
+  generateBitcoinWallet,
+  generateTronWallet,
+  generatePolygonWallet
+} from './chains';
 
 /**
  * Generate unified wallets with ethers built-in HD wallet functionality
