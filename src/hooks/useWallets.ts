@@ -25,9 +25,6 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
   // Get the wallet processor
   const { processWallets } = useWalletProcessor(prices);
   
-  // Flag to prevent multiple wallet creation attempts
-  const walletCreationAttempted = useRef(false);
-  
   // Update asset prices when prices change
   useEffect(() => {
     if (prices && Object.keys(prices).length > 0) {
@@ -77,20 +74,13 @@ export const useWallets = ({ prices }: UseWalletsProps) => {
           if (!wallets || wallets.length === 0) {
             console.log("No wallets found, creating initial wallets");
             
-            // Only create wallets once and only if not created before
-            if (!walletsCreated && !walletCreationAttempted.current) {
-              walletCreationAttempted.current = true;
-              
-              try {
-                const newWallets = await createUserWallets(user.id);
-                if (newWallets && newWallets.length > 0) {
-                  markWalletsAsCreated();
-                  const processedAssets = processWallets(newWallets);
-                  setAssets(processedAssets);
-                }
-              } catch (createError) {
-                console.error("Error creating wallets:", createError);
-                // Don't show toast here as the fetchWalletBalances already shows one
+            // Only create wallets once
+            if (!walletsCreated) {
+              const newWallets = await createUserWallets(user.id);
+              if (newWallets && newWallets.length > 0) {
+                markWalletsAsCreated();
+                const processedAssets = processWallets(newWallets);
+                setAssets(processedAssets);
               }
             }
             
