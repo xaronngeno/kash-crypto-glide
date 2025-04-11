@@ -84,7 +84,12 @@ const getCurrencyLogo = (symbol: string) => {
   }
 };
 
-const NetworkBadge = ({ network }: { network: string }) => {
+interface NetworkBadgeProps {
+  network: string;
+  className?: string;
+}
+
+const NetworkBadge = ({ network, className }: NetworkBadgeProps) => {
   let color = "bg-gray-100 text-gray-500";
   
   switch (network.toLowerCase()) {
@@ -109,7 +114,7 @@ const NetworkBadge = ({ network }: { network: string }) => {
   }
   
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full ${color} font-medium`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full ${color} font-medium ${className}`}>
       {network}
     </span>
   );
