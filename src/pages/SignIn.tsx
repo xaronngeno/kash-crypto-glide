@@ -11,7 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 const SignIn = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { checkAndCreateWallets } = useAuth();
+  const { user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,13 +35,6 @@ const SignIn = () => {
         console.error("Sign in error:", error);
       } else if (data.user) {
         console.log("Login successful with user:", data.user.email);
-        
-        // Ensure wallets exist for this user
-        try {
-          await checkAndCreateWallets(data.user.id);
-        } catch (walletError) {
-          console.error("Error checking wallets:", walletError);
-        }
         
         // Navigate immediately to dashboard without additional toast delay
         navigate('/dashboard');

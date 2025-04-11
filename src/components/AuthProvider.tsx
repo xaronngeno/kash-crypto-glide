@@ -17,7 +17,6 @@ type AuthContextType = {
     phone_numbers?: string[];
     kyc_status?: string;
   } | null;
-  // We're removing the wallet creation method since it's handled in useWallets
 };
 
 const AuthContext = createContext<AuthContextType>({

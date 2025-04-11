@@ -40,7 +40,7 @@ const SignUp = () => {
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { checkAndCreateWallets } = useAuth();
+  const { user } = useAuth();
   
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -83,13 +83,6 @@ const SignUp = () => {
         console.error("Registration error:", error);
       } else if (data.user) {
         console.log("Account created successfully for user:", data.user.email);
-        
-        // Ensure wallets exist for this user
-        try {
-          await checkAndCreateWallets(data.user.id);
-        } catch (walletError) {
-          console.error("Error checking wallets:", walletError);
-        }
         
         toast({
           title: "Account created",
