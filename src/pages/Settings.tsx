@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, Bell, CreditCard, LogOut, Trash2, ChevronRight, Key, Eye, EyeOff, Lock, Copy } from 'lucide-react';
@@ -31,18 +30,17 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  
-  // Use the wallet seed phrase hook
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+
   const { seedPhrase, loading: seedPhraseLoading, fetchSeedPhrase } = useWalletSeedPhrase(user?.id);
-  
+
   useEffect(() => {
-    // Immediately redirect if not authenticated and not loading
     if (!authLoading && !isAuthenticated) {
       navigate('/auth', { state: { from: location } });
       return;
     }
-    
-    // Only fetch profile if authenticated
+
     if (isAuthenticated && user) {
       const fetchUserProfile = async () => {
         try {
@@ -69,7 +67,7 @@ const Settings = () => {
       setLoading(false);
     }
   }, [user, isAuthenticated, authLoading, navigate]);
-  
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -87,7 +85,7 @@ const Settings = () => {
       });
     }
   };
-  
+
   const toggleCurrency = () => {
     const newCurrency = currencyDisplay === 'USD' ? 'KES' : 'USD';
     setCurrencyDisplay(newCurrency);
@@ -97,7 +95,6 @@ const Settings = () => {
     });
   };
 
-  // Format user's full name based on available profile data
   const getUserDisplayName = () => {
     if (!profile) return user?.email || 'User';
     
@@ -109,18 +106,18 @@ const Settings = () => {
     }
     return user?.email || 'User';
   };
-  
+
   const authFormSchema = z.object({
     password: z.string().min(6, "Password must be at least 6 characters"),
   });
-  
+
   const authForm = useForm<z.infer<typeof authFormSchema>>({
     resolver: zodResolver(authFormSchema),
     defaultValues: {
       password: "",
     },
   });
-  
+
   const onAuthSubmit = async (data: z.infer<typeof authFormSchema>) => {
     try {
       const result = await fetchSeedPhrase(data.password);
@@ -142,7 +139,7 @@ const Settings = () => {
       });
     }
   };
-  
+
   const handleViewSecureInfo = () => {
     setIsAuthDialogOpen(true);
   };
@@ -157,7 +154,38 @@ const Settings = () => {
     }
   };
 
-  // Loading state
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+
+    setIsDeletingAccount(true);
+    try {
+      const { error } = await supabase.functions.invoke('delete-account');
+
+      if (error) {
+        throw error;
+      }
+
+      await signOut();
+      
+      toast({
+        title: "Account deleted",
+        description: "Your account has been successfully deleted.",
+      });
+      
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast({
+        title: "Deletion failed",
+        description: "There was a problem deleting your account. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeletingAccount(false);
+      setIsDeleteAlertOpen(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <MainLayout title="Settings">
@@ -167,8 +195,7 @@ const Settings = () => {
       </MainLayout>
     );
   }
-  
-  // If not authenticated, redirect immediately
+
   if (!isAuthenticated) {
     return (
       <MainLayout title="Settings">
@@ -183,7 +210,6 @@ const Settings = () => {
   return (
     <MainLayout title="Settings">
       <div className="space-y-6">
-        {/* Profile Section */}
         <KashCard>
           <div className="flex items-center">
             <div className="w-12 h-12 rounded-full bg-kash-green/10 flex items-center justify-center">
@@ -195,7 +221,6 @@ const Settings = () => {
               {profile?.phone && (
                 <p className="text-sm text-gray-500">{profile.phone}</p>
               )}
-              {/* Only show User ID if it exists in the profile */}
               {profile?.numeric_id && (
                 <div className="mt-2 flex items-center">
                   <p className="text-xs text-gray-500 mr-1">User ID: {profile.numeric_id}</p>
@@ -216,7 +241,6 @@ const Settings = () => {
           </div>
         </KashCard>
         
-        {/* Security Section */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Security</h2>
           <KashCard className="divide-y divide-gray-100">
@@ -239,7 +263,6 @@ const Settings = () => {
           </KashCard>
         </div>
         
-        {/* Wallet Recovery Section */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Wallet Recovery</h2>
           <KashCard className="divide-y divide-gray-100">
@@ -297,7 +320,6 @@ const Settings = () => {
           </KashCard>
         </div>
         
-        {/* KYC Verification */}
         <div>
           <h2 className="text-lg font-semibold mb-3">KYC Verification</h2>
           <KashCard>
@@ -313,7 +335,6 @@ const Settings = () => {
           </KashCard>
         </div>
         
-        {/* Preferences */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Preferences</h2>
           <KashCard className="divide-y divide-gray-100">
@@ -338,7 +359,6 @@ const Settings = () => {
           </KashCard>
         </div>
         
-        {/* Account Actions */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Account Actions</h2>
           <KashCard className="divide-y divide-gray-100">
@@ -352,7 +372,10 @@ const Settings = () => {
               </button>
             </div>
             <div className="py-3 px-1">
-              <button className="w-full flex items-center text-kash-error">
+              <button 
+                className="w-full flex items-center text-kash-error"
+                onClick={handleDeleteAccount}
+              >
                 <Trash2 size={18} className="mr-2" />
                 <span>Delete Account</span>
               </button>
@@ -366,7 +389,6 @@ const Settings = () => {
         </div>
       </div>
       
-      {/* Authentication Dialog */}
       <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
         <DialogContent>
           <DialogHeader>

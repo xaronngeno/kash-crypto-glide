@@ -1,137 +1,27 @@
 
-# A string used to distinguish different Supabase projects on the same host. Defaults to the
-# working directory name when running `supabase init`.
 project_id = "onojviswlkxuyfsksuhp"
 
 [api]
 enabled = true
-# Port to use for the API URL.
 port = 54321
-# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
-# endpoints. public and storage are always included.
-schemas = ["public", "storage", "graphql_public"]
-# Extra schemas to add to the search_path of every request. public is always included.
-extra_search_path = ["public", "extensions"]
-# Maximum rows returns in a single response. Defaults to 1000.
-max_rows = 1000
+schemas = ["public", "storage"]
 
 [db]
-# Port to use for the local database URL.
 port = 54322
-# Port used by db diff command to initialise the shadow database.
-shadow_port = 54320
-# The database major version to use. This has to be the same as your remote database's. Run `SHOW
-# server_version;` on the remote database to check.
-major_version = 15
-
-[db.pooler]
-enabled = false
-# Port to use for the local connection pooler.
-port = 54329
-# The maximum number of connections the pooler can handle.
-pool_size = 15
-# How many connections to maintain with the database. The default is 2.
-# This property is only relevant if pool_mode is transaction.
-default_pool_size = 2
-# The pooler auth type.  Can be "scram" or "md5"
-auth_type = "scram"
-# The pool mode: transaction or session.
-pool_mode = "session"
-
-[db.pool_mode]
-transaction = "transaction"
-session = "session"
 
 [studio]
-enabled = true
-# Port to use for Supabase Studio.
 port = 54323
-# External URL to use in place of port forwarded URL. For use when port forwarding is restricted.
-api_url = ""
 
-# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
-# are monitored, and you can view the emails that would have been sent from the web interface.
 [inbucket]
-enabled = true
-# Port to use for the email testing server web interface.
 port = 54324
-# Uncomment to expose additional ports for testing user applications that send emails.
-# smtp_port = 54325
-# pop3_port = 54326
-
-[storage]
-enabled = true
-# Port to use for the local storage service.
-port = 54325
 
 [auth]
 enabled = true
-# Port to use for the local auth service.
-port = 54326
-# List of JWT secrets used when encrypting database access tokens. The first entry is used to
-# encrypt the tokens, and all entries are considered valid for decryption. You can rotate secrets
-# by appending a new secret to the list, and removing old secrets.
-jwt_secret = "super-secret-jwt-token-with-at-least-32-characters-long"
+site_url = "http://localhost:3000"
 
-# The API endpoint to call when a user signs up.
-signup_callback_url = ""
-site_url = ""
-# A list of URLs allowed to make login requests from.
-additional_redirect_urls = ["https://localhost:3000"]
-# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
-jwt_expiry = 3600
-# If disabled, the refresh token will never expire.
-enable_refresh_token_rotation = true
-# Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
-# Requires enable_refresh_token_rotation = true.
-refresh_token_reuse_interval = 10
-# Allow/disallow new user signups to your project.
-enable_signup = true
-# Allow/disallow phone or email signups.
-enable_phone_signup = true
-enable_email_signup = true
-# Allow/disallow users with duplicate emails.
-enable_email_autoconfirm = false
-# If enable_confirmations is enabled, you must configure SMTP.
-enable_confirmations = false
-# Require User Email Verification before allowing login
-enable_user_email_verification = true
-
-[auth.email]
-# Allow/disallow email auth.
-enable_signup = true
-# Allow/disallow email+password authentication.
-enable_login_with_password = true
-# Allow/disallow email OTP authentication.
-enable_login_with_email_otp = true
-# .csv list of email domains that are allowed access to the project
-allowed_email_domains = ""
-# .csv list of email domains that are not allowed access to the project
-blocked_email_domains = ""
-
-[auth.phone]
-# Allow/disallow phone auth.
-enable_signup = true
-# Allow/disallow phone passwords.
-enable_login_with_password = true
-# Enable/disable SMS OTP Authentication
-enable_login_with_phone_otp = true
-
-[analytics]
-enabled = false
-port = 54327
-vector_port = 54328
-
-# Use for extensions
-[extensions]
+[storage]
 enabled = true
-
-[extensions.postgres_wasm]
-enabled = false
 
 [functions]
-enabled = true
-port = 54342
-
-[functions.get-seed-phrase]
+[functions.delete-account]
 verify_jwt = true
