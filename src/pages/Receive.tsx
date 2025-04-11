@@ -180,24 +180,8 @@ const Receive = () => {
             existingToken.networks = [...(existingToken.networks || []), wallet.blockchain];
           }
           
-          // Add wallet type to the token if it's for Bitcoin
-          if (wallet.blockchain === 'Bitcoin' && wallet.wallet_type) {
-            existingToken.wallet_types = existingToken.wallet_types || {};
-            existingToken.wallet_types['Bitcoin'] = existingToken.wallet_types['Bitcoin'] || [];
-            
-            if (!existingToken.wallet_types['Bitcoin'].includes(wallet.wallet_type)) {
-              existingToken.wallet_types['Bitcoin'].push(wallet.wallet_type);
-            }
-          }
-          
           tokenMap.set(wallet.symbol, existingToken);
         } else {
-          const walletTypes: Record<string, string[]> = {};
-          
-          if (wallet.blockchain === 'Bitcoin' && wallet.wallet_type) {
-            walletTypes['Bitcoin'] = [wallet.wallet_type];
-          }
-          
           tokenMap.set(wallet.symbol, {
             id: wallet.symbol,
             name: wallet.symbol,
@@ -205,8 +189,7 @@ const Receive = () => {
             icon: wallet.symbol[0],
             decimals: 8,
             logo: getCurrencyLogo(wallet.symbol),
-            networks: [wallet.blockchain],
-            wallet_types: Object.keys(walletTypes).length > 0 ? walletTypes : undefined
+            networks: [wallet.blockchain]
           });
         }
       });
@@ -220,79 +203,6 @@ const Receive = () => {
       }
     }
   }, [walletAddresses]);
-
-  useEffect(() => {
-    const fetchWalletAddresses = async () => {
-      if (!user) {
-        console.error("User not authenticated");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        console.log("Fetching wallet addresses for user:", user.id);
-        
-        const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
-          method: 'POST',
-          body: { userId: user.id }
-        });
-        
-        if (error) {
-          throw error;
-        }
-
-        if (data && data.success && data.wallets && data.wallets.length > 0) {
-          console.log("Fetched wallet addresses:", data.wallets);
-          
-          // Add debug log for BTC wallets
-          const btcWallets = data.wallets.filter(w => w.currency === 'BTC');
-          console.log("BTC wallets found:", btcWallets);
-          
-          const addresses: WalletAddress[] = data.wallets.map(wallet => ({
-            blockchain: wallet.blockchain,
-            symbol: wallet.currency,
-            address: wallet.address,
-            wallet_type: wallet.wallet_type,
-            logo: getCurrencyLogo(wallet.currency)
-          }));
-          
-          // Check if we have BTC on Bitcoin network
-          const hasBitcoinBTC = addresses.some(
-            wallet => wallet.symbol === 'BTC' && wallet.blockchain === 'Bitcoin'
-          );
-          
-          console.log("Has Bitcoin BTC:", hasBitcoinBTC);
-          
-          // If it's missing, we should recreate wallets
-          if (!hasBitcoinBTC) {
-            console.log("Missing Bitcoin tokens, creating wallets");
-            await createWallets();
-            return;
-          }
-          
-          setWalletAddresses(addresses);
-          setNoWalletsFound(false);
-        } else {
-          console.log("No wallets found for user, attempting to create wallets");
-          await createWallets();
-        }
-      } catch (error) {
-        console.error("Error fetching wallet addresses:", error);
-        toast({
-          title: "Error fetching wallets",
-          description: "There was a problem loading your wallets. Please try again later.",
-          variant: "destructive"
-        });
-        setNoWalletsFound(true);
-        setWalletAddresses([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWalletAddresses();
-  }, [user, toast]);
 
   useEffect(() => {
     if (selectedToken && currentStep === ReceiveStep.SELECT_NETWORK) {
@@ -396,37 +306,9 @@ const Receive = () => {
   const handleNetworkSelect = (network: string) => {
     setSelectedNetwork(network);
     
-    // Check if this is Bitcoin and has multiple wallet types
-    if (selectedToken?.symbol === 'BTC' && 
-        network === 'Bitcoin' &&
-        selectedToken.wallet_types?.Bitcoin?.length > 1) {
-      setCurrentStep(ReceiveStep.SELECT_WALLET_TYPE);
-    } else {
-      // For other tokens or single wallet type, directly find the wallet
-      const wallet = walletAddresses.find(
-        w => w.symbol === selectedToken?.symbol && w.blockchain === network
-      );
-      
-      if (wallet) {
-        setSelectedWallet(wallet);
-        setCurrentStep(ReceiveStep.VIEW_ADDRESS);
-      } else {
-        toast({
-          title: "Wallet not found",
-          description: `We couldn't find a wallet for ${selectedToken?.symbol} on ${network}.`,
-          variant: "destructive"
-        });
-      }
-    }
-  };
-  
-  const handleWalletTypeSelect = (walletType: string) => {
-    setSelectedWalletType(walletType);
-    
+    // For all tokens, directly find the wallet
     const wallet = walletAddresses.find(
-      w => w.symbol === selectedToken?.symbol && 
-           w.blockchain === selectedNetwork && 
-           w.wallet_type === walletType
+      w => w.symbol === selectedToken?.symbol && w.blockchain === network
     );
     
     if (wallet) {
@@ -435,7 +317,7 @@ const Receive = () => {
     } else {
       toast({
         title: "Wallet not found",
-        description: `We couldn't find a wallet for ${selectedToken?.symbol} on ${selectedNetwork} with type ${walletType}.`,
+        description: `We couldn't find a wallet for ${selectedToken?.symbol} on ${network}.`,
         variant: "destructive"
       });
     }
@@ -480,6 +362,79 @@ const Receive = () => {
       return nameMatch || symbolMatch || (isBitcoinSearch && isBitcoinToken);
     });
   };
+
+  useEffect(() => {
+    const fetchWalletAddresses = async () => {
+      if (!user) {
+        console.error("User not authenticated");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        console.log("Fetching wallet addresses for user:", user.id);
+        
+        const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
+          method: 'POST',
+          body: { userId: user.id }
+        });
+        
+        if (error) {
+          throw error;
+        }
+
+        if (data && data.success && data.wallets && data.wallets.length > 0) {
+          console.log("Fetched wallet addresses:", data.wallets);
+          
+          // Add debug log for BTC wallets
+          const btcWallets = data.wallets.filter(w => w.currency === 'BTC');
+          console.log("BTC wallets found:", btcWallets);
+          
+          const addresses: WalletAddress[] = data.wallets.map(wallet => ({
+            blockchain: wallet.blockchain,
+            symbol: wallet.currency,
+            address: wallet.address,
+            wallet_type: wallet.wallet_type,
+            logo: getCurrencyLogo(wallet.currency)
+          }));
+          
+          // Check if we have BTC on Bitcoin network
+          const hasBitcoinBTC = addresses.some(
+            wallet => wallet.symbol === 'BTC' && wallet.blockchain === 'Bitcoin'
+          );
+          
+          console.log("Has Bitcoin BTC:", hasBitcoinBTC);
+          
+          // If it's missing, we should recreate wallets
+          if (!hasBitcoinBTC) {
+            console.log("Missing Bitcoin tokens, creating wallets");
+            await createWallets();
+            return;
+          }
+          
+          setWalletAddresses(addresses);
+          setNoWalletsFound(false);
+        } else {
+          console.log("No wallets found for user, attempting to create wallets");
+          await createWallets();
+        }
+      } catch (error) {
+        console.error("Error fetching wallet addresses:", error);
+        toast({
+          title: "Error fetching wallets",
+          description: "There was a problem loading your wallets. Please try again later.",
+          variant: "destructive"
+        });
+        setNoWalletsFound(true);
+        setWalletAddresses([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWalletAddresses();
+  }, [user, toast]);
 
   if (loading) {
     return (
@@ -545,7 +500,6 @@ const Receive = () => {
           {currentStep === ReceiveStep.VIEW_ADDRESS && (
             <p className="text-gray-600">
               {selectedToken?.symbol} address on {selectedNetwork}
-              {selectedWalletType && ` (${selectedWalletType})`}
             </p>
           )}
         </div>
@@ -658,11 +612,8 @@ const Receive = () => {
             </div>
           </KashCard>
         )}
-        
-        {currentStep === ReceiveStep.SELECT_WALLET_TYPE && 
-         selectedToken && 
-         selectedNetwork && 
-         selectedToken.wallet_types?.[selectedNetwork] && (
+
+        {currentStep === ReceiveStep.VIEW_ADDRESS && selectedWallet && (
           <KashCard className="p-5">
             <div className="flex items-center mb-6">
               <KashButton 
@@ -676,77 +627,12 @@ const Receive = () => {
               
               <div className="flex items-center">
                 <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src={selectedToken.logo} alt={selectedToken.symbol} />
-                  <AvatarFallback>{selectedToken.symbol[0]}</AvatarFallback>
-                </Avatar>
-                <div className="flex items-center">
-                  <h3 className="font-medium mr-2">{selectedToken.symbol}</h3>
-                  <NetworkBadge network={selectedNetwork} />
-                </div>
-              </div>
-            </div>
-
-            <h3 className="font-medium mb-3">Select Wallet Type</h3>
-            <div className="space-y-2">
-              {selectedToken.wallet_types[selectedNetwork].map((walletType) => (
-                <div
-                  key={walletType}
-                  className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleWalletTypeSelect(walletType)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={getNetworkLogo(selectedNetwork)} alt={selectedNetwork} />
-                      <AvatarFallback>{walletType[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex items-center">
-                      <h3 className="font-medium">{walletType}</h3>
-                      <WalletTypeBadge type={walletType} className="ml-2" />
-                    </div>
-                  </div>
-                  <ArrowRight size={18} className="text-gray-400" />
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-4 bg-blue-50 p-3 rounded-lg">
-              <div className="flex items-start">
-                <Info size={18} className="text-blue-500 mr-2 mt-0.5" />
-                <p className="text-sm text-blue-700">
-                  Bitcoin has different address formats. Taproot is newer and offers enhanced privacy and security features.
-                  Native SegWit offers lower transaction fees than legacy addresses.
-                </p>
-              </div>
-            </div>
-          </KashCard>
-        )}
-
-        {currentStep === ReceiveStep.VIEW_ADDRESS && selectedWallet && (
-          <KashCard className="p-5">
-            <div className="flex items-center mb-6">
-              <KashButton 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => selectedWalletType 
-                  ? setCurrentStep(ReceiveStep.SELECT_WALLET_TYPE)
-                  : setCurrentStep(ReceiveStep.SELECT_NETWORK)
-                }
-                className="mr-2"
-              >
-                Back
-              </KashButton>
-              
-              <div className="flex items-center">
-                <Avatar className="h-8 w-8 mr-2">
                   <AvatarImage src={selectedWallet.logo} alt={selectedWallet.symbol} />
                   <AvatarFallback>{selectedWallet.symbol[0]}</AvatarFallback>
                 </Avatar>
                 <div className="flex items-center">
                   <h3 className="font-medium mr-2">{selectedWallet.symbol}</h3>
                   <NetworkBadge network={selectedWallet.blockchain} />
-                  {selectedWallet.wallet_type && (
-                    <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-2" />
-                  )}
                 </div>
               </div>
             </div>
@@ -754,9 +640,6 @@ const Receive = () => {
             <div className="text-center">
               <div className="inline-block mb-3">
                 <NetworkBadge network={selectedWallet.blockchain} />
-                {selectedWallet.wallet_type && (
-                  <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-2" />
-                )}
               </div>
               {showQR ? (
                 <div className="mb-4 flex justify-center">
@@ -770,9 +653,6 @@ const Receive = () => {
                     />
                     <div className="mt-2 text-xs text-center">
                       <NetworkBadge network={selectedWallet.blockchain} />
-                      {selectedWallet.wallet_type && (
-                        <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-2" />
-                      )}
                       <p className="text-gray-500 mt-1 break-all px-2">
                         {selectedWallet.address}
                       </p>
@@ -784,9 +664,6 @@ const Receive = () => {
                   <div className="bg-gray-50 p-4 rounded-lg mb-4 relative">
                     <div className="absolute top-0 right-0 mt-2 mr-2 flex">
                       <NetworkBadge network={selectedWallet.blockchain} />
-                      {selectedWallet.wallet_type && (
-                        <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-2" />
-                      )}
                     </div>
                     <p className="break-all text-sm font-mono border-gray-100 pt-4">
                       {selectedWallet.address}
@@ -824,9 +701,6 @@ const Receive = () => {
                 <li>Only send {selectedWallet.symbol} on the <strong>{selectedWallet.blockchain}</strong> network to this address</li>
                 <li>Sending any other cryptocurrency or using the wrong network may result in permanent loss</li>
                 <li>Always verify the entire address before sending any funds</li>
-                {selectedWallet.wallet_type && (
-                  <li>This is a <strong>{selectedWallet.wallet_type}</strong> type wallet address</li>
-                )}
               </ul>
             </div>
             
