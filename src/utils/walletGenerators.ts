@@ -62,19 +62,22 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
     const wallets: WalletData[] = [];
     
     try {
-      // Get Ethereum wallet first - we'll use it to derive Polygon wallet
-      const ethWallet = generateRandomEthereumWallet();
+      // Get Ethereum wallet first
+      const ethWallet = await generateRandomEthereumWallet();
       wallets.push(ethWallet);
       
-      // Generate Polygon wallet based on Ethereum wallet
-      wallets.push(generateRandomPolygonWallet(ethWallet));
+      // Generate Polygon wallet
+      const polygonWallet = await generateRandomPolygonWallet();
+      wallets.push(polygonWallet);
       
       // Add Solana wallet
-      wallets.push(generateRandomSolanaWallet());
+      const solanaWallet = await generateRandomSolanaWallet();
+      wallets.push(solanaWallet);
       
       // Add Tron wallet
       try {
-        wallets.push(generateRandomTronWallet());
+        const tronWallet = await generateRandomTronWallet();
+        wallets.push(tronWallet);
       } catch (tronError) {
         console.error('Failed to generate Tron wallet:', tronError);
       }

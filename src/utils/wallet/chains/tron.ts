@@ -41,7 +41,7 @@ export const generateTronWallet = (mnemonicObj: ethers.Mnemonic): UnifiedWalletD
 /**
  * Generate a random Tron wallet (not derived from mnemonic)
  */
-export const generateRandomTronWallet = (): UnifiedWalletData => {
+export const generateRandomTronWallet = async (): Promise<UnifiedWalletData> => {
   try {
     // Create a random Ethereum-format wallet
     const wallet = ethers.Wallet.createRandom();

@@ -23,7 +23,7 @@ export const generateEthereumWallet = (mnemonicObj: ethers.Mnemonic): UnifiedWal
 /**
  * Generate a random Ethereum wallet (not derived from mnemonic)
  */
-export const generateRandomEthereumWallet = (): UnifiedWalletData => {
+export const generateRandomEthereumWallet = async (): Promise<UnifiedWalletData> => {
   try {
     const wallet = ethers.Wallet.createRandom();
     return {

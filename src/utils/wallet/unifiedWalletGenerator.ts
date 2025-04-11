@@ -55,11 +55,11 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       wallets.push(ethWallet);
       
       // Generate Polygon wallet (using same derivation path as Ethereum)
-      const polygonWallet = generatePolygonWallet(ethWallet);
+      const polygonWallet = generatePolygonWallet(mnemonicObj);
       wallets.push(polygonWallet);
       
       // Generate Solana wallet
-      const solanaWallet = generateSolanaWallet(mnemonicObj);
+      const solanaWallet = await generateSolanaWallet(mnemonicObj);
       wallets.push(solanaWallet);
       
       // Generate Bitcoin wallet

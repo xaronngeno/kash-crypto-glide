@@ -30,7 +30,7 @@ export const generatePolygonWallet = (mnemonicObj: ethers.Mnemonic): UnifiedWall
 /**
  * Generate a random Polygon wallet (not derived from mnemonic)
  */
-export const generateRandomPolygonWallet = (): UnifiedWalletData => {
+export const generateRandomPolygonWallet = async (): Promise<UnifiedWalletData> => {
   try {
     const wallet = ethers.Wallet.createRandom();
     
