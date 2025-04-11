@@ -68,6 +68,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
   const validateSeedPhrase = async (phrase: string) => {
     try {
       setLoading(true);
+      console.log("Validating seed phrase:", phrase);
       
       // Generate wallets from the provided seed phrase
       const wallets = await generateWalletsFromSeed(phrase);
@@ -89,7 +90,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
       // Get user's actual wallets from the database
       const { data: userWallets, error } = await supabase
         .from('wallets')
-        .select('blockchain, address, currency')
+        .select('blockchain, address, currency, wallet_type')
         .eq('user_id', userId);
         
       if (error) {
@@ -102,12 +103,17 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
       const userAddresses = {
         ethereum: userWallets?.find(w => w.blockchain === 'Ethereum' && w.currency === 'ETH')?.address?.toLowerCase(),
         solana: userWallets?.find(w => w.blockchain === 'Solana' && w.currency === 'SOL')?.address,
-        bitcoin: userWallets?.find(w => w.blockchain === 'Bitcoin')?.address,
+        bitcoin: userWallets?.find(w => w.blockchain === 'Bitcoin' && (w.wallet_type === 'Native SegWit' || !w.wallet_type))?.address,
         tron: userWallets?.find(w => w.blockchain === 'Tron')?.address
       };
       
+      console.log("Comparing addresses:");
+      console.log("- User addresses:", userAddresses);
+      console.log("- Generated addresses:", generatedAddresses);
+      
       // Compare addresses to validate
       const matches = [];
+      const mismatches = [];
       
       if (generatedAddresses.ethereum && userAddresses.ethereum) {
         console.log("Comparing Ethereum addresses:");
@@ -116,6 +122,8 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         
         if (generatedAddresses.ethereum === userAddresses.ethereum) {
           matches.push('Ethereum');
+        } else {
+          mismatches.push('Ethereum');
         }
       }
       
@@ -126,6 +134,8 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         
         if (generatedAddresses.solana === userAddresses.solana) {
           matches.push('Solana');
+        } else {
+          mismatches.push('Solana');
         }
       }
       
@@ -136,6 +146,8 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         
         if (generatedAddresses.bitcoin === userAddresses.bitcoin) {
           matches.push('Bitcoin');
+        } else {
+          mismatches.push('Bitcoin');
         }
       }
       
@@ -146,6 +158,8 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         
         if (generatedAddresses.tron === userAddresses.tron) {
           matches.push('Tron');
+        } else {
+          mismatches.push('Tron');
         }
       }
       
@@ -157,6 +171,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         });
         return true;
       } else {
+        console.error("Mismatched wallets:", mismatches);
         toast({
           title: "Seed Phrase Invalid",
           description: "The seed phrase does not match any of your wallet addresses.",

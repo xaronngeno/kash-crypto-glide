@@ -92,7 +92,7 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
         privateKey: Buffer.from(keypair.secretKey).toString('hex')
       });
       
-      console.log("Generated Solana wallet successfully");
+      console.log("Generated Solana wallet successfully:", keypair.publicKey.toBase58());
     } catch (error) {
       console.error("Failed to generate Solana wallet:", error);
     }
@@ -124,7 +124,7 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
           privateKey: bitcoinHdNode.privateKey,
           walletType: "Native SegWit"
         });
-        console.log("Generated Bitcoin wallet successfully");
+        console.log("Generated Bitcoin wallet successfully:", address);
       } else {
         throw new Error("Failed to generate Bitcoin address");
       }
@@ -167,7 +167,7 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
         privateKey: tronHdNode.privateKey
       });
       
-      console.log("Generated Tron wallet successfully");
+      console.log("Generated Tron wallet successfully:", tronAddress);
     } catch (error) {
       console.error("Failed to generate Tron wallet:", error);
     }

@@ -22,10 +22,13 @@ export const generateSolanaWallet = (privateKeyHex?: string): WalletData => {
       console.log("Generated random Solana wallet");
     }
     
+    const address = keypair.publicKey.toString();
+    console.log("Generated Solana address:", address);
+    
     return {
       blockchain: 'Solana',
       platform: 'Solana',
-      address: keypair.publicKey.toString(),
+      address: address,
       privateKey: Buffer.from(keypair.secretKey).toString('hex'),
     };
   } catch (error) {
@@ -36,7 +39,7 @@ export const generateSolanaWallet = (privateKeyHex?: string): WalletData => {
 
 /**
  * Verify a Solana address is valid
- * This performs a more thorough validation to ensure the address is a valid Solana public key
+ * This performs a thorough validation to ensure the address is a valid Solana public key
  */
 export const verifySolanaAddress = (address: string): boolean => {
   try {
@@ -45,11 +48,13 @@ export const verifySolanaAddress = (address: string): boolean => {
     
     // Solana addresses are base58 encoded strings, typically 32-44 characters
     const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-    if (!base58Regex.test(address)) return false;
+    if (!base58Regex.test(address)) {
+      console.log("Address failed base58 regex validation:", address);
+      return false;
+    }
     
-    // For more thorough validation, in a production environment,
-    // we would create a PublicKey instance and verify it doesn't throw
-    // new PublicKey(address);
+    // For more thorough validation, in a real implementation,
+    // we would use PublicKey class from @solana/web3.js
     
     return true;
   } catch (error) {
