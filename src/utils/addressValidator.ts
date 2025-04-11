@@ -74,9 +74,3 @@ export const detectNetworkFromAddress = (address: string): string | null => {
   
   return null;
 };
-
-// Generate a dummy Solana address for testing or display purposes
-export const generateDummySolanaAddress = (): string => {
-  // This is just a placeholder address for UI purposes, not a real key
-  return '8ZNnuj6mN7xoGWY8yzjg41YqTBGKyGBZfnRFe5H4iNiK';
-};

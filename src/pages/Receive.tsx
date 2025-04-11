@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, QrCode, Info, Wallet, ArrowRight, Search } from 'lucide-react';
@@ -12,7 +11,6 @@ import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import TokenSelector from '@/components/swap/TokenSelector';
-import { generateDummySolanaAddress } from '@/utils/addressValidator';
 import { 
   Select,
   SelectContent,
@@ -200,6 +198,8 @@ const Receive = () => {
 
       try {
         setLoading(true);
+        console.log("Fetching wallet addresses for user:", user.id);
+        
         const { data, error } = await supabase
           .from('wallets')
           .select('blockchain, currency, address')
@@ -223,8 +223,28 @@ const Receive = () => {
             logo: getCurrencyLogo(wallet.currency)
           }));
           
-          // Ensure Solana network is included for SOL token
-          ensureSolanaNetworkForTokens(addresses);
+          // Check if we have SOL on Solana network
+          const hasSolanaSOL = addresses.some(
+            wallet => wallet.symbol === 'SOL' && wallet.blockchain === 'Solana'
+          );
+          
+          // Check if we have USDT on Solana network
+          const hasSolanaUSDT = addresses.some(
+            wallet => wallet.symbol === 'USDT' && wallet.blockchain === 'Solana'
+          );
+          
+          console.log("Has Solana SOL:", hasSolanaSOL);
+          console.log("Has Solana USDT:", hasSolanaUSDT);
+          
+          // If either is missing, we should recreate wallets
+          if (!hasSolanaSOL || !hasSolanaUSDT) {
+            console.log("Missing Solana tokens, creating wallets");
+            await createWallets();
+            return;
+          }
+          
+          setWalletAddresses(addresses);
+          setNoWalletsFound(false);
         } else {
           console.log("No wallets found for user, attempting to create wallets");
           await createWallets();
@@ -245,59 +265,6 @@ const Receive = () => {
 
     fetchWalletAddresses();
   }, [user, toast]);
-
-  // Function to ensure Solana network is included for each token that should support it
-  const ensureSolanaNetworkForTokens = (addresses: WalletAddress[]) => {
-    console.log("Ensuring Solana network is available for compatible tokens");
-    
-    // Create a set of tokens that should have Solana network
-    const augmentedAddresses = [...addresses];
-    const processedTokens = new Set<string>();
-    
-    // First pass: check which tokens need Solana network
-    solanaCompatibleTokens.forEach(symbol => {
-      // Find if we have this token in any network
-      const tokenExists = addresses.some(addr => addr.symbol === symbol);
-      
-      // Find if we already have this token on Solana network
-      const hasTokenOnSolana = addresses.some(
-        addr => addr.symbol === symbol && addr.blockchain === 'Solana'
-      );
-      
-      // If token exists but not on Solana, add it
-      if (tokenExists && !hasTokenOnSolana && !processedTokens.has(symbol)) {
-        console.log(`Adding ${symbol} to Solana network`);
-        
-        // Find an existing address to use, or generate one for SOL
-        const existingTokenAddr = addresses.find(addr => addr.symbol === symbol);
-        const address = existingTokenAddr?.address || 
-          (symbol === 'SOL' ? generateDummySolanaAddress() : `solana-address-for-${symbol.toLowerCase()}`);
-        
-        augmentedAddresses.push({
-          blockchain: 'Solana',
-          symbol: symbol,
-          address: address,
-          logo: getCurrencyLogo(symbol)
-        });
-        
-        processedTokens.add(symbol);
-      }
-    });
-    
-    // Special handling for SOL token if it doesn't exist
-    if (!processedTokens.has('SOL') && !addresses.some(addr => addr.symbol === 'SOL')) {
-      console.log("Adding SOL token on Solana network");
-      augmentedAddresses.push({
-        blockchain: 'Solana',
-        symbol: 'SOL',
-        address: generateDummySolanaAddress(),
-        logo: getCurrencyLogo('SOL')
-      });
-    }
-    
-    console.log("Augmented wallet addresses:", augmentedAddresses);
-    setWalletAddresses(augmentedAddresses);
-  };
 
   useEffect(() => {
     if (selectedToken && currentStep === ReceiveStep.SELECT_NETWORK) {
@@ -334,6 +301,7 @@ const Receive = () => {
       
       console.log("Wallets created successfully:", data);
       
+      // Fetch the newly created wallets
       const { data: wallets, error: fetchError } = await supabase
         .from('wallets')
         .select('blockchain, currency, address')
@@ -355,9 +323,7 @@ const Receive = () => {
           logo: getCurrencyLogo(wallet.currency)
         }));
         
-        // Ensure Solana network is added for compatible tokens
-        ensureSolanaNetworkForTokens(addresses);
-        
+        setWalletAddresses(addresses);
         setNoWalletsFound(false);
         
         toast({
@@ -380,95 +346,6 @@ const Receive = () => {
       setCreatingWallets(false);
     }
   };
-
-  // Manually add Solana if it's missing from walletAddresses but the token exists
-  useEffect(() => {
-    if (walletAddresses.length > 0) {
-      // Check if we have tokens but no Solana network
-      const hasSOLToken = availableTokens.some(token => token.symbol === 'SOL');
-      const hasSOLWallet = walletAddresses.some(wallet => wallet.symbol === 'SOL' && wallet.blockchain === 'Solana');
-      
-      // If we have a SOL token but no SOL wallet, create one
-      if (hasSOLToken && !hasSOLWallet) {
-        console.log("SOL token exists but no SOL wallet on Solana network, adding it");
-        
-        // Find if any SOL wallet exists (to get the address)
-        const existingSolWallet = walletAddresses.find(wallet => wallet.symbol === 'SOL');
-        if (existingSolWallet) {
-          const solanaWallet: WalletAddress = {
-            blockchain: 'Solana',
-            symbol: 'SOL',
-            address: existingSolWallet.address,
-            logo: getCurrencyLogo('SOL')
-          };
-          
-          // Update the tokens to include Solana network for SOL
-          setAvailableTokens(prev => 
-            prev.map(token => {
-              if (token.symbol === 'SOL') {
-                return {
-                  ...token,
-                  networks: [...(token.networks || []), 'Solana'].filter((v, i, a) => a.indexOf(v) === i)
-                };
-              }
-              return token;
-            })
-          );
-          
-          // Add the Solana wallet if it doesn't exist
-          setWalletAddresses(prev => {
-            if (!prev.some(w => w.symbol === 'SOL' && w.blockchain === 'Solana')) {
-              return [...prev, solanaWallet];
-            }
-            return prev;
-          });
-        }
-      }
-      
-      // Also make sure USDT has Solana network option
-      const hasUSDT = availableTokens.some(token => token.symbol === 'USDT');
-      const hasUSDTOnSolana = walletAddresses.some(
-        wallet => wallet.symbol === 'USDT' && wallet.blockchain === 'Solana'
-      );
-      
-      if (hasUSDT && !hasUSDTOnSolana) {
-        console.log("Adding USDT support for Solana network");
-        
-        // Find existing USDT wallet to use its address
-        const existingUSDTWallet = walletAddresses.find(wallet => wallet.symbol === 'USDT');
-        
-        if (existingUSDTWallet) {
-          const solanaUSDTWallet: WalletAddress = {
-            blockchain: 'Solana',
-            symbol: 'USDT',
-            address: existingUSDTWallet.address,
-            logo: getCurrencyLogo('USDT')
-          };
-          
-          // Update tokens to include Solana for USDT
-          setAvailableTokens(prev => 
-            prev.map(token => {
-              if (token.symbol === 'USDT') {
-                return {
-                  ...token,
-                  networks: [...(token.networks || []), 'Solana'].filter((v, i, a) => a.indexOf(v) === i)
-                };
-              }
-              return token;
-            })
-          );
-          
-          // Add the Solana USDT wallet
-          setWalletAddresses(prev => {
-            if (!prev.some(w => w.symbol === 'USDT' && w.blockchain === 'Solana')) {
-              return [...prev, solanaUSDTWallet];
-            }
-            return prev;
-          });
-        }
-      }
-    }
-  }, [walletAddresses, availableTokens]);
 
   const handleTokenSelect = (token: Token) => {
     setSelectedToken(token);
