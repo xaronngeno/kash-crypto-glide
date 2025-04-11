@@ -1,4 +1,3 @@
-
 import { Buffer } from './globalPolyfills';
 import { ethers } from 'ethers';
 import { getBitcoin } from './bitcoinjsWrapper';
@@ -30,7 +29,10 @@ export interface UnifiedWalletData {
  */
 export const generateUnifiedWallets = async (seedPhrase?: string): Promise<UnifiedWalletData[]> => {
   try {
-    console.log("Generating unified wallets from seed phrase");
+    console.log("Generating unified wallets:", {
+      providedSeedPhrase: !!seedPhrase,
+      seedPhraseLength: seedPhrase ? seedPhrase.split(' ').length : 'N/A'
+    });
     
     // Use provided seed phrase or generate a new one
     let mnemonic;
@@ -51,6 +53,10 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       }
       console.log("Generated new seed phrase");
     }
+    
+    console.log("Generated seed phrase validation:", {
+      isValidMnemonic: ethers.Mnemonic.isValidMnemonic(mnemonic)
+    });
     
     const wallets: UnifiedWalletData[] = [];
     
@@ -172,6 +178,20 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       console.error("Failed to generate Tron wallet:", error);
     }
     
+    // Add more detailed logging for each wallet generation step
+    const logWalletGeneration = (blockchain: string, address: string) => {
+      console.log(`${blockchain} Wallet Generation Details:`, {
+        blockchain,
+        address,
+        addressLength: address.length
+      });
+    };
+    
+    // Update each wallet generation with logging
+    wallets.forEach(wallet => {
+      logWalletGeneration(wallet.blockchain, wallet.address);
+    });
+    
     // Return the generated seed phrase along with the wallets
     console.log(`Generated ${wallets.length} unified wallets`);
     
@@ -182,7 +202,11 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
     
     return wallets;
   } catch (error) {
-    console.error("Error in unified wallet generation:", error);
+    console.error("Comprehensive Wallet Generation Error:", {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorStack: error.stack
+    });
     throw error;
   }
 };
