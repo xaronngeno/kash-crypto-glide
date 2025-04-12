@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -30,9 +31,22 @@ export const fetchWalletBalances = async ({
   try {
     console.log(`Fetching wallets for user: ${userId}${forceRefresh ? ' (forced refresh)' : ''}`);
     
+    // Add request timeout to prevent hanging indefinitely
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    
     const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
       method: 'POST',
-      body: { userId, forceRefresh }
+      body: { userId, forceRefresh },
+      signal: controller.signal
+    }).catch(err => {
+      // Handle abort errors separately
+      if (err.name === 'AbortError') {
+        throw new Error('Wallet fetch request timed out');
+      }
+      throw err;
+    }).finally(() => {
+      clearTimeout(timeoutId);
     });
     
     if (error) {
@@ -51,6 +65,13 @@ export const fetchWalletBalances = async ({
         });
         
         return cachedWallets;
+      }
+      
+      // Handle server shutdown gracefully
+      if (data?.retryable) {
+        console.log("Server indicated request is retryable, attempting retry");
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        return fetchWalletBalances({ userId, onSuccess, onError, forceRefresh, retryCount });
       }
       
       // If retries are left, try again
