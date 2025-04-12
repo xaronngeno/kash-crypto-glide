@@ -9,9 +9,10 @@ import {
   useWalletProcessor
 } from '@/hooks/wallet';
 import { toast } from '@/hooks/use-toast';
+import { CryptoPrices } from '@/hooks/useCryptoPrices';
 
 interface UseWalletsProps {
-  prices: Record<string, { price: number; change_24h: number }>;
+  prices: CryptoPrices; // Updated to use the imported type
   skipInitialLoad?: boolean;
 }
 

@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-interface CryptoPlatform {
+export interface CryptoPlatform {
   name: string;
   logo: string;
 }
 
-interface CryptoPrice {
+export interface CryptoPrice {
   price: number;
   change_24h: number;
   updated_at: string;
@@ -20,12 +20,11 @@ interface CryptoPrice {
   change_30d?: number;
 }
 
-interface CryptoPrices {
+export interface CryptoPrices {
   [symbol: string]: CryptoPrice;
 }
 
 export function useCryptoPrices() {
-  // Start with an empty object instead of fallback prices
   const [prices, setPrices] = useState<CryptoPrices>({});
   const [error, setError] = useState<string | null>(null);
   
@@ -38,7 +37,6 @@ export function useCryptoPrices() {
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   const LOCALSTORAGE_CACHE_KEY = 'kash_crypto_prices_cache';
 
-  // Try to load cached data from localStorage on initial mount
   useEffect(() => {
     try {
       const cachedData = localStorage.getItem(LOCALSTORAGE_CACHE_KEY);
@@ -56,11 +54,9 @@ export function useCryptoPrices() {
       console.error('Error reading from localStorage:', err);
     }
     
-    // Set a minimum timeout to fetch prices in the background
-    // This creates a near-instant perception while real data loads
     setTimeout(() => {
       fetchPrices(true);
-    }, 1); // 1ms delay (practically instant)
+    }, 1);
   }, []);
   
   const fetchPrices = useCallback(async (forceFetch = false) => {
@@ -139,13 +135,11 @@ export function useCryptoPrices() {
   }, []);
 
   useEffect(() => {
-    // Fetch prices in the background after a minimal delay
     const timeoutId = setTimeout(() => {
       fetchPrices();
     }, 1);
     
-    // Set up interval for periodic updates
-    const intervalId = setInterval(() => fetchPrices(), 5 * 60 * 1000); // Every 5 minutes
+    const intervalId = setInterval(() => fetchPrices(), 5 * 60 * 1000);
     
     return () => {
       clearTimeout(timeoutId);
@@ -155,8 +149,8 @@ export function useCryptoPrices() {
 
   return { 
     prices, 
-    loading: false, // Always return false to never show loading state
-    error, // Now exposing the error state
+    loading: false,
+    error,
     refetch: () => fetchPrices(true) 
   };
 }

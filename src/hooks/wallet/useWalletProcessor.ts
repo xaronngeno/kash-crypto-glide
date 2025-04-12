@@ -1,17 +1,11 @@
 
-import { useState } from 'react';
 import { Asset } from '@/types/assets';
+import { CryptoPrices } from '@/hooks/useCryptoPrices';
 
 /**
  * Process wallet data from the API into a format usable by the UI
  */
-export const useWalletProcessor = (prices: Record<string, { 
-  price: number; 
-  change_24h: number;
-  logo?: string;
-  name?: string;
-  platform?: { name: string; logo: string };
-}>) => {
+export const useWalletProcessor = (prices: CryptoPrices) => {
   /**
    * Process raw wallet data into Assets
    */
