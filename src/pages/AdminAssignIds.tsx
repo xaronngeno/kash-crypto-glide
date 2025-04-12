@@ -1,24 +1,20 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { useNavigate } from 'react-router-dom';
 import { KashButton } from '@/components/ui/KashButton';
 import { KashCard } from '@/components/ui/KashCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import AdminLayout from '@/components/layout/AdminLayout';
 
 const AdminAssignIds = () => {
   const { user, session } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   
-  // Check if the current user has admin access (email ending with @kash.africa)
-  const isAdmin = user?.email?.endsWith('@kash.africa') || false;
-  
   const handleAssignIds = async () => {
-    if (!isAdmin || !session) {
+    if (!session) {
       toast({
         title: "Access denied",
         description: "You don't have permission to perform this action",
@@ -57,16 +53,8 @@ const AdminAssignIds = () => {
     }
   };
   
-  // Redirect non-admins to dashboard
-  if (!isAdmin) {
-    navigate('/dashboard');
-    return null;
-  }
-  
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-6">Admin: Assign User IDs</h1>
-      
+    <AdminLayout title="Assign User IDs">
       <KashCard className="mb-6">
         <div className="p-6">
           <h2 className="text-lg font-medium mb-4">Assign IDs to Existing Users</h2>
@@ -113,7 +101,7 @@ const AdminAssignIds = () => {
           </div>
         </KashCard>
       )}
-    </div>
+    </AdminLayout>
   );
 };
 

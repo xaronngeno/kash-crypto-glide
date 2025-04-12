@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./components/AuthProvider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminRoute } from "./components/AdminRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -23,6 +24,10 @@ import SellUsdt from "./pages/SellUsdt";
 import CoinDetail from "./pages/CoinDetail";
 import AdminAssignIds from "./pages/AdminAssignIds";
 
+// Admin pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+
 // Initialize the query client outside of the component
 const queryClient = new QueryClient();
 
@@ -35,6 +40,8 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              
+              {/* User app routes */}
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Dashboard />
@@ -95,11 +102,24 @@ const App: React.FC = () => {
                   <TransactionConfirmation />
                 </ProtectedRoute>
               } />
-              <Route path="/admin/assign-ids" element={
-                <ProtectedRoute>
-                  <AdminAssignIds />
-                </ProtectedRoute>
+              
+              {/* Admin routes with AdminRoute protection */}
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
               } />
+              <Route path="/admin/users" element={
+                <AdminRoute>
+                  <AdminUsers />
+                </AdminRoute>
+              } />
+              <Route path="/admin/assign-ids" element={
+                <AdminRoute>
+                  <AdminAssignIds />
+                </AdminRoute>
+              } />
+              
               <Route path="*" element={<NotFound />} />
             </Routes>
             {/* Place Toasters after the Routes to ensure they are available throughout the app */}
