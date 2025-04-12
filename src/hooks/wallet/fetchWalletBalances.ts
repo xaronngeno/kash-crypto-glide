@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -31,23 +30,24 @@ export const fetchWalletBalances = async ({
   try {
     console.log(`Fetching wallets for user: ${userId}${forceRefresh ? ' (forced refresh)' : ''}`);
     
-    // Add request timeout to prevent hanging indefinitely
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-    
-    const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
-      method: 'POST',
-      body: { userId, forceRefresh },
-      signal: controller.signal
-    }).catch(err => {
-      // Handle abort errors separately
-      if (err.name === 'AbortError') {
-        throw new Error('Wallet fetch request timed out');
-      }
-      throw err;
-    }).finally(() => {
-      clearTimeout(timeoutId);
+    // Set a timeout without using AbortController since the signal isn't supported
+    const timeoutPromise = new Promise<null>((_, reject) => {
+      setTimeout(() => reject(new Error('Wallet fetch request timed out')), 15000);
     });
+    
+    // Create the actual fetch promise
+    const fetchPromise = supabase.functions.invoke('fetch-wallet-balances', {
+      method: 'POST',
+      body: { userId, forceRefresh }
+    });
+    
+    // Race the timeout against the actual fetch
+    const { data, error } = await Promise.race([
+      fetchPromise,
+      timeoutPromise.then(() => {
+        throw new Error('Wallet fetch request timed out');
+      })
+    ]);
     
     if (error) {
       // Handle function invocation error
