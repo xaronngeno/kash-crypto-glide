@@ -41,11 +41,7 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
               <div className="ml-3">
                 <div className="flex items-center gap-1">
                   <h3 className="font-medium">{asset.name}</h3>
-                  {asset.platform && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                      {asset.platform.name}
-                    </span>
-                  )}
+                  {/* Removed platform badge */}
                 </div>
                 <p className="text-sm text-gray-500">
                   {asset.amount.toLocaleString('en-US', { 
