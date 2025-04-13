@@ -20,11 +20,10 @@ console.log("Buffer availability check in main.tsx:", {
   } : null
 });
 
-// Remove the Toaster from here as it's already included in App.tsx
+// React 18 createRoot API
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>,
+  // Remove StrictMode temporarily to help isolate the issue
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
 );

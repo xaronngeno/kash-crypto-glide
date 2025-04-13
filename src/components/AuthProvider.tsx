@@ -30,8 +30,8 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-// Export the AuthProvider as a proper React function component
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// Define AuthProvider as a function component to ensure hooks work properly
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Then check for existing sessions
+    // Check for existing sessions
     const checkExistingSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -199,3 +199,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+// Export the component
+export { AuthProvider };
