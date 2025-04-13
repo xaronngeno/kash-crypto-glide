@@ -63,7 +63,7 @@ export const useWalletManager = (userId?: string) => {
   };
 };
 
-// Export individual hooks for backward compatibility
+// Export wallet creation status hook for backward compatibility
 export const useWalletCreationStatus = () => {
   const [walletsCreated, setWalletsCreated] = useState(false);
   
