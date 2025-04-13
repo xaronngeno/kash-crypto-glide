@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, QrCode, Info, Wallet, ArrowRight, Search } from 'lucide-react';
@@ -11,6 +12,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import TokenSelector from '@/components/swap/TokenSelector';
+import { refreshWalletBalances } from '@/hooks/wallet/fetchWalletBalances';
 import { 
   Select,
   SelectContent,
