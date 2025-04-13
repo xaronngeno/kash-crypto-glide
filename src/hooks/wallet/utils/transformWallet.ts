@@ -1,17 +1,15 @@
 
-import { WalletData } from '@/utils/walletConfig';
+import { WalletData } from '@/utils/types/wallet';
 
 /**
- * Transforms database wallet object to WalletData format
+ * Transform wallet data from database format to WalletData type
  */
-export const transformWallet = (wallet: { 
-  id: string; 
-  blockchain: string; 
-  currency: string;
-  address?: string;
-}): WalletData => ({
-  blockchain: wallet.blockchain,
-  platform: wallet.blockchain,
-  address: wallet.address || '', // Provide a default empty string if no address
-  privateKey: undefined // We don't expose private keys on the frontend
-});
+export const transformWallet = (wallet: any): WalletData => {
+  return {
+    blockchain: wallet.blockchain || '',
+    platform: wallet.blockchain || '',
+    address: wallet.address || '',
+    privateKey: wallet.privateKey || undefined,
+    walletType: wallet.wallet_type
+  };
+};

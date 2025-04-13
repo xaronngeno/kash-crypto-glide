@@ -1,73 +1,65 @@
 
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 
 /**
- * Hook to clean up duplicate wallets in the database
+ * Hook for cleaning up wallet data (e.g., removing duplicates)
  */
 export const useWalletCleanup = () => {
-  /**
-   * Clean up duplicate wallets for a user
-   */
-  const cleanupDuplicateWallets = async (userId: string) => {
-    if (!userId) {
-      console.error('No user ID provided for wallet cleanup');
-      return { success: false };
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  const cleanupWalletDuplicates = async () => {
+    if (!user?.id) {
+      setError("User not authenticated");
+      return false;
     }
-    
+
     try {
-      // Show loading toast
-      toast({
-        title: "Cleaning up wallets",
-        description: "Processing wallet data...",
-      });
-      
-      const { data, error } = await supabase.functions.invoke('cleanup-wallet-duplicates', {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: functionError } = await supabase.functions.invoke('cleanup-wallet-duplicates', {
         method: 'POST',
-        body: { userId }
+        body: { userId: user.id }
       });
-      
-      if (error) {
-        console.error('Error cleaning up wallets:', error);
-        toast({
-          title: "Error cleaning up wallets",
-          description: error.message,
-          variant: "destructive"
-        });
-        return { success: false, error };
+
+      if (functionError) {
+        throw new Error(`Wallet cleanup error: ${functionError.message}`);
       }
-      
-      if (data.duplicatesRemoved > 0) {
+
+      if (data.success) {
         toast({
-          title: "Cleanup complete",
-          description: `Removed ${data.duplicatesRemoved} duplicate wallets.`,
+          title: "Cleanup Successful",
+          description: data.message,
+          variant: "default"
         });
+        return true;
       } else {
-        toast({
-          title: "No duplicates found",
-          description: "Your wallet data is already clean.",
-        });
+        throw new Error(data.message || "Wallet cleanup failed");
       }
-      
-      return { 
-        success: true, 
-        walletsFound: data.walletsFound,
-        duplicatesRemoved: data.duplicatesRemoved,
-        walletsRemaining: data.walletsRemaining
-      };
+
     } catch (err) {
-      console.error('Error in wallet cleanup:', err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      
+      const errorMessage = err instanceof Error ? err.message : "Unknown error during wallet cleanup";
+      console.error("Wallet cleanup error:", errorMessage);
+      setError(errorMessage);
       toast({
-        title: "Error cleaning up wallets",
-        description: "Please try again later",
+        title: "Cleanup Failed",
+        description: errorMessage,
         variant: "destructive"
       });
-      
-      return { success: false, error: errorMessage };
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
-  
-  return { cleanupDuplicateWallets };
+
+  return {
+    loading,
+    error,
+    cleanupWalletDuplicates
+  };
 };

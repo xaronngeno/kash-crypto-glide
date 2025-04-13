@@ -1,31 +1,25 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { generateWalletsFromSeed } from '@/utils/hdWallet';
+import { toast } from '@/hooks/use-toast';
+import { generateWalletsFromSeed } from '@/utils/walletGenerators';
 
 /**
- * Hook for validating seed phrases against wallet addresses
+ * Hook for validating seed phrases
  */
 export const useWalletValidator = (userId?: string) => {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
   
-  /**
-   * Validate a seed phrase and test against user's wallets
-   */
   const validateSeedPhrase = async (phrase: string): Promise<boolean> => {
     if (!userId) {
-      toast({
-        title: "Authentication Error",
-        description: "User not authenticated",
-        variant: "destructive"
-      });
+      setError("User not authenticated");
       return false;
     }
-
+    
     try {
       setLoading(true);
+      setError(null);
       
       // Generate wallets from the provided seed phrase
       const wallets = await generateWalletsFromSeed(phrase);
@@ -41,8 +35,6 @@ export const useWalletValidator = (userId?: string) => {
         bitcoin: wallets.find(w => w.blockchain === 'Bitcoin')?.address
       };
       
-      console.log("Generated addresses from seed phrase:", generatedAddresses);
-      
       // Get user's actual wallets from the database
       const { data: userWallets, error } = await supabase
         .from('wallets')
@@ -52,8 +44,6 @@ export const useWalletValidator = (userId?: string) => {
       if (error) {
         throw new Error(`Failed to fetch user wallets: ${error.message}`);
       }
-      
-      console.log("User's wallet addresses:", userWallets);
       
       // Extract the user's actual addresses
       const userAddresses = {
@@ -98,6 +88,7 @@ export const useWalletValidator = (userId?: string) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to validate seed phrase";
       console.error("Validation error:", errorMessage);
+      setError(errorMessage);
       toast({
         title: "Validation Error",
         description: errorMessage,
@@ -110,7 +101,8 @@ export const useWalletValidator = (userId?: string) => {
   };
   
   return {
-    validateSeedPhrase,
-    loading
+    loading,
+    error,
+    validateSeedPhrase
   };
 };

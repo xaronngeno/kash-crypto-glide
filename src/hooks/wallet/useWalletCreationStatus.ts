@@ -2,8 +2,7 @@
 import { useState } from 'react';
 
 /**
- * Hook for tracking if wallets have been created
- * @deprecated Import from useWalletManager instead
+ * Simple hook to track if wallets have been created
  */
 export const useWalletCreationStatus = () => {
   const [walletsCreated, setWalletsCreated] = useState(false);

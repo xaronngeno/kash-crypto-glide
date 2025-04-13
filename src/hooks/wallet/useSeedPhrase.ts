@@ -1,21 +1,16 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { generateWalletsFromSeed } from '@/utils/hdWallet';
+import { toast } from '@/hooks/use-toast';
 
 /**
- * Hook for managing seed phrase operations
+ * Hook for managing user seed phrase
  */
 export const useSeedPhrase = (userId?: string) => {
   const [seedPhrase, setSeedPhrase] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
 
-  /**
-   * Fetches a user's seed phrase
-   */
   const fetchSeedPhrase = async (password: string): Promise<string | null> => {
     if (!userId) {
       setError("User not authenticated");
@@ -31,8 +26,6 @@ export const useSeedPhrase = (userId?: string) => {
     setError(null);
 
     try {
-      console.log("Fetching seed phrase for user:", userId);
-      
       // Fetch the seed phrase through the Supabase edge function
       const { data, error } = await supabase.functions.invoke('get-seed-phrase', {
         method: 'POST',
@@ -47,7 +40,6 @@ export const useSeedPhrase = (userId?: string) => {
         throw new Error("No seed phrase found for this user");
       }
 
-      console.log("Seed phrase retrieved successfully");
       setSeedPhrase(data.seedPhrase);
       return data.seedPhrase;
     } catch (err) {
@@ -65,18 +57,15 @@ export const useSeedPhrase = (userId?: string) => {
     }
   };
 
-  /**
-   * Clear seed phrase from memory
-   */
   const clearSeedPhrase = () => {
     setSeedPhrase(null);
   };
-  
+
   return {
     seedPhrase,
     loading,
     error,
     fetchSeedPhrase,
-    clearSeedPhrase,
+    clearSeedPhrase
   };
 };
