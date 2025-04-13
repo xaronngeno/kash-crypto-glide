@@ -16,4 +16,5 @@ export interface Asset {
     logo: string;
   };
   networks?: Record<string, { address: string, balance: number }>;
+  walletType?: string; // Added wallet type property
 }
