@@ -7,7 +7,7 @@ export {
   deriveSolAddress,
   getOrCreateSeedPhrase 
 } from "./crypto-utils.ts";
-export { generateHDWallets } from "./hd-wallet.ts";
+export { generateHDWallets } from "./hd-wallet-core.ts";
 export { 
   createEthereumWallet,
   createSolanaWallet,
