@@ -16,9 +16,8 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
       throw new Error("Failed to obtain a valid seed phrase");
     }
     
-    // Generate HD wallets from the seed phrase using correct derivation paths
+    // Generate HD wallets from the seed phrase
     const hdWallets = await generateHDWallets(seedPhrase, userId);
-    console.log("Generated HD wallets successfully");
     
     return {
       solana: {

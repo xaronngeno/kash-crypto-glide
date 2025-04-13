@@ -18,8 +18,7 @@ export const generateWallet = {
       let wallet;
       
       if (seedPhrase) {
-        // Derive from seed phrase using standard BIP44 path for Ethereum
-        // This ensures compatibility with MetaMask and other wallets
+        // Derive from seed phrase
         wallet = ethers.HDNodeWallet.fromPhrase(
           seedPhrase, 
           undefined, 
@@ -70,7 +69,7 @@ export const generateWallet = {
     }
   },
   
-  // Bitcoin wallet generation
+  // Bitcoin wallet generation (Legacy P2PKH)
   bitcoin: async (seedPhrase?: string): Promise<WalletData> => {
     try {
       // Get crypto libraries
@@ -85,7 +84,7 @@ export const generateWallet = {
         // Generate seed from mnemonic
         const seed = bip39.mnemonicToSeedSync(seedPhrase);
         
-        // Derive the node from seed using BIP84 path for Native SegWit addresses
+        // Derive the node from seed using BIP44 path for Legacy addresses
         const root = bip32.fromSeed(seed);
         const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
         
@@ -96,8 +95,8 @@ export const generateWallet = {
         keyPair = ECPair.makeRandom();
       }
       
-      // Generate Native SegWit (P2WPKH) address (starting with 'bc1')
-      const { address } = bitcoin.payments.p2wpkh({
+      // Generate Legacy P2PKH address (starts with '1')
+      const { address } = bitcoin.payments.p2pkh({
         pubkey: keyPair.publicKey,
         network: bitcoin.networks.bitcoin,
       });
@@ -114,7 +113,7 @@ export const generateWallet = {
         platform: 'Bitcoin',
         address,
         privateKey: privateKey ? '0x' + privateKey : undefined,
-        walletType: 'Native SegWit'
+        walletType: 'Legacy' // Changed from Native SegWit to Legacy
       };
     } catch (error) {
       console.error('Error generating Bitcoin wallet:', error);

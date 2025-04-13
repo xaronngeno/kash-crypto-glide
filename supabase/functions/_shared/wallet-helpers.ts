@@ -1,16 +1,14 @@
 
 import * as ethers from "https://esm.sh/ethers@6.13.5";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { generateHDWallets as generateWallets } from "./hd-wallet-core.ts";
+import { generateHDWallets } from "./hd-wallet-core.ts";
 
 /**
- * Generate a consistent BIP39 mnemonic
- * This ensures the same mnemonic generates the same addresses
+ * Generate a BIP39 mnemonic
  */
 export function generateMnemonic() {
   try {
     // Use ethers to generate a valid BIP39 mnemonic
-    // This creates a 12-word phrase with 128 bits of entropy
     const wallet = ethers.Wallet.createRandom();
     if (!wallet.mnemonic || !wallet.mnemonic.phrase) {
       throw new Error("Failed to generate valid mnemonic");
@@ -25,12 +23,9 @@ export function generateMnemonic() {
 
 /**
  * Get or create a seed phrase for a user
- * This ensures consistent wallet addresses across sessions
  */
 export async function getOrCreateSeedPhrase(supabase: any, userId: string): Promise<string> {
   try {
-    console.log(`Getting or creating seed phrase for user ${userId}`);
-    
     // Check if user already has a stored seed phrase
     const { data: existingMnemonic, error: fetchError } = await supabase
       .from('user_mnemonics')
@@ -73,7 +68,6 @@ export async function getOrCreateSeedPhrase(supabase: any, userId: string): Prom
 
 /**
  * Generate HD wallets for a user
- * Use the imported function for consistency
  */
 export async function generateHDWallets(seedPhrase: string, userId: string) {
   try {
@@ -85,7 +79,7 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
     }
     
     // Now proceed with wallet generation
-    return await generateWallets(seedPhrase, userId);
+    return await generateHDWallets(seedPhrase, userId);
   } catch (error) {
     console.error("Error generating HD wallets:", error);
     throw error;

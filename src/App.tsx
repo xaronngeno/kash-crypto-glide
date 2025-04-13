@@ -28,115 +28,110 @@ import AdminAssignIds from "./pages/AdminAssignIds";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 
-// Initialize the query client with proper configuration
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false
-    }
-  }
-});
+// Initialize the query client outside of the component
+const queryClient = new QueryClient();
 
-const App = () => {
+const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Auth verification callback route */}
-            <Route path="/auth/callback" element={<Navigate to="/dashboard" replace />} />
-            
-            {/* User app routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/receive" element={
-              <ProtectedRoute>
-                <Receive />
-              </ProtectedRoute>
-            } />
-            <Route path="/send" element={
-              <ProtectedRoute>
-                <Send />
-              </ProtectedRoute>
-            } />
-            <Route path="/buy" element={
-              <ProtectedRoute>
-                <Buy />
-              </ProtectedRoute>
-            } />
-            <Route path="/swap" element={
-              <ProtectedRoute>
-                <SwapCrypto />
-              </ProtectedRoute>
-            } />
-            <Route path="/mpesa" element={
-              <ProtectedRoute>
-                <SellUsdt />
-              </ProtectedRoute>
-            } />
-            <Route path="/sell-usdt" element={
-              <ProtectedRoute>
-                <SellUsdt />
-              </ProtectedRoute>
-            } />
-            <Route path="/search" element={
-              <ProtectedRoute>
-                <SearchCrypto />
-              </ProtectedRoute>
-            } />
-            <Route path="/coin/:coinId" element={
-              <ProtectedRoute>
-                <CoinDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/history" element={
-              <ProtectedRoute>
-                <History />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="/transaction-confirmation" element={
-              <ProtectedRoute>
-                <TransactionConfirmation />
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin routes with AdminRoute protection */}
-            <Route path="/admin" element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            } />
-            <Route path="/admin/users" element={
-              <AdminRoute>
-                <AdminUsers />
-              </AdminRoute>
-            } />
-            <Route path="/admin/assign-ids" element={
-              <AdminRoute>
-                <AdminAssignIds />
-              </AdminRoute>
-            } />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          {/* Place Toasters after the Routes to ensure they are available throughout the app */}
-          <Toaster />
-          <Sonner />
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              
+              {/* Auth verification callback route */}
+              <Route path="/auth/callback" element={<Navigate to="/dashboard" replace />} />
+              
+              {/* User app routes */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/receive" element={
+                <ProtectedRoute>
+                  <Receive />
+                </ProtectedRoute>
+              } />
+              <Route path="/send" element={
+                <ProtectedRoute>
+                  <Send />
+                </ProtectedRoute>
+              } />
+              <Route path="/buy" element={
+                <ProtectedRoute>
+                  <Buy />
+                </ProtectedRoute>
+              } />
+              <Route path="/swap" element={
+                <ProtectedRoute>
+                  <SwapCrypto />
+                </ProtectedRoute>
+              } />
+              <Route path="/mpesa" element={
+                <ProtectedRoute>
+                  <SellUsdt />
+                </ProtectedRoute>
+              } />
+              <Route path="/sell-usdt" element={
+                <ProtectedRoute>
+                  <SellUsdt />
+                </ProtectedRoute>
+              } />
+              <Route path="/search" element={
+                <ProtectedRoute>
+                  <SearchCrypto />
+                </ProtectedRoute>
+              } />
+              <Route path="/coin/:coinId" element={
+                <ProtectedRoute>
+                  <CoinDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/history" element={
+                <ProtectedRoute>
+                  <History />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="/transaction-confirmation" element={
+                <ProtectedRoute>
+                  <TransactionConfirmation />
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin routes with AdminRoute protection */}
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              } />
+              <Route path="/admin/users" element={
+                <AdminRoute>
+                  <AdminUsers />
+                </AdminRoute>
+              } />
+              <Route path="/admin/assign-ids" element={
+                <AdminRoute>
+                  <AdminAssignIds />
+                </AdminRoute>
+              } />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            {/* Place Toasters after the Routes to ensure they are available throughout the app */}
+            <Toaster />
+            <Sonner />
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </React.StrictMode>
   );
 };
 
