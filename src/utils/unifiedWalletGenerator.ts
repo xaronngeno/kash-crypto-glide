@@ -7,6 +7,8 @@ import { Keypair } from '@solana/web3.js';
 import * as bs58 from './bs58Wrapper';
 import { getECPairFactory } from './ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
+import { mnemonicToSeedSync } from 'bip39';
+import { derivePath } from 'ed25519-hd-key';
 
 // Define the derivation paths following BIP-44 standards
 const DERIVATION_PATHS = {
@@ -69,24 +71,17 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       privateKey: ethHdNode.privateKey
     });
     
-    // Generate Solana wallet using ed25519 curve from the same seed
+    // Generate Solana wallet using proper ed25519 derivation
     try {
-      // Get the seed from mnemonic
-      const mnemonicObj = ethers.Mnemonic.fromPhrase(mnemonic);
-      const seed = mnemonicObj.computeSeed();
+      // Convert mnemonic to seed using BIP39
+      console.log('Generating Solana wallet with proper ed25519 derivation');
+      const seed = mnemonicToSeedSync(mnemonic);
       
-      // Use HDNodeWallet.fromMnemonic with the Solana path to derive a consistent seed
-      const solanaSeedNode = ethers.HDNodeWallet.fromMnemonic(
-        mnemonicObj,
-        DERIVATION_PATHS.SOLANA
-      );
+      // Derive the Solana key using ed25519-hd-key with the correct path
+      const derived = derivePath(DERIVATION_PATHS.SOLANA, seed).key;
       
-      // Extract private key bytes (remove 0x prefix)
-      const privateKeyBytes = Buffer.from(solanaSeedNode.privateKey.slice(2), 'hex');
-      
-      // Create Solana keypair using the first 32 bytes of the private key bytes
-      // This is compatible with how Phantom and other Solana wallets derive their keypair
-      const keypair = Keypair.fromSeed(privateKeyBytes.slice(0, 32));
+      // Create a proper ed25519 keypair from the derived seed
+      const keypair = Keypair.fromSeed(new Uint8Array(derived));
       
       wallets.push({
         blockchain: "Solana",
@@ -95,7 +90,7 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
         privateKey: Buffer.from(keypair.secretKey).toString('hex')
       });
       
-      console.log("Generated Solana wallet successfully");
+      console.log("Generated Solana wallet successfully with ed25519 derivation");
     } catch (error) {
       console.error("Failed to generate Solana wallet:", error);
     }
@@ -150,10 +145,6 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
         DERIVATION_PATHS.TRON
       );
       
-      // Derive Tron address using their address format
-      // Tron addresses start with 'T' followed by a base58 encoded hash
-      // For this implementation we'll create a compatible address format
-      
       // Extract the private key (remove 0x prefix)
       const privateKeyBytes = Buffer.from(tronHdNode.privateKey.slice(2), 'hex');
       
@@ -162,12 +153,6 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       const ethAddress = tronHdNode.address; // Get the Ethereum-format address
       
       // Convert Ethereum address to Tron format (simplified)
-      // In real implementation, use TronWeb's fromHex function
-      // For now, we'll create a T-prefixed address based on the Ethereum address
-      const tronAddressHex = "41" + ethAddress.slice(2);
-      
-      // Typically this would be base58 encoded, but we'll use a simplified approach
-      // In a real implementation, use the full TronWeb package
       const tronAddress = "T" + ethAddress.slice(3, 37);
       
       wallets.push({

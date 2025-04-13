@@ -2,16 +2,28 @@
 import { Keypair } from '@solana/web3.js';
 import { Buffer } from '../globalPolyfills';
 import { WalletData } from '../walletGenerators';
+import { mnemonicToSeedSync } from 'bip39';
+import { derivePath } from 'ed25519-hd-key';
+
+// Standard derivation path for Solana wallets using BIP44
+const SOLANA_DERIVATION_PATH = "m/44'/501'/0'/0'";
 
 /**
  * Generate a Solana wallet using deterministic derivation (when a seed is provided)
  * or randomly if no seed is provided
  */
-export const generateSolanaWallet = (privateKeyHex?: string): WalletData => {
+export const generateSolanaWallet = (privateKeyHex?: string, seedPhrase?: string): WalletData => {
   try {
     let keypair: Keypair;
     
-    if (privateKeyHex) {
+    if (seedPhrase) {
+      // Derive Solana keypair from seed phrase using proper ed25519 derivation
+      console.log("Generating Solana wallet from seed phrase with ed25519 derivation");
+      const seed = mnemonicToSeedSync(seedPhrase);
+      const derived = derivePath(SOLANA_DERIVATION_PATH, seed).key;
+      keypair = Keypair.fromSeed(new Uint8Array(derived));
+      console.log("Created Solana wallet from seed phrase with proper derivation");
+    } else if (privateKeyHex) {
       // Convert hex string to Uint8Array for Solana keypair
       // For ed25519, we need the full 64-byte secret key (32 bytes private + 32 bytes public)
       // If we have just the 32-byte private key, we need to create a proper secret key

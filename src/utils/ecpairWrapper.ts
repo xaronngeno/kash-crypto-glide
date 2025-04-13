@@ -33,26 +33,8 @@ export const getECPairFactory = async (ecc: any) => {
   
   while (Date.now() - startTime < timeout) {
     if (isBufferInitialized()) {
-      // First check if it's a default export situation
-      if (ecpairLib.default && typeof ecpairLib.default === 'function') {
-        console.log('Using default export for ECPairFactory');
-        return ecpairLib.default(ecc);
-      }
-      
-      // If not, it might be a named export or the function itself
-      if (typeof ecpairLib === 'function') {
-        console.log('Using direct function for ECPairFactory');
-        return (ecpairLib as any)(ecc);
-      }
-      
-      // Last resort - maybe it's a property
-      console.log('Using property for ECPairFactory');
-      const factory = (ecpairLib as any).ECPairFactory || ecpairLib;
-      if (typeof factory === 'function') {
-        return factory(ecc);
-      }
-      
-      throw new Error('Could not find a valid ECPairFactory function');
+      // Return the factory directly
+      return ecpairLib.ECPairFactory(ecc);
     }
     
     console.log('Waiting for Buffer to be available for ECPair...');
@@ -69,26 +51,8 @@ export const ECPairFactory = (ecc: any) => {
     throw new Error('Buffer is not properly initialized for ECPair');
   }
 
-  // First check if it's a default export situation
-  if (ecpairLib.default && typeof ecpairLib.default === 'function') {
-    console.log('Using default export for ECPairFactory');
-    return ecpairLib.default(ecc);
-  }
-  
-  // If not, it might be a named export or the function itself
-  if (typeof ecpairLib === 'function') {
-    console.log('Using direct function for ECPairFactory');
-    return (ecpairLib as any)(ecc);
-  }
-  
-  // Last resort - maybe it's a property
-  console.log('Using property for ECPairFactory');
-  const factory = (ecpairLib as any).ECPairFactory || ecpairLib;
-  if (typeof factory === 'function') {
-    return factory(ecc);
-  }
-  
-  throw new Error('Could not find a valid ECPairFactory function');
+  // Return the factory directly
+  return ecpairLib.ECPairFactory(ecc);
 };
 
 // Also provide default export

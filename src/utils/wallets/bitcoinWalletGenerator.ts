@@ -22,7 +22,7 @@ export const generateBitcoinWallet = async (privateKeyHex?: string): Promise<Wal
       const bitcoinLib = await getBitcoin();
       console.log('Bitcoin library loaded successfully:', !!bitcoinLib);
       
-      // Initialize ECPair with explicit Buffer checks using the async version
+      // Initialize ECPair with explicit Buffer checks using the fixed async version
       console.log('Initializing ECPair');
       const ECPair = await getECPairFactory(ecc);
       console.log('ECPair initialized successfully');
