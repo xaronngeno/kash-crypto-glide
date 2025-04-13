@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Asset } from '@/types/assets';
 import { useAuth } from '@/components/AuthProvider';
@@ -12,11 +11,10 @@ import { toast } from '@/hooks/use-toast';
 import { CryptoPrices } from '@/hooks/useCryptoPrices';
 
 interface UseWalletsProps {
-  prices: CryptoPrices; // Updated to use the imported type
+  prices: CryptoPrices;
   skipInitialLoad?: boolean;
 }
 
-// Global cache to store asset data across component instances
 const globalAssetCache: {
   assets: Asset[];
   timestamp: number;
@@ -25,7 +23,6 @@ const globalAssetCache: {
   timestamp: 0
 };
 
-// Cache duration in milliseconds (10 minutes)
 const CACHE_DURATION = 10 * 60 * 1000;
 
 export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps) => {
@@ -35,27 +32,21 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
   const [refreshCounter, setRefreshCounter] = useState(0);
   const { user, session } = useAuth();
   
-  // Track wallet creation status
   const { walletsCreated, markWalletsAsCreated } = useWalletCreationStatus();
   
-  // Get the wallet processor
   const { processWallets } = useWalletProcessor(prices);
   
-  // Flag to prevent multiple wallet creation attempts
   const walletCreationAttempted = useRef(false);
-  // Flag to track if initial load has been done
   const initialLoadDone = useRef(globalAssetCache.assets.length > 0);
   
-  // Function to manually reload wallet data
   const reload = useCallback(() => {
     setLoading(true);
     setRefreshCounter(prev => prev + 1);
   }, []);
-  
-  // Update asset prices when prices change
+
   useEffect(() => {
     if (!prices || Object.keys(prices).length === 0 || assets.length === 0) {
-      return; // Skip if no prices or assets
+      return;
     }
       
     const updatedAssets = assets.map(asset => {
@@ -66,7 +57,6 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
           price: priceData.price,
           change: priceData.change_24h,
           value: asset.amount * priceData.price,
-          // Update logo and name if available from price data
           logo: priceData.logo || asset.logo,
           name: priceData.name || asset.name,
           platform: priceData.platform || asset.platform
@@ -77,20 +67,16 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
     
     setAssets(updatedAssets);
     
-    // Update global cache with new prices
     globalAssetCache.assets = updatedAssets;
     globalAssetCache.timestamp = Date.now();
   }, [prices]); 
 
-  // Fetch user assets with a small delay to allow UI to render first
   useEffect(() => {
-    // Skip if no user or session
     if (!user || !session?.access_token) {
       console.log("No user or session available");
       return;
     }
     
-    // Skip loading if we have cached assets and skipInitialLoad is true
     const now = Date.now();
     const cacheIsValid = (now - globalAssetCache.timestamp) < CACHE_DURATION;
     
@@ -101,12 +87,10 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
       return;
     }
     
-    // Prevent multiple simultaneous API calls
     if (initialLoadDone.current && !refreshCounter) {
       return;
     }
     
-    // Small timeout to let React render first
     const timeoutId = setTimeout(async () => {
       setError(null);
       if (!skipInitialLoad || !cacheIsValid || globalAssetCache.assets.length === 0) {
@@ -114,7 +98,6 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
       }
       
       try {
-        // Fetch wallet balances
         const wallets = await fetchWalletBalances({
           userId: user.id,
           onError: (err) => {
@@ -130,7 +113,6 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
         if (!wallets || wallets.length === 0) {
           console.log("No wallets found, creating initial wallets");
           
-          // Only create wallets once and only if not created before
           if (!walletsCreated && !walletCreationAttempted.current) {
             walletCreationAttempted.current = true;
             
@@ -141,28 +123,23 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
                 const processedAssets = processWallets(newWallets);
                 setAssets(processedAssets);
                 
-                // Update global cache
                 globalAssetCache.assets = processedAssets;
                 globalAssetCache.timestamp = Date.now();
               }
             } catch (createError) {
               console.error("Error creating wallets:", createError);
-              // Don't show toast here as the fetchWalletBalances already shows one
             }
           }
           
           return;
         }
         
-        // Process the wallet data into assets
         const processedAssets = processWallets(wallets);
         setAssets(processedAssets);
         initialLoadDone.current = true;
         
-        // Update global cache
         globalAssetCache.assets = processedAssets;
         globalAssetCache.timestamp = Date.now();
-        
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error";
         console.error('Error in useWallets:', errorMessage);
@@ -170,7 +147,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
       } finally {
         setLoading(false);
       }
-    }, 10); // Small delay
+    }, 10);
     
     return () => clearTimeout(timeoutId);
   }, [user?.id, session, processWallets, walletsCreated, markWalletsAsCreated, refreshCounter, skipInitialLoad]); 

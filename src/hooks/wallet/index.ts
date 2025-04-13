@@ -6,4 +6,4 @@ export * from './useWalletProcessor';
 export * from './useWalletCleanup';
 
 // Export createUserWallets for backward compatibility
-export { useWalletManager } from './useWalletManager';
+export { useWalletManager, createUserWallets } from './useWalletManager';

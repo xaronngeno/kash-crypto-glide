@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,6 +6,58 @@ import { WalletData } from '@/utils/walletConfig';
 
 // Flag to prevent multiple wallet creation attempts
 let walletCreationInProgress = false;
+
+// Helper function to transform DB wallet to WalletData format
+const transformWallet = (dbWallet: any): WalletData => {
+  return {
+    blockchain: dbWallet.blockchain,
+    platform: dbWallet.blockchain, // Use blockchain as platform if not specified
+    address: dbWallet.address || '', // Provide empty string if address not available
+    // Optional fields are left undefined
+  };
+};
+
+export const createUserWallets = async (userId: string): Promise<WalletData[] | null> => {
+  if (!userId) return null;
+  
+  try {
+    console.log("Creating wallets for user:", userId);
+    
+    // First check if user already has wallets to avoid duplicates
+    const { data: existingWallets, error: checkError } = await supabase
+      .from('wallets')
+      .select('id, blockchain, address, currency')
+      .eq('user_id', userId);
+      
+    if (checkError) {
+      console.error("Error checking existing wallets:", checkError);
+      throw new Error(`Failed to check existing wallets: ${checkError.message}`);
+    }
+    
+    if (existingWallets && existingWallets.length > 0) {
+      console.log(`User already has ${existingWallets.length} wallets, skipping creation`);
+      // Transform DB wallets to WalletData format
+      return existingWallets.map(wallet => transformWallet(wallet));
+    }
+    
+    // Only proceed with wallet creation if no wallets exist
+    const { data, error } = await supabase.functions.invoke('create-wallets', {
+      method: 'POST',
+      body: { userId }
+    });
+    
+    if (error) {
+      throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
+    }
+    
+    console.log("Wallets created successfully:", data);
+    return data.wallets || [];
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
+    console.error("Error creating wallets:", errorMessage);
+    return null;
+  }
+};
 
 export const useWalletManager = (userId?: string) => {
   const [seedPhrase, setSeedPhrase] = useState<string | null>(null);
@@ -34,7 +85,7 @@ export const useWalletManager = (userId?: string) => {
       // First check if user already has wallets to avoid duplicates
       const { data: existingWallets, error: checkError } = await supabase
         .from('wallets')
-        .select('id, blockchain, currency')
+        .select('id, blockchain, address, currency')
         .eq('user_id', userId);
         
       if (checkError) {
@@ -44,7 +95,8 @@ export const useWalletManager = (userId?: string) => {
       
       if (existingWallets && existingWallets.length > 0) {
         console.log(`User already has ${existingWallets.length} wallets, skipping creation`);
-        return existingWallets;
+        // Transform DB wallets to WalletData format
+        return existingWallets.map(wallet => transformWallet(wallet));
       }
       
       // Only proceed with wallet creation if no wallets exist
