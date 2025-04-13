@@ -23,46 +23,24 @@ export async function createMissingWallets(
     // Generate HD wallets to ensure consistent addresses
     const hdWallets = await generateUserHDWallets(supabase, userId);
     
-    if (!hasSol || !hasUsdtSol) {
-      if (!hasSol) {
-        await insertWalletIntoDb(
-          supabase, 
-          userId, 
-          'Solana', 
-          'SOL', 
-          hdWallets.solana.address, 
-          hdWallets.solana.private_key, 
-          'imported'
-        );
-        
-        addedWallets.push({
-          blockchain: 'Solana',
-          currency: 'SOL',
-          address: hdWallets.solana.address,
-          balance: 0,
-          wallet_type: 'imported'
-        });
-      }
+    if (!hasSol) {
+      await insertWalletIntoDb(
+        supabase, 
+        userId, 
+        'Solana', 
+        'SOL', 
+        hdWallets.solana.address, 
+        hdWallets.solana.private_key, 
+        'imported'
+      );
       
-      if (!hasUsdtSol) {
-        await insertWalletIntoDb(
-          supabase, 
-          userId, 
-          'Solana', 
-          'USDT', 
-          hdWallets.solana.address, 
-          null, 
-          'token'
-        );
-        
-        addedWallets.push({
-          blockchain: 'Solana',
-          currency: 'USDT',
-          address: hdWallets.solana.address,
-          balance: 0,
-          wallet_type: 'token'
-        });
-      }
+      addedWallets.push({
+        blockchain: 'Solana',
+        currency: 'SOL',
+        address: hdWallets.solana.address,
+        balance: 0,
+        wallet_type: 'imported'
+      });
     }
     
     if (!hasBtcSegwit) {

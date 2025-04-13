@@ -2,7 +2,7 @@
 import { insertWalletIntoDb } from './wallet-insert.ts';
 
 /**
- * Insert Ethereum wallet and token into database
+ * Insert Ethereum wallet into database (without token)
  */
 export async function createEthereumWallets(
   supabase: any, 
@@ -11,7 +11,7 @@ export async function createEthereumWallets(
   privateKey: string
 ) {
   try {
-    // Create Ethereum wallet and tokens
+    // Create only Ethereum native wallet (no tokens)
     await insertWalletIntoDb(
       supabase, 
       userId, 
@@ -30,25 +30,7 @@ export async function createEthereumWallets(
       wallet_type: 'imported'
     };
     
-    await insertWalletIntoDb(
-      supabase, 
-      userId, 
-      'Ethereum', 
-      'USDT', 
-      address, 
-      null, 
-      'token'
-    );
-    
-    const usdtWallet = {
-      blockchain: 'Ethereum',
-      currency: 'USDT',
-      address: address,
-      balance: 0,
-      wallet_type: 'token'
-    };
-    
-    return [ethWallet, usdtWallet];
+    return [ethWallet];
   } catch (error) {
     console.error("Error creating Ethereum wallets:", error);
     return [];
@@ -56,7 +38,7 @@ export async function createEthereumWallets(
 }
 
 /**
- * Insert Solana wallet and token into database
+ * Insert Solana wallet into database (without token)
  */
 export async function createSolanaWallets(
   supabase: any, 
@@ -65,7 +47,7 @@ export async function createSolanaWallets(
   privateKey: string
 ) {
   try {
-    // Create Solana wallet and tokens
+    // Create only Solana native wallet (no tokens)
     await insertWalletIntoDb(
       supabase, 
       userId, 
@@ -84,25 +66,7 @@ export async function createSolanaWallets(
       wallet_type: 'imported'
     };
     
-    await insertWalletIntoDb(
-      supabase, 
-      userId, 
-      'Solana', 
-      'USDT', 
-      address, 
-      null, 
-      'token'
-    );
-    
-    const usdtSolWallet = {
-      blockchain: 'Solana',
-      currency: 'USDT',
-      address: address,
-      balance: 0,
-      wallet_type: 'token'
-    };
-    
-    return [solWallet, usdtSolWallet];
+    return [solWallet];
   } catch (error) {
     console.error("Error creating Solana wallets:", error);
     return [];

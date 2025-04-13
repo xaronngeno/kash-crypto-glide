@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 import * as ethers from "https://esm.sh/ethers@6.13.5";
@@ -274,7 +273,7 @@ async function createUserWallets(supabase: any, userId: string) {
     // Create wallet objects to insert - only create what's needed
     const wallets = [];
 
-    // 1. Create Bitcoin wallets if they don't exist - ONLY SegWit to reduce duplicates
+    // 1. Create Bitcoin wallet if it doesn't exist - ONLY SegWit
     if (!existingWalletKeys.has("Bitcoin-BTC-Native SegWit")) {
       try {
         console.log("Creating Bitcoin SegWit wallet");
@@ -306,20 +305,7 @@ async function createUserWallets(supabase: any, userId: string) {
           wallet_type: "imported",
           balance: 0,
         });
-        
-        // Also create USDT wallet on Ethereum with the same address if it doesn't exist
-        if (!existingWalletKeys.has("Ethereum-USDT")) {
-          wallets.push({
-            user_id: userId,
-            blockchain: "Ethereum",
-            currency: "USDT",
-            address: hdWallets.ethereum.address,
-            private_key: null,
-            wallet_type: "token",
-            balance: 0,
-          });
-        }
-        console.log("Created ETH and USDT (ERC20) wallets");
+        console.log("Created ETH wallet");
       } catch (ethError) {
         console.error("Error creating ETH wallet:", ethError);
       }
@@ -338,20 +324,7 @@ async function createUserWallets(supabase: any, userId: string) {
           wallet_type: "imported",
           balance: 0,
         });
-        
-        // Add USDT on Solana (SPL token) if it doesn't exist
-        if (!existingWalletKeys.has("Solana-USDT")) {
-          wallets.push({
-            user_id: userId,
-            blockchain: "Solana",
-            currency: "USDT",
-            address: hdWallets.solana.address,
-            private_key: null,
-            wallet_type: "token",
-            balance: 0,
-          });
-        }
-        console.log("Created SOL wallet and USDT (SPL) wallet");
+        console.log("Created SOL wallet");
       } catch (solError) {
         console.error("Error creating SOL wallet:", solError);
       }
@@ -396,7 +369,6 @@ async function createUserWallets(supabase: any, userId: string) {
     } else {
       throw new Error("No wallets were created");
     }
-
   } catch (error) {
     console.error("Error in createUserWallets function:", error);
     return { success: false, error: error.message };

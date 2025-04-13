@@ -50,13 +50,12 @@ function processWalletBalances(wallets) {
 
 function checkWalletTypes(wallets) {
   const hasSol = wallets.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
-  const hasUsdtSol = wallets.some(w => w.currency === 'USDT' && w.blockchain === 'Solana');
   const hasBtcSegwit = wallets.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Native SegWit');
   
-  console.log(`Has SOL wallet: ${hasSol}, Has USDT on Solana: ${hasUsdtSol}`);
+  console.log(`Has SOL wallet: ${hasSol}`);
   console.log(`Has BTC SegWit: ${hasBtcSegwit}`);
   
-  return { hasSol, hasUsdtSol, hasBtcSegwit };
+  return { hasSol, hasUsdtSol: true, hasBtcSegwit };
 }
 
 function filterTaprootWallets(wallets) {
@@ -179,17 +178,17 @@ serve(async (req: Request) => {
 
     const walletsWithBalances = processWalletBalances(wallets);
     
-    const { hasSol, hasUsdtSol, hasBtcSegwit } = checkWalletTypes(walletsWithBalances);
+    const { hasSol, hasBtcSegwit } = checkWalletTypes(walletsWithBalances);
     
     const noTaprootWallets = filterTaprootWallets(walletsWithBalances);
     
-    if (!hasSol || !hasUsdtSol || !hasBtcSegwit) {
+    if (!hasSol || !hasBtcSegwit) {
       try {
         const createMissingWalletsPromise = createMissingWallets(
           supabase, 
           userId, 
           hasSol, 
-          hasUsdtSol, 
+          true,
           hasBtcSegwit
         );
         
