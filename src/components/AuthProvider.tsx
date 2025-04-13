@@ -65,7 +65,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Check if there's a hash that might contain auth parameters
       if (window.location.hash && window.location.hash.includes('access_token')) {
         try {
-          const { data, error } = await supabase.auth.getSessionFromUrl();
+          // Using setSession method instead of getSessionFromUrl which doesn't exist
+          const { data, error } = await supabase.auth.getSession();
+          
           if (error) {
             console.error('Error parsing hash URL:', error);
           } else if (data.session) {
