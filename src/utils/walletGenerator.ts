@@ -1,11 +1,11 @@
-
 import { Buffer } from './globalPolyfills';
 import { ethers } from 'ethers';
 import { getBitcoin } from './bitcoinjsWrapper';
 import { Keypair } from '@solana/web3.js';
+import * as bs58 from './bs58Wrapper';
 import { getECPairFactory } from './ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
-import { mnemonicToSeedSync } from 'bip39';
+import * as bip39 from 'bip39';
 import { derivePath } from 'ed25519-hd-key';
 
 // Define the derivation paths following BIP-44 standards
@@ -156,19 +156,15 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Walle
     try {
       // Convert mnemonic to seed using BIP39
       console.log('Generating Solana wallet with proper ed25519 derivation');
-      const seed = mnemonicToSeedSync(mnemonic);
-      
-      // Derive the Solana key using ed25519-hd-key with the correct path
-      const derived = derivePath(DERIVATION_PATHS.SOLANA, seed).key;
-      
-      // Create a proper ed25519 keypair from the derived seed
-      const keypair = Keypair.fromSeed(new Uint8Array(derived));
-      
+      const seed = bip39.mnemonicToSeedSync(mnemonic);
+      const solDerivation = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
+      const keypair = Keypair.fromSeed(solDerivation.key);
+
       wallets.push({
         blockchain: "Solana",
         platform: "Solana",
         address: keypair.publicKey.toBase58(),
-        privateKey: Buffer.from(keypair.secretKey).toString('hex')
+        privateKey: bs58.encode(keypair.secretKey)
       });
       
       console.log("Generated Solana wallet successfully with ed25519 derivation");
@@ -285,7 +281,7 @@ export const generateSolanaWallet = (privateKeyHex?: string, seedPhrase?: string
       // Derive Solana keypair from seed phrase using proper ed25519 derivation
       console.log("Generating Solana wallet from seed phrase with ed25519 derivation");
       const seed = mnemonicToSeedSync(seedPhrase);
-      const derived = derivePath(DERIVATION_PATHS.SOLANA, seed).key;
+      const derived = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex')).key;
       keypair = Keypair.fromSeed(new Uint8Array(derived));
       console.log("Created Solana wallet from seed phrase with proper derivation");
     } else if (privateKeyHex) {
