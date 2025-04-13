@@ -8,16 +8,19 @@ import { WalletData } from '@/utils/walletConfig';
 let walletCreationInProgress = false;
 
 // Helper function to transform DB wallet to WalletData format
-const transformWallet = (dbWallet: any): WalletData => {
-  return {
-    blockchain: dbWallet.blockchain,
-    platform: dbWallet.blockchain, // Use blockchain as platform if not specified
-    address: dbWallet.address || '', // Provide empty string if address not available
-    // Optional fields are left undefined
-  };
-};
+const transformWallet = (wallet: { 
+  id: string; 
+  blockchain: string; 
+  currency: string;
+  address?: string;
+}): WalletData => ({
+  blockchain: wallet.blockchain,
+  platform: wallet.blockchain,
+  address: wallet.address || '', // Provide a default empty string if no address
+  privateKey: undefined // We don't expose private keys on the frontend
+});
 
-export const createUserWallets = async (userId: string): Promise<WalletData[] | null> => {
+export const createUserWallets = async (userId: string): Promise<WalletData[]> => {
   if (!userId) return null;
   
   try {
@@ -51,7 +54,9 @@ export const createUserWallets = async (userId: string): Promise<WalletData[] | 
     }
     
     console.log("Wallets created successfully:", data);
-    return data.wallets || [];
+    // Transform the created wallets to match WalletData type
+    const completeWallets = data.wallets.map(transformWallet);
+    return completeWallets;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
     console.error("Error creating wallets:", errorMessage);
