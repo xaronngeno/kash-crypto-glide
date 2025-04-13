@@ -136,21 +136,36 @@ export async function deriveSolanaWallet(seedPhrase: string, path = DERIVATION_P
       key = hmacArray.slice(0, 32);
       chainCode = hmacArray.slice(32);
     }
+
+    // Generate Base58 encoded public key (simulating Solana address)
+    // This is a simplified version just to get a deterministic string
+    // In the frontend, the actual Solana SDK will be used to derive the proper address
+    const pubKeyBytes = Array.from(key.slice(0, 32));
     
-    // The final 32 bytes of key is our Solana private key
-    const privateKey = Buffer.from(key).toString('hex');
+    // Simple base58 encoding for the address (simplified)
+    const baseAlphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    let address = "";
+    let num = BigInt(0);
     
-    // For the address, we'd need to use the Solana SDK in a real implementation
-    // Here, we'll return a placeholder that will be replaced when used with the Solana SDK
+    for (let i = 0; i < pubKeyBytes.length; i++) {
+      num = (num * 256n) + BigInt(pubKeyBytes[i]);
+    }
+    
+    while (num > 0n) {
+      const mod = Number(num % 58n);
+      num = num / 58n;
+      address = baseAlphabet[mod] + address;
+    }
+    
+    // Add leading 1s for leading zeros (simplified)
+    for (let i = 0; i < pubKeyBytes.length && pubKeyBytes[i] === 0; i++) {
+      address = '1' + address;
+    }
+    
+    // The final privateKey will be used by the frontend to derive the actual Solana address
     return {
-      privateKey,
-      deriveFullAddress: async () => {
-        // In the frontend, this will be processed with the Solana SDK
-        return {
-          address: "PLACEHOLDER_SOLANA_ADDRESS", // Will be replaced by actual derived address
-          privateKey
-        };
-      }
+      address, // Will be replaced by the proper derivation on frontend
+      privateKey: Buffer.from(key).toString('hex')
     };
   } catch (error) {
     console.error("Error deriving Solana wallet:", error);

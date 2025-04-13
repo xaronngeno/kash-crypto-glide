@@ -24,14 +24,9 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
     const ethereum = deriveEthereumWallet(seedPhrase);
     
     // Derive Solana wallet - but handle the async nature properly
-    const solanaResult = await deriveSolanaWallet(seedPhrase);
-    // Create a placeholder wallet that will be replaced on the frontend
-    const solana = {
-      address: "PLACEHOLDER_SOLANA_ADDRESS",
-      privateKey: solanaResult.privateKey
-    };
+    const solana = await deriveSolanaWallet(seedPhrase);
     
-    // Derive Bitcoin SegWit wallet
+    // Derive Bitcoin Legacy wallet (BIP44)
     const bitcoinSegwit = deriveBitcoinWallet(seedPhrase);
     
     // Return all wallets together with the mnemonic

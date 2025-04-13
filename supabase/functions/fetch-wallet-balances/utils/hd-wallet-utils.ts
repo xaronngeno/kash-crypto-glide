@@ -19,23 +19,14 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
     // Generate HD wallets from the seed phrase
     const hdWallets = await generateHDWallets(seedPhrase, userId);
     
-    // Create placeholder Solana address that will be replaced by frontend
-    const solanaWallet = {
-      address: "PLACEHOLDER_SOLANA_ADDRESS", // Will be replaced on frontend with actual derivation
-      private_key: hdWallets.solana.privateKey
-    };
-    
-    const wallets = {
-      solana: solanaWallet,
+    return {
+      solana: {
+        address: hdWallets.solana.address,
+        private_key: hdWallets.solana.privateKey
+      },
       ethereum: hdWallets.ethereum,
       bitcoinSegwit: hdWallets.bitcoinSegwit
     };
-    
-    console.log("Generated HD wallets with addresses:");
-    console.log("- Ethereum:", hdWallets.ethereum.address);
-    console.log("- Bitcoin:", hdWallets.bitcoinSegwit.address);
-    
-    return wallets;
   } catch (error) {
     console.error("Error generating HD wallets:", error);
     throw error;
