@@ -150,9 +150,9 @@ export async function deriveSolanaWallet(seedPhrase: string, path = DERIVATION_P
 
 /**
  * Derive a Bitcoin wallet from a seed phrase and path
- * Using BIP84 Native SegWit path by default for Phantom wallet compatibility
+ * Using BIP84 Native SegWit path by default for wallet compatibility
  */
-export function deriveBitcoinWallet(seedPhrase: string, path = DERIVATION_PATHS.BITCOIN_NATIVE_SEGWIT) {
+export function deriveBitcoinWallet(seedPhrase: string, path = DERIVATION_PATHS.BITCOIN_SEGWIT) {
   try {
     console.log(`Deriving Bitcoin wallet with path: ${path}`);
     
@@ -175,12 +175,9 @@ export function deriveBitcoinWallet(seedPhrase: string, path = DERIVATION_PATHS.
     // Generate a placeholder Bitcoin address format based on the path
     let btcAddress = "";
     
-    if (path === DERIVATION_PATHS.BITCOIN_NATIVE_SEGWIT) {
+    if (path === DERIVATION_PATHS.BITCOIN_SEGWIT) {
       // BIP84 Native SegWit (bc1 prefix)
       btcAddress = `bc1q${btcHdNode.address.slice(2, 34)}`;
-    } else if (path === DERIVATION_PATHS.BITCOIN_SEGWIT) {
-      // BIP49 SegWit-compatible (3 prefix)
-      btcAddress = `3${btcHdNode.address.slice(2, 34)}`;
     } else {
       // BIP44 Legacy (1 prefix)
       btcAddress = `1${btcHdNode.address.slice(2, 34)}`;

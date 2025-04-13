@@ -25,7 +25,7 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
       
       // Derive key using proper BIP84 path for Native SegWit addresses (bc1 prefix)
-      // This is what most modern wallets (including Phantom) use by default
+      // This is what most modern wallets use by default
       const bip32 = await getBip32();
       
       // Derive the node from seed using BIP84 Native SegWit path

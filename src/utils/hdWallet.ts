@@ -70,7 +70,7 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Walle
     }
     
     try {
-      // Generate Bitcoin wallet
+      // Generate Bitcoin wallet - always use Native SegWit now for consistency
       const btcWallet = await generateWallet.bitcoin(mnemonic);
       wallets.push(btcWallet);
     } catch (error) {
