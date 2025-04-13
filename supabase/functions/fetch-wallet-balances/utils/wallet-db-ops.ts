@@ -1,5 +1,5 @@
 
-import { insertWalletIntoDb } from '../../_shared/wallet-helpers.ts';
+import { insertWalletIntoDb } from './wallet-insert.ts';
 
 /**
  * Insert Ethereum wallet and token into database
