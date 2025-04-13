@@ -5,12 +5,10 @@ import * as bs58 from './bs58Wrapper';
 import * as bip39 from 'bip39';
 import { derivePath } from 'ed25519-hd-key';
 import { Buffer } from './globalPolyfills';
-import { getBitcoin } from './bitcoinjsWrapper';
-import { getBip32 } from './bip32Wrapper';
-import { getECPairFactory } from './ecpairWrapper';
+import { getCryptoLibs } from './cryptoWrappers';
 import * as ecc from 'tiny-secp256k1';
-import { DERIVATION_PATHS } from './constants/derivationPaths';
-import { WalletData } from './types/wallet';
+import { DERIVATION_PATHS, WalletData } from './walletConfig';
+import { generateWallet } from './wallets';
 
 /**
  * Generate all wallets for a user from a seed phrase
@@ -54,76 +52,26 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Walle
     
     const wallets: WalletData[] = [];
     
-    // Generate Ethereum wallet using standard BIP44 path
-    const ethHdNode = ethers.HDNodeWallet.fromMnemonic(
-      ethers.Mnemonic.fromPhrase(mnemonic),
-      DERIVATION_PATHS.ETHEREUM
-    );
-    
-    wallets.push({
-      blockchain: "Ethereum",
-      platform: "Ethereum",
-      address: ethHdNode.address,
-      privateKey: ethHdNode.privateKey
-    });
-    
-    // Generate Solana wallet using proper ed25519 derivation
     try {
-      // Convert mnemonic to seed using BIP39
-      console.log('Generating Solana wallet with proper ed25519 derivation');
-      const seed = bip39.mnemonicToSeedSync(mnemonic);
-      const solDerivation = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
-      const keypair = Keypair.fromSeed(Uint8Array.from(solDerivation.key));
-
-      wallets.push({
-        blockchain: "Solana",
-        platform: "Solana",
-        address: keypair.publicKey.toString(),
-        privateKey: Buffer.from(keypair.secretKey).toString('hex')
-      });
-      
-      console.log("Generated Solana wallet successfully with ed25519 derivation");
+      // Generate Ethereum wallet
+      const ethWallet = await generateWallet.ethereum(mnemonic);
+      wallets.push(ethWallet);
+    } catch (error) {
+      console.error("Failed to generate Ethereum wallet:", error);
+    }
+    
+    try {
+      // Generate Solana wallet
+      const solWallet = await generateWallet.solana(mnemonic);
+      wallets.push(solWallet);
     } catch (error) {
       console.error("Failed to generate Solana wallet:", error);
     }
     
-    // Generate Bitcoin wallet (Native SegWit - BIP84)
     try {
-      // Get bitcoinjs-lib
-      const bitcoin = await getBitcoin();
-      
-      // Get bip32 separately
-      const bip32 = await getBip32();
-      
-      // Generate seed from mnemonic
-      const seed = bip39.mnemonicToSeedSync(mnemonic);
-      
-      // Derive the BIP84 path for SegWit
-      const root = bip32.fromSeed(seed);
-      const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
-      
-      // Get ECPair factory
-      const ECPair = await getECPairFactory(ecc);
-      const keyPair = ECPair.fromPrivateKey(node.privateKey);
-      
-      // Generate a P2WPKH (Native SegWit) address
-      const { address } = bitcoin.payments.p2wpkh({
-        pubkey: keyPair.publicKey,
-        network: bitcoin.networks.bitcoin
-      });
-      
-      if (!address) {
-        throw new Error("Failed to generate Bitcoin address");
-      }
-      
-      wallets.push({
-        blockchain: "Bitcoin",
-        platform: "Bitcoin",
-        address: address,
-        privateKey: '0x' + node.privateKey.toString('hex'),
-        walletType: "Native SegWit"
-      });
-      console.log("Generated Bitcoin wallet successfully");
+      // Generate Bitcoin wallet
+      const btcWallet = await generateWallet.bitcoin(mnemonic);
+      wallets.push(btcWallet);
     } catch (error) {
       console.error("Failed to generate Bitcoin wallet:", error);
     }

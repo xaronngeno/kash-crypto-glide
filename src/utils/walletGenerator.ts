@@ -1,9 +1,7 @@
 
-import { Buffer } from './globalPolyfills';
-import { WalletData } from './types/wallet';
-import { generateSolanaWallet } from './wallets/solana';
-import { generateEthWallet } from './wallets/ethereum';
-import { generateBitcoinWallet } from './wallets/bitcoin';
+// Unified wallet generator entry point file
+import { WalletData } from './walletConfig';
+import { generateWallet } from './wallets';
 import { 
   generateUnifiedWallets, 
   generateWalletsFromSeed, 
@@ -37,16 +35,18 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
     
     try {
       // Add Solana wallet
-      wallets.push(generateSolanaWallet());
+      const solanaWallet = await generateWallet.solana();
+      wallets.push(solanaWallet);
       
       // Add Ethereum wallet
-      wallets.push(generateEthWallet('Ethereum', 'Ethereum'));
+      const ethereumWallet = await generateWallet.ethereum();
+      wallets.push(ethereumWallet);
       
       // Add Bitcoin wallet (Native SegWit only)
       try {
         console.log('Attempting to generate Bitcoin wallet');
-        const segwitWallet = await generateBitcoinWallet();
-        wallets.push(segwitWallet);
+        const bitcoinWallet = await generateWallet.bitcoin();
+        wallets.push(bitcoinWallet);
         console.log('Successfully generated Bitcoin wallet');
       } catch (bitcoinError) {
         console.error('Failed to generate Bitcoin wallet:', bitcoinError);
@@ -68,7 +68,5 @@ export {
   extractSeedPhrase,
   generateUnifiedWallets,
   generateWalletsFromSeedPhrase,
-  generateSolanaWallet,
-  generateEthWallet,
-  generateBitcoinWallet
+  generateWallet
 };
