@@ -1,6 +1,7 @@
 
 /**
  * Retrieve or store a seed phrase for a user
+ * With improved conflict handling
  */
 export async function manageUserMnemonic(supabase: any, userId: string, seedPhrase: string | undefined): Promise<string | undefined> {
   try {
@@ -16,18 +17,23 @@ export async function manageUserMnemonic(supabase: any, userId: string, seedPhra
     }
     
     if (existingMnemonic?.main_mnemonic) {
+      console.log("Found existing mnemonic for user, returning it");
       return existingMnemonic.main_mnemonic;
     }
     
     // Only store seed phrase if it doesn't exist and we have one to store
     if (seedPhrase) {
-      // Store the mnemonic
-      const { error: mnemonicError } = await supabase
+      // Use upsert with onConflict to handle potential race conditions
+      const { data: inserted, error: mnemonicError } = await supabase
         .from('user_mnemonics')
-        .insert({
+        .upsert({
           user_id: userId,
           main_mnemonic: seedPhrase
-        });
+        }, {
+          onConflict: 'user_id',
+          ignoreDuplicates: true
+        })
+        .select();
         
       if (mnemonicError) {
         console.error("Error storing mnemonic:", mnemonicError);
