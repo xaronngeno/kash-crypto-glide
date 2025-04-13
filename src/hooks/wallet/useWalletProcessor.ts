@@ -30,6 +30,8 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
           value: (parseFloat(wallet.balance as any) || 0) * (priceData?.price || 0),
+          // Add the icon property derived from the symbol
+          icon: symbol.slice(0, 1),
           platform: priceData?.platform || { name: wallet.blockchain, logo: `/placeholder.svg` },
           walletType: wallet.wallet_type,
         };
