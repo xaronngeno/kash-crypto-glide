@@ -21,10 +21,10 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
     }
     
     // Derive Ethereum wallet
-    const ethereum = deriveEthereumWallet(seedPhrase);
+    const ethereum = deriveEthereumWallet(seedPhrase, DERIVATION_PATHS.ETHEREUM);
     
     // Derive Solana wallet - but handle the async nature properly
-    const solana = await deriveSolanaWallet(seedPhrase);
+    const solana = await deriveSolanaWallet(seedPhrase, DERIVATION_PATHS.SOLANA);
     
     // Derive Bitcoin Native SegWit wallet (bc1 prefix)
     // Changed from BIP44 Legacy to BIP84 Native SegWit for Phantom wallet compatibility
