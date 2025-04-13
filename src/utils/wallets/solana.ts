@@ -5,7 +5,7 @@ import * as bs58 from '../bs58Wrapper';
 import * as bip39 from 'bip39';
 import { derivePath } from 'ed25519-hd-key';
 import { DERIVATION_PATHS } from '../constants/derivationPaths';
-import { WalletData } from '../types/wallet';
+import { WalletData } from '../walletConfig';
 
 // Generate a Solana wallet using proper derivation
 export const generateSolanaWallet = (seedPhrase?: string): WalletData => {

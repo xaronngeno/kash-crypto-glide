@@ -60,7 +60,7 @@ export const generateWallet = {
         blockchain: 'Solana',
         platform: 'Solana',
         address: keypair.publicKey.toString(),
-        privateKey: Buffer.from(keypair.secretKey).toString('hex')
+        privateKey: bs58.encode(keypair.secretKey)
       };
     } catch (error) {
       console.error('Error generating Solana wallet:', error);
