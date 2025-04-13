@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, QrCode, Info, Wallet, ArrowRight, Search } from 'lucide-react';
@@ -349,338 +350,266 @@ const Receive = () => {
       try {
         setLoading(true);
         console.log("Fetching wallet addresses for user:", user.id);
-        
-        const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
+
+        const { data: wallets, error } = await supabase.functions.invoke('fetch-wallet-balances', {
           method: 'POST',
           body: { userId: user.id }
         });
         
         if (error) {
-          throw error;
+          throw new Error(`Failed to fetch wallet balances: ${error.message}`);
         }
-
-        if (data && data.success && data.wallets && data.wallets.length > 0) {
-          console.log("Fetched wallet addresses:", data.wallets);
+        
+        if (wallets && wallets.success && wallets.wallets && wallets.wallets.length > 0) {
+          console.log("Fetched wallet addresses:", wallets.wallets);
           
-          const btcWallets = data.wallets.filter(w => w.currency === 'BTC');
+          // Check if user has Bitcoin wallets specifically
+          const btcWallets = wallets.wallets.filter(w => w.currency === 'BTC');
           console.log("BTC wallets found:", btcWallets);
+          console.log("Has Bitcoin BTC:", btcWallets.length > 0);
           
-          const addresses: WalletAddress[] = data.wallets.map(wallet => ({
+          const addresses: WalletAddress[] = wallets.wallets.map(wallet => ({
             blockchain: wallet.blockchain,
             symbol: wallet.currency,
             address: wallet.address,
+            wallet_type: wallet.wallet_type,
             logo: getCurrencyLogo(wallet.currency)
           }));
-          
-          const hasBitcoinBTC = addresses.some(
-            wallet => wallet.symbol === 'BTC' && wallet.blockchain === 'Bitcoin'
-          );
-          
-          console.log("Has Bitcoin BTC:", hasBitcoinBTC);
-          
-          if (!hasBitcoinBTC) {
-            console.log("Missing Bitcoin tokens, creating wallets");
-            await createWallets();
-            return;
-          }
           
           setWalletAddresses(addresses);
           setNoWalletsFound(false);
         } else {
-          console.log("No wallets found for user, attempting to create wallets");
-          await createWallets();
+          console.log("No wallets found, showing create wallet option");
+          setNoWalletsFound(true);
         }
       } catch (error) {
         console.error("Error fetching wallet addresses:", error);
-        toast({
-          title: "Error fetching wallets",
-          description: "There was a problem loading your wallets. Please try again later.",
-          variant: "destructive"
-        });
         setNoWalletsFound(true);
-        setWalletAddresses([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchWalletAddresses();
-  }, [user, toast]);
+  }, [user]);
 
-  if (loading) {
-    return (
-      <MainLayout title="Receive" showBack>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-pulse text-center">
-            <p className="text-gray-600">Loading your wallets...</p>
+  // Render functions for different steps
+  const renderSelectCoin = () => (
+    <div className="space-y-6">
+      <div className="relative">
+        <div className="relative">
+          <KashInput
+            placeholder="Search coins"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+        </div>
+      </div>
+      
+      {loading ? (
+        <div className="py-10 text-center">
+          <div className="animate-pulse flex flex-col items-center">
+            <Wallet className="h-10 w-10 text-gray-300 mb-4" />
+            <p className="text-gray-500 font-medium">Loading your wallets...</p>
           </div>
         </div>
-      </MainLayout>
-    );
-  }
+      ) : noWalletsFound ? (
+        <div className="py-8 text-center">
+          <Wallet className="h-10 w-10 mx-auto text-gray-400 mb-4" />
+          <h3 className="font-medium text-lg mb-2">No wallets found</h3>
+          <p className="text-gray-500 mb-4">You need to create wallets before receiving crypto.</p>
+          <KashButton 
+            onClick={createWallets}
+            loading={creatingWallets}
+            disabled={creatingWallets}
+          >
+            Create Wallets
+          </KashButton>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2">
+          {filterTokens(availableTokens).length > 0 ? (
+            filterTokens(availableTokens).map((token) => (
+              <KashCard
+                key={token.id}
+                onClick={() => handleTokenSelect(token)} 
+                className="flex items-center p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                <Avatar className="h-10 w-10 mr-3">
+                  <AvatarImage src={token.logo} alt={token.name} />
+                  <AvatarFallback>{token.icon}</AvatarFallback>
+                </Avatar>
+                <div className="flex-grow">
+                  <h3 className="font-medium">{token.name}</h3>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {token.networks?.map(network => (
+                      <NetworkBadge key={network} network={network} />
+                    ))}
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-gray-400" />
+              </KashCard>
+            ))
+          ) : (
+            <div className="py-8 text-center">
+              <p className="text-gray-500">No coins match your search</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
-  if (creatingWallets) {
-    return (
-      <MainLayout title="Receive" showBack>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-pulse text-center">
-            <p className="text-gray-600">Creating your wallets...</p>
+  const renderSelectNetwork = () => (
+    <div className="space-y-6">
+      <KashCard className="p-4 flex items-center mb-4">
+        <Avatar className="h-10 w-10 mr-3">
+          <AvatarImage src={selectedToken?.logo} alt={selectedToken?.name} />
+          <AvatarFallback>{selectedToken?.icon}</AvatarFallback>
+        </Avatar>
+        <div className="flex-grow">
+          <h3 className="font-medium">{selectedToken?.name}</h3>
+        </div>
+      </KashCard>
+      
+      <h3 className="font-medium text-lg">Select Network</h3>
+      <p className="text-gray-500 text-sm">Choose which network you want to receive {selectedToken?.symbol} on</p>
+      
+      <div className="grid grid-cols-1 gap-2 mt-4">
+        {selectedToken?.networks?.map((network) => (
+          <KashCard
+            key={network}
+            onClick={() => handleNetworkSelect(network)} 
+            className="flex items-center p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+          >
+            <Avatar className="h-10 w-10 mr-3">
+              <AvatarImage src={getNetworkLogo(network)} alt={network} />
+              <AvatarFallback>{network.substring(0, 1)}</AvatarFallback>
+            </Avatar>
+            <div className="flex-grow">
+              <h3 className="font-medium">{network}</h3>
+            </div>
+            <ArrowRight className="h-5 w-5 text-gray-400" />
+          </KashCard>
+        ))}
+      </div>
+      
+      <div className="flex justify-center mt-4">
+        <KashButton variant="outline" onClick={resetFlow}>
+          Back
+        </KashButton>
+      </div>
+    </div>
+  );
+
+  const renderViewAddress = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="font-medium text-lg">Receive {selectedToken?.symbol}</h3>
+        <Select
+          value={selectedNetwork || undefined}
+          onValueChange={(value) => handleNetworkSelect(value)}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Network" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {selectedToken?.networks?.map((network) => (
+                <SelectItem key={network} value={network}>{network}</SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="bg-white rounded-xl border p-4">
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center">
+            <Avatar className="h-8 w-8 mr-2">
+              <AvatarImage src={selectedToken?.logo} alt={selectedToken?.name} />
+              <AvatarFallback>{selectedToken?.icon}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-medium">{selectedToken?.symbol}</h3>
+              <NetworkBadge network={selectedNetwork || ''} className="mt-1" />
+              {selectedWallet?.wallet_type && (
+                <WalletTypeBadge type={selectedWallet.wallet_type} className="ml-1" />
+              )}
+            </div>
+          </div>
+          <KashButton 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowQR(!showQR)}
+          >
+            {showQR ? 'Hide QR' : 'Show QR'}
+            <QrCode className="ml-1 h-4 w-4" />
+          </KashButton>
+        </div>
+        
+        {showQR && (
+          <div className="flex justify-center my-6 bg-white p-4 rounded-lg border">
+            <QRCodeSVG
+              value={selectedWallet?.address || ''}
+              size={200}
+              level="H"
+              includeMargin
+              className="max-w-full"
+            />
+          </div>
+        )}
+        
+        <div className="bg-gray-50 rounded-lg p-3 break-all font-mono text-sm relative">
+          {selectedWallet?.address}
+          <button
+            onClick={() => copyToClipboard(selectedWallet?.address || '')}
+            className="absolute right-2 top-3 text-gray-500 hover:text-gray-800"
+            title="Copy to clipboard"
+          >
+            <Copy className="h-4 w-4" />
+          </button>
+        </div>
+        
+        <div className="mt-6 flex flex-col space-y-2">
+          <div className="bg-yellow-50 rounded-lg p-3 flex items-start">
+            <Info className="text-yellow-600 h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-yellow-600">
+              <span className="font-semibold">Important:</span> Only send {selectedToken?.symbol} on the {selectedNetwork} network to this address. Sending other cryptocurrencies may result in permanent loss.
+            </div>
           </div>
         </div>
-      </MainLayout>
-    );
-  }
+      </div>
+      
+      <div className="flex justify-center">
+        <KashButton variant="outline" onClick={resetFlow}>
+          Back to Coins
+        </KashButton>
+      </div>
+    </div>
+  );
 
-  if (noWalletsFound) {
-    return (
-      <MainLayout title="Receive" showBack>
-        <div className="flex flex-col items-center justify-center h-64 text-center">
-          <div className="bg-amber-50 p-4 rounded-lg border border-amber-100 w-full">
-            <h3 className="font-medium text-amber-700 mb-2">No Wallets Found</h3>
-            <p className="text-amber-700 text-sm mb-4">
-              Your account doesn't have any wallets set up yet.
-            </p>
-            <KashButton 
-              onClick={createWallets} 
-              disabled={creatingWallets}
-            >
-              Create My Wallets
-            </KashButton>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
+  // Render the current step
+  const renderCurrentStep = () => {
+    switch (currentStep) {
+      case ReceiveStep.SELECT_COIN:
+        return renderSelectCoin();
+      case ReceiveStep.SELECT_NETWORK:
+        return renderSelectNetwork();
+      case ReceiveStep.VIEW_ADDRESS:
+        return renderViewAddress();
+      default:
+        return renderSelectCoin();
+    }
+  };
 
   return (
-    <MainLayout title="Receive" showBack>
-      <div className="space-y-6">
-        <div className="text-center mb-4">
-          <h2 className="text-xl font-semibold mb-1">Receive Crypto</h2>
-          {currentStep === ReceiveStep.SELECT_COIN && (
-            <p className="text-gray-600">Select a cryptocurrency to receive</p>
-          )}
-          {currentStep === ReceiveStep.SELECT_NETWORK && (
-            <p className="text-gray-600">Select network for {selectedToken?.symbol}</p>
-          )}
-          {currentStep === ReceiveStep.VIEW_ADDRESS && (
-            <p className="text-gray-600">
-              {selectedToken?.symbol} address on {selectedNetwork}
-            </p>
-          )}
-        </div>
-
-        {currentStep === ReceiveStep.SELECT_COIN && (
-          <KashCard className="p-5">
-            <div className="mb-4">
-              <div className="relative mb-4">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search size={16} className="text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Search cryptocurrencies..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {filterTokens(availableTokens).map((token) => (
-                  <div
-                    key={token.id}
-                    className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                    onClick={() => handleTokenSelect(token)}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={token.logo} alt={token.name} />
-                        <AvatarFallback>{token.symbol[0]}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-medium">{token.symbol}</h3>
-                        <p className="text-sm text-gray-500">{token.name}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      {prices[token.symbol] && (
-                        <span className="text-sm text-gray-500 mr-2">
-                          ${prices[token.symbol].price.toLocaleString()}
-                        </span>
-                      )}
-                      <ArrowRight size={18} className="text-gray-400" />
-                    </div>
-                  </div>
-                ))}
-                
-                {filterTokens(availableTokens).length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No cryptocurrencies found matching "{searchTerm}"
-                  </div>
-                )}
-              </div>
-            </div>
-          </KashCard>
-        )}
-
-        {currentStep === ReceiveStep.SELECT_NETWORK && selectedToken && (
-          <KashCard className="p-5">
-            <div className="flex items-center mb-6">
-              <KashButton 
-                variant="ghost" 
-                size="sm" 
-                onClick={resetFlow}
-                className="mr-2"
-              >
-                Back
-              </KashButton>
-              
-              <div className="flex items-center">
-                <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src={selectedToken.logo} alt={selectedToken.symbol} />
-                  <AvatarFallback>{selectedToken.symbol[0]}</AvatarFallback>
-                </Avatar>
-                <h3 className="font-medium">{selectedToken.symbol}</h3>
-              </div>
-            </div>
-
-            <h3 className="font-medium mb-3">Select Network</h3>
-            <div className="space-y-2">
-              {selectedToken.networks?.map((network) => (
-                <div
-                  key={network}
-                  className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleNetworkSelect(network)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={getNetworkLogo(network)} alt={network} />
-                      <AvatarFallback>{network[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex items-center">
-                      <h3 className="font-medium">{network}</h3>
-                      <NetworkBadge network={network} className="ml-2" />
-                    </div>
-                  </div>
-                  <ArrowRight size={18} className="text-gray-400" />
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-4 bg-blue-50 p-3 rounded-lg">
-              <div className="flex items-start">
-                <Info size={18} className="text-blue-500 mr-2 mt-0.5" />
-                <p className="text-sm text-blue-700">
-                  Make sure to select the correct network. Sending assets on the wrong network may result in permanent loss.
-                </p>
-              </div>
-            </div>
-          </KashCard>
-        )}
-
-        {currentStep === ReceiveStep.VIEW_ADDRESS && selectedWallet && (
-          <KashCard className="p-5">
-            <div className="flex items-center mb-6">
-              <KashButton 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setCurrentStep(ReceiveStep.SELECT_NETWORK)}
-                className="mr-2"
-              >
-                Back
-              </KashButton>
-              
-              <div className="flex items-center">
-                <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src={selectedWallet.logo} alt={selectedWallet.symbol} />
-                  <AvatarFallback>{selectedWallet.symbol[0]}</AvatarFallback>
-                </Avatar>
-                <div className="flex items-center">
-                  <h3 className="font-medium mr-2">{selectedWallet.symbol}</h3>
-                  <NetworkBadge network={selectedWallet.blockchain} />
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className="inline-block mb-3">
-                <NetworkBadge network={selectedWallet.blockchain} />
-              </div>
-              {showQR ? (
-                <div className="mb-4 flex justify-center">
-                  <div className="p-4 bg-white rounded-lg border border-gray-100 shadow-sm">
-                    <QRCodeSVG 
-                      value={selectedWallet.address}
-                      size={180}
-                      level="H"
-                      includeMargin={true}
-                      className="w-full h-full"
-                    />
-                    <div className="mt-2 text-xs text-center">
-                      <NetworkBadge network={selectedWallet.blockchain} />
-                      <p className="text-gray-500 mt-1 break-all px-2">
-                        {selectedWallet.address}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="bg-gray-50 p-4 rounded-lg mb-4 relative">
-                    <div className="absolute top-0 right-0 mt-2 mr-2 flex">
-                      <NetworkBadge network={selectedWallet.blockchain} />
-                    </div>
-                    <p className="break-all text-sm font-mono border-gray-100 pt-4">
-                      {selectedWallet.address}
-                    </p>
-                  </div>
-                </>
-              )}
-              
-              <div className="flex space-x-2">
-                <KashButton 
-                  variant="outline"
-                  fullWidth
-                  icon={<Copy size={18} />}
-                  onClick={() => copyToClipboard(selectedWallet.address)}
-                >
-                  Copy
-                </KashButton>
-                <KashButton 
-                  variant="outline"
-                  fullWidth
-                  icon={<QrCode size={18} />}
-                  onClick={() => setShowQR(!showQR)}
-                >
-                  {showQR ? "Hide QR" : "Show QR"}
-                </KashButton>
-              </div>
-            </div>
-            
-            <div className="mt-6 bg-yellow-50 p-4 rounded-lg border border-yellow-100">
-              <h4 className="font-medium text-amber-700 flex items-center mb-1">
-                <Info size={16} className="mr-1" />
-                Important Network Information
-              </h4>
-              <ul className="text-sm text-amber-700 space-y-1 list-disc pl-5">
-                <li>Only send {selectedWallet.symbol} on the <strong>{selectedWallet.blockchain}</strong> network to this address</li>
-                <li>Sending any other cryptocurrency or using the wrong network may result in permanent loss</li>
-                <li>Always verify the entire address before sending any funds</li>
-              </ul>
-            </div>
-            
-            <div className="mt-4">
-              <KashButton 
-                variant="outline"
-                fullWidth
-                onClick={resetFlow}
-              >
-                Receive Different Coin
-              </KashButton>
-            </div>
-          </KashCard>
-        )}
+    <MainLayout>
+      <div className="max-w-xl mx-auto px-4 py-6">
+        <h1 className="text-2xl font-bold mb-6">Receive Crypto</h1>
+        {renderCurrentStep()}
       </div>
     </MainLayout>
   );
