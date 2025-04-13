@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -11,6 +12,27 @@ interface FetchWalletsOptions {
 
 // Keep track of previous wallet data to provide fallback
 let cachedWallets: any[] | null = null;
+
+/**
+ * Deduplicates wallets based on blockchain and currency
+ */
+const deduplicateWallets = (wallets: any[]): any[] => {
+  if (!wallets || wallets.length === 0) return [];
+  
+  const uniqueWalletsMap = new Map<string, any>();
+  
+  wallets.forEach(wallet => {
+    const walletKey = `${wallet.blockchain}-${wallet.currency}`;
+    
+    if (!uniqueWalletsMap.has(walletKey) || 
+        (wallet.updated_at && uniqueWalletsMap.get(walletKey).updated_at && 
+         new Date(wallet.updated_at) > new Date(uniqueWalletsMap.get(walletKey).updated_at))) {
+      uniqueWalletsMap.set(walletKey, wallet);
+    }
+  });
+  
+  return Array.from(uniqueWalletsMap.values());
+};
 
 /**
  * Fetches wallet balances from the Supabase edge function
@@ -96,17 +118,18 @@ export const fetchWalletBalances = async ({
       return [];
     }
 
-    const wallets = data.wallets;
-    console.log(`Successfully fetched ${wallets.length} wallets`);
+    // Deduplicate the wallets
+    const uniqueWallets = deduplicateWallets(data.wallets);
+    console.log(`Successfully fetched ${data.wallets.length} wallets, deduplicated to ${uniqueWallets.length}`);
     
     // Cache the successful response for potential fallback
-    cachedWallets = wallets;
+    cachedWallets = uniqueWallets;
     
     if (onSuccess) {
-      onSuccess(wallets);
+      onSuccess(uniqueWallets);
     }
     
-    return wallets;
+    return uniqueWallets;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown wallet fetch error";
     console.error('Error fetching wallets:', errorMessage);

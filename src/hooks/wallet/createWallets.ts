@@ -25,19 +25,20 @@ export const createUserWallets = async (userId: string): Promise<any[] | null> =
     // First check if user already has wallets to avoid duplicates
     const { data: existingWallets, error: checkError } = await supabase
       .from('wallets')
-      .select('id')
-      .eq('user_id', userId)
-      .limit(1);
+      .select('id, blockchain, currency')
+      .eq('user_id', userId);
       
     if (checkError) {
       console.error("Error checking existing wallets:", checkError);
+      throw new Error(`Failed to check existing wallets: ${checkError.message}`);
     }
     
     if (existingWallets && existingWallets.length > 0) {
-      console.log("User already has wallets, skipping creation");
+      console.log(`User already has ${existingWallets.length} wallets, skipping creation`);
       return existingWallets;
     }
     
+    // Only proceed with wallet creation if no wallets exist
     const { data, error } = await supabase.functions.invoke('create-wallets', {
       method: 'POST',
       body: { userId }

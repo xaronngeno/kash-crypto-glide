@@ -1,4 +1,3 @@
-
 import { Asset } from '@/types/assets';
 import { CryptoPrices } from '@/hooks/useCryptoPrices';
 
@@ -14,24 +13,26 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
       return [];
     }
     
-    // Track processed wallets with a local set to avoid maintaining state between calls
-    // This ensures proper deduplication within a single processing batch
-    const processedWalletKeys = new Set<string>();
+    // Create a more robust deduplication mechanism using a Map
+    // This ensures we only keep one wallet per blockchain/currency combination
+    const uniqueWalletsMap = new Map<string, any>();
     
-    // Create a deduplication key for each wallet and filter out duplicates
-    const uniqueWallets = wallets.filter(wallet => {
-      // Create a unique key combining blockchain, currency and address
-      const walletKey = `${wallet.blockchain}-${wallet.currency}-${wallet.address}`;
+    // Process wallets and keep only the most recent entry for each blockchain/currency pair
+    wallets.forEach(wallet => {
+      // Create a unique key combining blockchain and currency
+      const walletKey = `${wallet.blockchain}-${wallet.currency}`;
       
-      if (processedWalletKeys.has(walletKey)) {
-        // Skip this wallet if we've already processed it in this batch
-        return false;
+      // If this wallet type doesn't exist in our map yet, or if this wallet has a more recent update_at timestamp
+      // than the one in our map, use this wallet
+      if (!uniqueWalletsMap.has(walletKey) || 
+          (wallet.updated_at && uniqueWalletsMap.get(walletKey).updated_at && 
+           new Date(wallet.updated_at) > new Date(uniqueWalletsMap.get(walletKey).updated_at))) {
+        uniqueWalletsMap.set(walletKey, wallet);
       }
-      
-      // Add to processed set
-      processedWalletKeys.add(walletKey);
-      return true;
     });
+    
+    // Convert the Map values to an array
+    const uniqueWallets = Array.from(uniqueWalletsMap.values());
     
     console.log(`Processing ${uniqueWallets.length} unique wallets out of ${wallets.length} total`);
     
