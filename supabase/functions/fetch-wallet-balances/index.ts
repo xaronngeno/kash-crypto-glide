@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -29,7 +30,7 @@ async function fetchUserWallets(supabase: any, userId: string) {
 
   const { data: wallets, error: walletsError } = await supabase
     .from('wallets')
-    .select('blockchain, currency, address, balance, wallet_type')
+    .select('blockchain, currency, address, balance, wallet_type, updated_at')
     .eq('user_id', userId);
   
   if (walletsError) {
@@ -54,8 +55,27 @@ function filterNativeWallets(wallets: any[]) {
   return nativeWallets;
 }
 
+function deduplicateWallets(wallets: any[]) {
+  const uniqueWalletsMap = new Map<string, any>();
+  
+  for (const wallet of wallets) {
+    const walletKey = `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type}`;
+    
+    if (!uniqueWalletsMap.has(walletKey) || 
+        (wallet.updated_at && uniqueWalletsMap.get(walletKey).updated_at && 
+         new Date(wallet.updated_at) > new Date(uniqueWalletsMap.get(walletKey).updated_at))) {
+      uniqueWalletsMap.set(walletKey, wallet);
+    }
+  }
+  
+  return Array.from(uniqueWalletsMap.values());
+}
+
 function processWalletBalances(wallets) {
-  return wallets.map(wallet => ({
+  const dedupedWallets = deduplicateWallets(wallets);
+  console.log(`Deduplicated ${wallets.length} wallets to ${dedupedWallets.length} unique wallets`);
+  
+  return dedupedWallets.map(wallet => ({
     ...wallet,
     balance: parseFloat(wallet.balance as any) || 0
   }));
@@ -121,6 +141,9 @@ serve(async (req: Request) => {
       wallets = await trackOperation(fetchUserWallets(supabase, userId));
       
       wallets = filterNativeWallets(wallets);
+      
+      // Deduplicate wallets before processing
+      wallets = deduplicateWallets(wallets);
       
       if (forceRefresh && wallets && wallets.length > 0) {
         console.log("Force refresh requested, checking blockchain explorers");
@@ -218,10 +241,13 @@ serve(async (req: Request) => {
           const addedWallets = await trackOperation(createMissingWalletsPromise);
           console.log(`Created ${addedWallets.length} missing wallets`);
           
-          addedWallets.forEach(wallet => {
+          // Deduplicate before adding to the response
+          const dedupedAddedWallets = deduplicateWallets(addedWallets);
+          
+          dedupedAddedWallets.forEach(wallet => {
             walletsWithBalances.push(wallet);
           });
-          missingWallets.push(...addedWallets);
+          missingWallets.push(...dedupedAddedWallets);
         }
       } catch (err) {
         console.error("Error handling missing wallet creation:", err);

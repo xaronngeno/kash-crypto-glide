@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -13,7 +14,7 @@ interface FetchWalletsOptions {
 let cachedWallets: any[] | null = null;
 
 /**
- * Deduplicates wallets based on blockchain and currency
+ * Deduplicates wallets based on blockchain, currency, and wallet_type
  */
 const deduplicateWallets = (wallets: any[]): any[] => {
   if (!wallets || wallets.length === 0) return [];
@@ -21,7 +22,8 @@ const deduplicateWallets = (wallets: any[]): any[] => {
   const uniqueWalletsMap = new Map<string, any>();
   
   wallets.forEach(wallet => {
-    const walletKey = `${wallet.blockchain}-${wallet.currency}`;
+    // Create a unique key using blockchain, currency and wallet_type
+    const walletKey = `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type}`;
     
     if (!uniqueWalletsMap.has(walletKey) || 
         (wallet.updated_at && uniqueWalletsMap.get(walletKey).updated_at && 

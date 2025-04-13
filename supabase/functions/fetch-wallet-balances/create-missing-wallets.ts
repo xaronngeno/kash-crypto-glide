@@ -1,91 +1,69 @@
 
+import { createEthereumWallets, createSolanaWallets, createBitcoinWallet } from './utils/wallet-db-ops.ts';
 import { generateUserHDWallets } from './utils/hd-wallet-utils.ts';
-import { insertWalletIntoDb } from './utils/wallet-insert.ts';
-import { ensureUserProfile } from './utils/profile-utils.ts';
 
 /**
- * Create missing wallets for a user that already has some wallets
+ * Create any missing wallets for a user if they don't have the complete set
  */
 export async function createMissingWallets(
-  supabase: any, 
-  userId: string, 
-  hasSol: boolean, 
+  supabase: any,
+  userId: string,
+  hasSol: boolean,
   hasEth: boolean,
   hasBtcSegwit: boolean
 ) {
-  console.log("Adding missing wallets");
-  const addedWallets = [];
-  
   try {
-    // First ensure user profile exists
-    await ensureUserProfile(supabase, userId);
-
-    // Generate HD wallets to ensure consistent addresses
-    const hdWallets = await generateUserHDWallets(supabase, userId);
+    console.log(`Creating missing wallets for user: ${userId}`);
+    console.log(`Current wallet status - SOL: ${hasSol}, ETH: ${hasEth}, BTC SegWit: ${hasBtcSegwit}`);
     
-    if (!hasSol) {
-      await insertWalletIntoDb(
-        supabase, 
-        userId, 
-        'Solana', 
-        'SOL', 
-        hdWallets.solana.address, 
-        hdWallets.solana.private_key, 
-        'imported'
-      );
-      
-      addedWallets.push({
-        blockchain: 'Solana',
-        currency: 'SOL',
-        address: hdWallets.solana.address,
-        balance: 0,
-        wallet_type: 'imported'
-      });
+    // If user has all wallets, nothing to do
+    if (hasSol && hasEth && hasBtcSegwit) {
+      console.log("User already has all required wallet types");
+      return [];
     }
     
+    // Generate HD wallets from the seed phrase
+    const hdWallets = await generateUserHDWallets(supabase, userId);
+    const createdWallets = [];
+    
+    // Only create wallets that don't exist yet
     if (!hasEth) {
-      await insertWalletIntoDb(
+      console.log("Creating missing Ethereum wallet");
+      const ethWallets = await createEthereumWallets(
         supabase, 
-        userId, 
-        'Ethereum', 
-        'ETH', 
+        userId,
         hdWallets.ethereum.address, 
-        hdWallets.ethereum.private_key, 
-        'imported'
+        hdWallets.ethereum.private_key
       );
-      
-      addedWallets.push({
-        blockchain: 'Ethereum',
-        currency: 'ETH',
-        address: hdWallets.ethereum.address,
-        balance: 0,
-        wallet_type: 'imported'
-      });
+      createdWallets.push(...ethWallets);
+    }
+    
+    if (!hasSol) {
+      console.log("Creating missing Solana wallet");
+      const solWallets = await createSolanaWallets(
+        supabase, 
+        userId,
+        hdWallets.solana.address, 
+        hdWallets.solana.private_key
+      );
+      createdWallets.push(...solWallets);
     }
     
     if (!hasBtcSegwit) {
-      await insertWalletIntoDb(
+      console.log("Creating missing Bitcoin SegWit wallet");
+      const btcWallet = await createBitcoinWallet(
         supabase, 
-        userId, 
-        'Bitcoin', 
-        'BTC', 
+        userId,
         hdWallets.bitcoinSegwit.address, 
-        hdWallets.bitcoinSegwit.private_key, 
-        'Native SegWit'
+        hdWallets.bitcoinSegwit.private_key
       );
-      
-      addedWallets.push({
-        blockchain: 'Bitcoin',
-        currency: 'BTC',
-        address: hdWallets.bitcoinSegwit.address,
-        balance: 0,
-        wallet_type: 'Native SegWit'
-      });
+      createdWallets.push(btcWallet);
     }
     
-    return addedWallets;
-  } catch (err) {
-    console.error("Error creating missing wallets:", err);
+    console.log(`Created ${createdWallets.length} missing wallets`);
+    return createdWallets;
+  } catch (error) {
+    console.error('Error creating missing wallets:', error);
     return [];
   }
 }
