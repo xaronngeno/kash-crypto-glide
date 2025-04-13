@@ -4,7 +4,7 @@ import { validateSeedPhrase } from "./base-utils.ts";
 
 /**
  * Derive a Bitcoin wallet from a seed phrase and path
- * Using BIP84 Native SegWit path by default for Phantom wallet compatibility
+ * Using a simplified approach for consistency
  */
 export function deriveBitcoinWallet(seedPhrase: string, path: string) {
   try {
@@ -15,31 +15,31 @@ export function deriveBitcoinWallet(seedPhrase: string, path: string) {
       throw new Error("Invalid or empty seed phrase");
     }
     
-    // Create HD wallet from mnemonic using specified derivation path
-    // This uses direct HD node derivation just like Ethereum
-    const btcHdNode = ethers.HDNodeWallet.fromPhrase(
-      seedPhrase,
-      undefined,
-      path
-    );
+    // Create HD wallet from mnemonic using ethers
+    const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase);
     
-    // Generate a Bitcoin address format based on the path
-    let btcAddress = "";
+    // Derive the key at the specified path
+    const derivedNode = hdNode.derivePath(path);
     
+    // Generate a placeholder Bitcoin address
+    // The actual formatting will be done on the frontend
+    let placeholderAddress = "";
+    
+    // Determine address format based on path
     if (path.startsWith("m/84'")) {
       // BIP84 Native SegWit (bc1 prefix)
-      btcAddress = `bc1q${btcHdNode.address.slice(2, 34)}`;
+      placeholderAddress = `bc1${derivedNode.address.slice(2, 34)}`;
     } else if (path.startsWith("m/49'")) {
       // BIP49 SegWit-compatible (3 prefix)
-      btcAddress = `3${btcHdNode.address.slice(2, 34)}`;
+      placeholderAddress = `3${derivedNode.address.slice(2, 34)}`;
     } else {
       // BIP44 Legacy (1 prefix)
-      btcAddress = `1${btcHdNode.address.slice(2, 34)}`;
+      placeholderAddress = `1${derivedNode.address.slice(2, 34)}`;
     }
     
     return {
-      address: btcAddress,
-      privateKey: btcHdNode.privateKey
+      address: placeholderAddress,
+      privateKey: derivedNode.privateKey
     };
   } catch (error) {
     console.error("Error deriving Bitcoin wallet:", error);
