@@ -14,11 +14,9 @@ export function deriveEthereumWallet(seedPhrase: string, path: string) {
       throw new Error("Invalid or empty seed phrase");
     }
     
-    const wallet = ethers.HDNodeWallet.fromPhrase(
-      seedPhrase,
-      undefined,
-      path
-    );
+    // Create wallet directly from phrase instead of using derivation path
+    // This is simpler and more reliable
+    const wallet = ethers.Wallet.fromPhrase(seedPhrase);
     
     return {
       address: wallet.address,

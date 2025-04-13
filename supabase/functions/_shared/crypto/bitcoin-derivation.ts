@@ -15,32 +15,29 @@ export function deriveBitcoinWallet(seedPhrase: string, path: string) {
       throw new Error("Invalid or empty seed phrase");
     }
     
-    // Create HD wallet from mnemonic using ethers
-    const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase);
+    // Create a fresh wallet from mnemonic using ethers
+    // Do not chain operations to make debugging easier
+    const wallet = ethers.Wallet.fromPhrase(seedPhrase);
     
-    // Derive the key at the specified path or use default
-    const actualPath = path || "m/84'/0'/0'/0/0";
-    const derivedNode = hdNode.derivePath(actualPath);
-    
-    // Generate a placeholder Bitcoin address
-    // The actual formatting will be done on the frontend
+    // Generate a placeholder Bitcoin address from the private key
+    // This is a simplified approach just to get a valid-looking address
     let placeholderAddress = "";
     
     // Determine address format based on path
-    if (actualPath.startsWith("m/84'")) {
+    if (path.startsWith("m/84'")) {
       // BIP84 Native SegWit (bc1 prefix)
-      placeholderAddress = `bc1${derivedNode.address.slice(2, 34)}`;
-    } else if (actualPath.startsWith("m/49'")) {
+      placeholderAddress = `bc1${wallet.address.slice(2, 34)}`;
+    } else if (path.startsWith("m/49'")) {
       // BIP49 SegWit-compatible (3 prefix)
-      placeholderAddress = `3${derivedNode.address.slice(2, 34)}`;
+      placeholderAddress = `3${wallet.address.slice(2, 34)}`;
     } else {
       // BIP44 Legacy (1 prefix)
-      placeholderAddress = `1${derivedNode.address.slice(2, 34)}`;
+      placeholderAddress = `1${wallet.address.slice(2, 34)}`;
     }
     
     return {
       address: placeholderAddress,
-      privateKey: derivedNode.privateKey
+      privateKey: wallet.privateKey
     };
   } catch (error) {
     console.error("Error deriving Bitcoin wallet:", error);

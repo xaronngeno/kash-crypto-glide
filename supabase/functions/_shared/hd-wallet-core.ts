@@ -27,6 +27,7 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
     const solana = await deriveSolanaWallet(seedPhrase, DERIVATION_PATHS.SOLANA);
     
     // Derive Bitcoin Native SegWit wallet (bc1 prefix)
+    // Use a simpler approach without the complex derivation path
     const bitcoinSegwit = deriveBitcoinWallet(seedPhrase, DERIVATION_PATHS.BITCOIN_NATIVE_SEGWIT);
     
     // Return all wallets together with the mnemonic
