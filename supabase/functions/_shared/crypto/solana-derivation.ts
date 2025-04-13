@@ -1,11 +1,12 @@
 
+import * as ethers from "https://esm.sh/ethers@6.13.5";
 import { validateSeedPhrase } from "./base-utils.ts";
 import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
-import { createPbkdf2Key, createHmacKey } from "./base-utils.ts";
+import { derivePath } from "https://esm.sh/ed25519-hd-key@1.3.0";
 
 /**
  * Derive a Solana wallet from a seed phrase and path
- * Using proper ed25519 derivation for Trust Wallet compatibility
+ * Using direct HD node derivation for consistency with Ethereum approach
  */
 export async function deriveSolanaWallet(seedPhrase: string, path: string) {
   try {
@@ -16,81 +17,22 @@ export async function deriveSolanaWallet(seedPhrase: string, path: string) {
       throw new Error("Invalid or empty seed phrase");
     }
     
-    // Convert mnemonic to seed using PBKDF2
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+    // Convert mnemonic to seed using ethers - consistent with Ethereum approach
+    const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase);
+    const seed = hdNode.seed;
     
-    const mnemonicBuffer = encoder.encode(seedPhrase.normalize('NFKD'));
-    const saltBuffer = encoder.encode('mnemonic');
-    
-    // PBKDF2 parameters
-    const iterations = 2048;
-    const keyLen = 64;
-    
-    // Create HMAC key for PBKDF2
-    const pbkdf2Key = await createPbkdf2Key(saltBuffer);
-    
-    // Derive the seed using PBKDF2
-    const seedBits = await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        hash: 'SHA-512',
-        salt: saltBuffer,
-        iterations
-      },
-      pbkdf2Key,
-      keyLen * 8
-    );
-    
-    // Convert to byte array
-    const seed = new Uint8Array(seedBits);
-    
-    // Parse path segments and apply derivation
-    const segments = path.split('/').slice(1); // Remove the leading 'm'
-    
-    // Start with the master key
-    let key = seed;
-    let chainCode = new Uint8Array(32).fill(1); // Default chain code
-    
-    // For each path segment, derive the next level key
-    for (const segment of segments) {
-      // Handle hardened keys (with ')
-      const isHardened = segment.endsWith("'");
-      let index = parseInt(isHardened ? segment.slice(0, -1) : segment);
-      
-      // For hardened keys, add 2^31
-      if (isHardened) {
-        index += 0x80000000;
-      }
-      
-      // Create a buffer for the index
-      const indexBuffer = new Uint8Array(4);
-      indexBuffer[0] = (index >> 24) & 0xff;
-      indexBuffer[1] = (index >> 16) & 0xff;
-      indexBuffer[2] = (index >> 8) & 0xff;
-      indexBuffer[3] = index & 0xff;
-      
-      // Create HMAC data: for hardened keys use 0x00 + key + index
-      const data = new Uint8Array(1 + key.length + 4);
-      data[0] = 0x00; // Private key prefix
-      data.set(key, 1);
-      data.set(indexBuffer, 1 + key.length);
-      
-      // Create HMAC with chainCode as key
-      const hmacKey = await createHmacKey(chainCode);
-      
-      // Sign the data with HMAC
-      const hmacResult = await crypto.subtle.sign('HMAC', hmacKey, data);
-      const hmacArray = new Uint8Array(hmacResult);
-      
-      // Extract the next key and chain code
-      key = hmacArray.slice(0, 32);
-      chainCode = hmacArray.slice(32);
+    if (!seed) {
+      throw new Error("Failed to generate seed from mnemonic");
     }
-
-    // The final privateKey will be used by the frontend to derive the actual Solana address
+    
+    // For Solana, we need to use ed25519 derivation with the seed
+    // This is specific to Solana's ed25519 curve requirement
+    const { key } = derivePath(path, Buffer.from(seed.slice(2), 'hex').toString('hex'));
+    
+    // For Solana, we'll return just the private key in hex format
+    // The actual address will be derived in the frontend using Solana libraries
     return {
-      address: "", // Will be properly derived in frontend
+      address: "", // Will be derived properly in frontend
       privateKey: Buffer.from(key).toString('hex')
     };
   } catch (error) {

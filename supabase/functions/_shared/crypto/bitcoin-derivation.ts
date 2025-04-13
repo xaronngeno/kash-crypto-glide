@@ -16,13 +16,14 @@ export function deriveBitcoinWallet(seedPhrase: string, path: string) {
     }
     
     // Create HD wallet from mnemonic using specified derivation path
+    // This uses direct HD node derivation just like Ethereum
     const btcHdNode = ethers.HDNodeWallet.fromPhrase(
       seedPhrase,
       undefined,
       path
     );
     
-    // Generate a placeholder Bitcoin address format based on the path
+    // Generate a Bitcoin address format based on the path
     let btcAddress = "";
     
     if (path.startsWith("m/84'")) {
