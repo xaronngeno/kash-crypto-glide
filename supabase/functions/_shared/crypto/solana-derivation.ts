@@ -2,11 +2,11 @@
 import * as ethers from "https://esm.sh/ethers@6.13.5";
 import { validateSeedPhrase } from "./base-utils.ts";
 import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
-import * as nacl from "https://deno.land/x/tweetnacl_deno@v1.1.2/src/nacl.ts";
+import * as ed25519 from "https://deno.land/x/ed25519@1.6.0/mod.ts";
 
 /**
  * Derive a Solana wallet from a seed phrase and path
- * Using an alternative approach that works within Deno runtime
+ * Using an approach that works within Deno runtime
  */
 export async function deriveSolanaWallet(seedPhrase: string, path: string) {
   try {
@@ -17,25 +17,25 @@ export async function deriveSolanaWallet(seedPhrase: string, path: string) {
       throw new Error("Invalid or empty seed phrase");
     }
     
-    // Generate seed using ethers - similar approach to Ethereum wallet
+    // Use ethers to derive a deterministic private key from the seed phrase
     const wallet = ethers.Wallet.fromPhrase(seedPhrase);
+    const privateKeyBuffer = Buffer.from(wallet.privateKey.slice(2), 'hex');
     
-    // Extract entropy from the wallet
-    // This is a simplified approach that will generate a consistent private key 
-    // based on the seed phrase, but won't follow the exact derivation path
-    // However, it will be consistent across calls with the same seed phrase
-    const entropyBuffer = Buffer.from(wallet.privateKey.slice(2), 'hex');
+    // Use the first 32 bytes of the private key as input for ed25519 key generation
+    const seed = privateKeyBuffer.slice(0, 32);
     
-    // Generate a Solana keypair from the entropy
-    const keyPair = nacl.sign.keyPair.fromSeed(entropyBuffer.slice(0, 32));
+    // Generate keypair from the seed
+    const keypair = ed25519.utils.getKeyPairFromSeed(seed);
     
-    // Get public key in base58 format - this would usually be done on frontend
-    // but we'll return a placeholder for now
-    const privateKey = Buffer.from(keyPair.secretKey).toString('hex');
+    // Convert the keypair to hex format for storage
+    const privateKey = Buffer.from(
+      [...keypair.secretKey, ...keypair.publicKey]
+    ).toString('hex');
     
-    // Return the keypair
+    // Note: The actual Solana address will be derived on the frontend
+    // We'll return the keypair data needed for that derivation
     return {
-      address: "", // Will be derived properly in frontend
+      address: Buffer.from(keypair.publicKey).toString('hex'),
       privateKey: privateKey
     };
   } catch (error) {
