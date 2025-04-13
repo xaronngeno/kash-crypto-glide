@@ -6,7 +6,7 @@ import * as ecc from 'tiny-secp256k1';
 import { WalletData } from '../walletGenerators';
 
 // Generate Bitcoin wallet (Native SegWit only)
-export const generateBitcoinWallet = async (): Promise<WalletData> => {
+export const generateBitcoinWallet = async (privateKeyHex?: string): Promise<WalletData> => {
   try {
     console.log('Initializing Bitcoin wallet generation');
     
@@ -22,14 +22,30 @@ export const generateBitcoinWallet = async (): Promise<WalletData> => {
       const bitcoinLib = await getBitcoin();
       console.log('Bitcoin library loaded successfully:', !!bitcoinLib);
       
-      // Initialize ECPair with explicit Buffer checks using the async version
-      console.log('Initializing ECPair');
-      const ECPair = await getECPairFactory(ecc);
-      console.log('ECPair initialized successfully');
+      let keyPair;
       
-      console.log('Generating Bitcoin key pair');
-      const keyPair = ECPair.makeRandom();
-      console.log('Generated Bitcoin keyPair:', keyPair);
+      if (privateKeyHex) {
+        // Initialize ECPair with explicit Buffer checks using the async version
+        console.log('Initializing ECPair');
+        const ECPair = await getECPairFactory(ecc);
+        console.log('ECPair initialized successfully');
+        
+        // Convert hex private key to Buffer
+        const privateKeyBuffer = Buffer.from(privateKeyHex.replace(/^0x/, ''), 'hex');
+        
+        // Create keypair from private key
+        keyPair = ECPair.fromPrivateKey(privateKeyBuffer);
+        console.log('Created Bitcoin keyPair from provided private key');
+      } else {
+        // Initialize ECPair with explicit Buffer checks using the async version
+        console.log('Initializing ECPair');
+        const ECPair = await getECPairFactory(ecc);
+        console.log('ECPair initialized successfully');
+        
+        console.log('Generating Bitcoin key pair');
+        keyPair = ECPair.makeRandom();
+        console.log('Generated Bitcoin keyPair:', !!keyPair);
+      }
       
       // Ensure keyPair.publicKey exists before using it
       if (!keyPair.publicKey) {

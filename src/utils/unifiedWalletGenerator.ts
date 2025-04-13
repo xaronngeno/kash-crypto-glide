@@ -71,8 +71,9 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
     try {
       // Get the seed from mnemonic
       const mnemonicObj = ethers.Mnemonic.fromPhrase(mnemonic);
+      const seed = mnemonicObj.computeSeed();
       
-      // Use HDNodeWallet.fromMnemonic with the Solana path
+      // Use HDNodeWallet.fromMnemonic with the Solana path to derive a consistent seed
       const solanaSeedNode = ethers.HDNodeWallet.fromMnemonic(
         mnemonicObj,
         DERIVATION_PATHS.SOLANA
@@ -82,7 +83,7 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       const privateKeyBytes = Buffer.from(solanaSeedNode.privateKey.slice(2), 'hex');
       
       // Create Solana keypair using the first 32 bytes of the private key bytes
-      // This matches how Phantom and other Solana wallets derive their keypair
+      // This is compatible with how Phantom and other Solana wallets derive their keypair
       const keypair = Keypair.fromSeed(privateKeyBytes.slice(0, 32));
       
       wallets.push({
@@ -102,32 +103,36 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       // Import bitcoinjs-lib dynamically to ensure Buffer is available
       const bitcoin = await getBitcoin();
       
+      // Get the Bitcoin node using BIP84 derivation path for SegWit
       const bitcoinHdNode = ethers.HDNodeWallet.fromMnemonic(
         ethers.Mnemonic.fromPhrase(mnemonic),
         DERIVATION_PATHS.BITCOIN
       );
       
-      // Convert to WIF and derive Native SegWit address
+      // Convert private key to buffer (removing 0x prefix)
       const privateKeyBuffer = Buffer.from(bitcoinHdNode.privateKey.slice(2), 'hex');
+      
+      // Get ECPair factory
+      const ECPair = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer);
       
       // Generate a P2WPKH (Native SegWit) address
       const { address } = bitcoin.payments.p2wpkh({
-        pubkey: Buffer.from(bitcoinHdNode.publicKey.slice(2), 'hex'),
+        pubkey: ECPair.publicKey,
         network: bitcoin.networks.bitcoin
       });
       
-      if (address) {
-        wallets.push({
-          blockchain: "Bitcoin",
-          platform: "Bitcoin",
-          address: address,
-          privateKey: bitcoinHdNode.privateKey,
-          walletType: "Native SegWit"
-        });
-        console.log("Generated Bitcoin wallet successfully");
-      } else {
+      if (!address) {
         throw new Error("Failed to generate Bitcoin address");
       }
+      
+      wallets.push({
+        blockchain: "Bitcoin",
+        platform: "Bitcoin",
+        address: address,
+        privateKey: bitcoinHdNode.privateKey,
+        walletType: "Native SegWit"
+      });
+      console.log("Generated Bitcoin wallet successfully");
     } catch (error) {
       console.error("Failed to generate Bitcoin wallet:", error);
     }

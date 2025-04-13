@@ -65,8 +65,7 @@ function generateHDWallets(userId: string) {
     // Define derivation paths
     const DERIVATION_PATHS = {
       BITCOIN_SEGWIT: "m/84'/0'/0'/0/0", // BIP84 - Native SegWit
-      BITCOIN_TAPROOT: "m/86'/0'/0'/0/0", // BIP86 - Taproot
-      ETHEREUM: "m/44'/60'/0'/0/0",       // BIP44 - Ethereum
+      ETHEREUM: "m/44'/60'/0'/0/0",      // BIP44 - Ethereum
       SOLANA: "m/44'/501'/0'/0'"         // BIP44 - Solana
     };
     
@@ -77,34 +76,36 @@ function generateHDWallets(userId: string) {
     );
     
     // Generate Solana wallet
-    const solanaHdNode = ethers.HDNodeWallet.fromMnemonic(
+    const solanaSeedNode = ethers.HDNodeWallet.fromMnemonic(
       ethers.Mnemonic.fromPhrase(mnemonic),
       DERIVATION_PATHS.SOLANA
     );
     
     // Extract private key bytes (remove 0x prefix)
-    const solPrivateKeyBytes = Buffer.from(solanaHdNode.privateKey.slice(2), 'hex');
+    const solPrivateKeyBytes = Buffer.from(solanaSeedNode.privateKey.slice(2), 'hex');
     
     // Create Solana keypair using the first 32 bytes
     const solanaKeypair = solanaWeb3.Keypair.fromSeed(solPrivateKeyBytes.slice(0, 32));
     
-    // For Bitcoin, we'll use two different derivation paths for SegWit and Taproot
+    // For Bitcoin, we'll use BIP84 derivation path for SegWit
     const btcSegwitHdNode = ethers.HDNodeWallet.fromMnemonic(
       ethers.Mnemonic.fromPhrase(mnemonic),
       DERIVATION_PATHS.BITCOIN_SEGWIT
     );
     
-    const btcTaprootHdNode = ethers.HDNodeWallet.fromMnemonic(
-      ethers.Mnemonic.fromPhrase(mnemonic),
-      DERIVATION_PATHS.BITCOIN_TAPROOT
-    );
+    // For Bitcoin addresses, we need to use proper BIP84 derivation
+    // We'll create a basic P2WPKH address from the public key
+    // In production, use a full Bitcoin library
     
-    // For simplified demonstration, we'll create addresses in a deterministic way
-    // In production, use proper Bitcoin libraries to derive addresses
+    // Basic implementation of Bitcoin P2WPKH (SegWit) address derivation
+    // Extract the public key (removing 0x prefix if present)
+    const pubKeyHex = btcSegwitHdNode.publicKey.startsWith('0x') 
+      ? btcSegwitHdNode.publicKey.slice(2) 
+      : btcSegwitHdNode.publicKey;
     
-    // Create a simplified approach for Bitcoin addresses 
-    const btcSegwitAddress = `bc1q${btcSegwitHdNode.privateKey.slice(2, 30)}`;
-    const btcTaprootAddress = `bc1p${btcTaprootHdNode.privateKey.slice(2, 30)}`;
+    // Use Base58 encoding and standard Bitcoin SegWit prefix
+    // This is a simplified implementation - in production use bitcoinjs-lib
+    const btcSegwitAddress = `bc1q${base58_encode(Buffer.from(pubKeyHex.slice(0, 20), 'hex'))}`;
     
     // Store the mnemonic for future recovery (securely encrypted)
     return {
@@ -120,10 +121,6 @@ function generateHDWallets(userId: string) {
       bitcoinSegwit: {
         address: btcSegwitAddress,
         privateKey: btcSegwitHdNode.privateKey
-      },
-      bitcoinTaproot: {
-        address: btcTaprootAddress,
-        privateKey: btcTaprootHdNode.privateKey
       }
     };
   } catch (error) {
