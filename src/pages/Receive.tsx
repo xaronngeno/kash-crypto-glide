@@ -233,6 +233,7 @@ const Receive = () => {
       
       console.log("Wallets created successfully:", data);
       
+      // After creating wallets, fetch them to display
       const { data: wallets, error: fetchError } = await supabase.functions.invoke('fetch-wallet-balances', {
         method: 'POST',
         body: { userId: user.id }
@@ -250,6 +251,7 @@ const Receive = () => {
           blockchain: wallet.blockchain,
           symbol: wallet.currency,
           address: wallet.address,
+          wallet_type: wallet.wallet_type,
           logo: getCurrencyLogo(wallet.currency)
         }));
         

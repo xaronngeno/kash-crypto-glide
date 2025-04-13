@@ -59,11 +59,12 @@ export async function deriveSolanaWallet(seedPhrase: string, path: string) {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
     
+    // Format Solana address in base58-like format to match expectation
+    // Real Solana addresses are base58 encoded, but for demo purposes we use the hex representation
     const publicKeyHex = Array.from(new Uint8Array(publicKeyData))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
     
-    // Return a consistent key pair that can be used by the frontend
     return {
       address: publicKeyHex,
       privateKey: privateKeyHex
