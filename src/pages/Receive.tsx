@@ -607,7 +607,25 @@ const Receive = () => {
               <div className="inline-block mb-3">
                 <NetworkBadge network={selectedWallet.blockchain} />
               </div>
-              {showQR ? (
+              
+              {!selectedWallet.address || selectedWallet.address.trim() === "" ? (
+                <div className="bg-amber-50 p-4 rounded-lg mb-4">
+                  <div className="flex items-center justify-center mb-2">
+                    <Info size={20} className="text-amber-500 mr-2" />
+                    <h3 className="font-medium text-amber-700">Address Not Available</h3>
+                  </div>
+                  <p className="text-amber-600 mb-3">
+                    There was an issue retrieving your {selectedWallet.symbol} address. 
+                  </p>
+                  <KashButton 
+                    onClick={() => refreshWalletBalances(user?.id || "")}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Try Again
+                  </KashButton>
+                </div>
+              ) : showQR ? (
                 <div className="mb-4 flex justify-center">
                   <div className="p-4 bg-white rounded-lg border border-gray-100 shadow-sm">
                     <QRCodeSVG 
@@ -638,24 +656,26 @@ const Receive = () => {
                 </>
               )}
               
-              <div className="flex space-x-2">
-                <KashButton 
-                  variant="outline"
-                  fullWidth
-                  icon={<Copy size={18} />}
-                  onClick={() => copyToClipboard(selectedWallet.address)}
-                >
-                  Copy
-                </KashButton>
-                <KashButton 
-                  variant="outline"
-                  fullWidth
-                  icon={<QrCode size={18} />}
-                  onClick={() => setShowQR(!showQR)}
-                >
-                  {showQR ? "Hide QR" : "Show QR"}
-                </KashButton>
-              </div>
+              {selectedWallet.address && selectedWallet.address.trim() !== "" && (
+                <div className="flex space-x-2">
+                  <KashButton 
+                    variant="outline"
+                    fullWidth
+                    icon={<Copy size={18} />}
+                    onClick={() => copyToClipboard(selectedWallet.address)}
+                  >
+                    Copy
+                  </KashButton>
+                  <KashButton 
+                    variant="outline"
+                    fullWidth
+                    icon={<QrCode size={18} />}
+                    onClick={() => setShowQR(!showQR)}
+                  >
+                    {showQR ? "Hide QR" : "Show QR"}
+                  </KashButton>
+                </div>
+              )}
             </div>
             
             <div className="mt-6 bg-yellow-50 p-4 rounded-lg border border-yellow-100">

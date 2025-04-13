@@ -26,10 +26,12 @@ export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
       // Create keypair from the derived seed
       keypair = Keypair.fromSeed(Uint8Array.from(key));
       console.log("Created Solana wallet from seed phrase with proper ed25519 derivation");
+      console.log("Solana address:", keypair.publicKey.toString());
     } else {
       // Generate a random keypair
       keypair = Keypair.generate();
       console.log("Generated random Solana wallet");
+      console.log("Solana address:", keypair.publicKey.toString());
     }
     
     return {

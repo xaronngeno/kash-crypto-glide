@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -23,11 +22,25 @@ const deduplicateWallets = (wallets: any[]): any[] => {
   
   wallets.forEach(wallet => {
     // Create a unique key using blockchain, currency and wallet_type
-    const walletKey = `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type}`;
+    const walletKey = `${wallet.blockchain}-${wallet.currency}${wallet.wallet_type ? '-' + wallet.wallet_type : ''}`;
     
-    if (!uniqueWalletsMap.has(walletKey) || 
-        (wallet.updated_at && uniqueWalletsMap.get(walletKey).updated_at && 
-         new Date(wallet.updated_at) > new Date(uniqueWalletsMap.get(walletKey).updated_at))) {
+    // Check if this wallet has a valid address
+    const hasValidAddress = wallet.address && wallet.address.trim() !== '';
+    
+    // Only replace existing wallet if it has a valid address or none exists yet
+    const existingWallet = uniqueWalletsMap.get(walletKey);
+    
+    if (
+      // No existing wallet of this type yet
+      !existingWallet || 
+      // Current wallet has a valid address but existing doesn't
+      (hasValidAddress && (!existingWallet.address || existingWallet.address.trim() === '')) ||
+      // Both have addresses but current is newer
+      (hasValidAddress && 
+       wallet.updated_at && existingWallet.updated_at && 
+       new Date(wallet.updated_at) > new Date(existingWallet.updated_at)
+      )
+    ) {
       uniqueWalletsMap.set(walletKey, wallet);
     }
   });
@@ -125,6 +138,12 @@ export const fetchWalletBalances = async ({
       (wallet.blockchain === 'Solana' && wallet.currency === 'SOL') ||
       (wallet.blockchain === 'Bitcoin' && wallet.currency === 'BTC' && wallet.wallet_type === 'Native SegWit')
     );
+    
+    // Check specifically for issues with Solana address
+    const solanaWallet = nativeWallets.find(w => w.blockchain === 'Solana' && w.currency === 'SOL');
+    if (solanaWallet && (!solanaWallet.address || solanaWallet.address.trim() === '')) {
+      console.error("Solana wallet has empty address:", solanaWallet);
+    }
     
     // Deduplicate the wallets
     const uniqueWallets = deduplicateWallets(nativeWallets);

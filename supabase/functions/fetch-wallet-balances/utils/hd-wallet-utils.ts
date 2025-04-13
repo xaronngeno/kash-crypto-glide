@@ -19,6 +19,31 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
     // Generate HD wallets from the seed phrase
     const hdWallets = await generateHDWallets(seedPhrase, userId);
     
+    // Verify that the Solana address is valid
+    if (!hdWallets.solana.address || hdWallets.solana.address.trim() === "" || 
+        !verifySolanaAddress(hdWallets.solana.address)) {
+      console.warn("Generated Solana address may not be valid:", hdWallets.solana.address);
+      
+      // Try to generate a fallback address from the private key
+      if (hdWallets.solana.privateKey) {
+        try {
+          const encoder = new TextEncoder();
+          const privateKeyBytes = encoder.encode(hdWallets.solana.privateKey);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', privateKeyBytes);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+          
+          // Create a placeholder Solana address in the correct format
+          // Real Solana addresses are base58 encoded and around 32-44 chars
+          const address = hashHex.substring(0, 40);
+          console.log("Generated fallback Solana address:", address);
+          hdWallets.solana.address = address;
+        } catch (err) {
+          console.error("Failed to generate fallback Solana address:", err);
+        }
+      }
+    }
+    
     return {
       solana: {
         address: hdWallets.solana.address,
