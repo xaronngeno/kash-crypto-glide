@@ -1,3 +1,4 @@
+
 import { Buffer } from './globalPolyfills';
 import { ethers } from 'ethers';
 import { getBitcoin } from './bitcoinjsWrapper';
@@ -280,7 +281,7 @@ export const generateSolanaWallet = (privateKeyHex?: string, seedPhrase?: string
     if (seedPhrase) {
       // Derive Solana keypair from seed phrase using proper ed25519 derivation
       console.log("Generating Solana wallet from seed phrase with ed25519 derivation");
-      const seed = mnemonicToSeedSync(seedPhrase);
+      const seed = bip39.mnemonicToSeedSync(seedPhrase);
       const derived = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex')).key;
       keypair = Keypair.fromSeed(new Uint8Array(derived));
       console.log("Created Solana wallet from seed phrase with proper derivation");
