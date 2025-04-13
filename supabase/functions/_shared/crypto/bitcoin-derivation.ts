@@ -8,7 +8,7 @@ import { validateSeedPhrase } from "./base-utils.ts";
  */
 export function deriveBitcoinWallet(seedPhrase: string, path: string) {
   try {
-    console.log(`Deriving Bitcoin wallet with path: ${path}`);
+    console.log(`Deriving Bitcoin wallet with path: ${path || "m/84'/0'/0'/0/0"}`);
     
     // Ensure seedPhrase is valid before proceeding
     if (!validateSeedPhrase(seedPhrase)) {
@@ -18,18 +18,19 @@ export function deriveBitcoinWallet(seedPhrase: string, path: string) {
     // Create HD wallet from mnemonic using ethers
     const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase);
     
-    // Derive the key at the specified path
-    const derivedNode = hdNode.derivePath(path);
+    // Derive the key at the specified path or use default
+    const actualPath = path || "m/84'/0'/0'/0/0";
+    const derivedNode = hdNode.derivePath(actualPath);
     
     // Generate a placeholder Bitcoin address
     // The actual formatting will be done on the frontend
     let placeholderAddress = "";
     
     // Determine address format based on path
-    if (path.startsWith("m/84'")) {
+    if (actualPath.startsWith("m/84'")) {
       // BIP84 Native SegWit (bc1 prefix)
       placeholderAddress = `bc1${derivedNode.address.slice(2, 34)}`;
-    } else if (path.startsWith("m/49'")) {
+    } else if (actualPath.startsWith("m/49'")) {
       // BIP49 SegWit-compatible (3 prefix)
       placeholderAddress = `3${derivedNode.address.slice(2, 34)}`;
     } else {
