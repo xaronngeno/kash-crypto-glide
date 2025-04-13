@@ -24,11 +24,11 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       // Generate seed from mnemonic
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
       
-      // Derive key using proper BIP84 path for Native SegWit
+      // Derive key using proper BIP44 path for legacy addresses (Trust Wallet compatibility)
       // Get bip32 module (now imported separately)
       const bip32 = await getBip32();
       
-      // Derive the node from seed using BIP84 path
+      // Derive the node from seed using BIP44 legacy path
       const root = bip32.fromSeed(seed);
       const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
       
@@ -39,8 +39,8 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       keyPair = ECPair.makeRandom();
     }
     
-    // Generate Native SegWit (P2WPKH) address
-    const { address } = bitcoin.payments.p2wpkh({
+    // Generate Legacy (P2PKH) address (starting with '1')
+    const { address } = bitcoin.payments.p2pkh({
       pubkey: keyPair.publicKey,
       network: bitcoin.networks.bitcoin,
     });
@@ -57,7 +57,7 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       platform: 'Bitcoin',
       address,
       privateKey: privateKey ? '0x' + privateKey : undefined,
-      walletType: 'Native SegWit'
+      walletType: 'Legacy' // Changed from Native SegWit to Legacy
     };
   } catch (error) {
     console.error('Error generating Bitcoin wallet:', error);

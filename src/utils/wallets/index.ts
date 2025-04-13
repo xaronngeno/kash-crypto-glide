@@ -48,9 +48,10 @@ export const generateWallet = {
       
       if (seedPhrase) {
         // Derive Solana keypair from seed phrase using proper ed25519 derivation
+        console.log("Generating Solana wallet with ed25519 derivation");
         const seed = bip39.mnemonicToSeedSync(seedPhrase);
-        const derived = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
-        keypair = Keypair.fromSeed(Uint8Array.from(derived.key));
+        const { key } = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
+        keypair = Keypair.fromSeed(Uint8Array.from(key));
       } else {
         // Generate a random keypair
         keypair = Keypair.generate();
@@ -68,7 +69,7 @@ export const generateWallet = {
     }
   },
   
-  // Bitcoin wallet generation (Native SegWit)
+  // Bitcoin wallet generation (Legacy P2PKH)
   bitcoin: async (seedPhrase?: string): Promise<WalletData> => {
     try {
       // Get crypto libraries
@@ -83,7 +84,7 @@ export const generateWallet = {
         // Generate seed from mnemonic
         const seed = bip39.mnemonicToSeedSync(seedPhrase);
         
-        // Derive the node from seed using BIP84 path
+        // Derive the node from seed using BIP44 path for Legacy addresses
         const root = bip32.fromSeed(seed);
         const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
         
@@ -94,8 +95,8 @@ export const generateWallet = {
         keyPair = ECPair.makeRandom();
       }
       
-      // Generate Native SegWit (P2WPKH) address
-      const { address } = bitcoin.payments.p2wpkh({
+      // Generate Legacy P2PKH address (starts with '1')
+      const { address } = bitcoin.payments.p2pkh({
         pubkey: keyPair.publicKey,
         network: bitcoin.networks.bitcoin,
       });
@@ -112,7 +113,7 @@ export const generateWallet = {
         platform: 'Bitcoin',
         address,
         privateKey: privateKey ? '0x' + privateKey : undefined,
-        walletType: 'Native SegWit'
+        walletType: 'Legacy' // Changed from Native SegWit to Legacy
       };
     } catch (error) {
       console.error('Error generating Bitcoin wallet:', error);

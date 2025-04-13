@@ -23,3 +23,7 @@ export function getDerivationPath(purpose: number, coinType: number, account = 0
   
   return `m/${purpose}'/${coinType}'/${account}'/${change}/${addressIndex}`;
 }
+
+// Added specific path constants for Bitcoin variants
+export const BITCOIN_LEGACY_PATH = DERIVATION_PATHS.BITCOIN; // BIP44
+export const BITCOIN_SEGWIT_PATH = DERIVATION_PATHS.BITCOIN_SEGWIT; // BIP84

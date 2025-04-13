@@ -7,7 +7,7 @@ import { derivePath } from 'ed25519-hd-key';
 import { DERIVATION_PATHS } from '../constants/derivationPaths';
 import { WalletData } from '../walletConfig';
 
-// Generate a Solana wallet using proper derivation
+// Generate a Solana wallet using proper ed25519 derivation
 export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
   try {
     let keypair: Keypair;
@@ -15,10 +15,16 @@ export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
     if (seedPhrase) {
       // Derive Solana keypair from seed phrase using proper ed25519 derivation
       console.log("Generating Solana wallet from seed phrase with proper ed25519 derivation");
+      
+      // Convert mnemonic to seed (64 bytes)
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
-      const derived = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
-      keypair = Keypair.fromSeed(Uint8Array.from(derived.key));
-      console.log("Created Solana wallet from seed phrase with proper derivation");
+      
+      // Use ed25519-hd-key to derive the key using the proper path
+      const { key } = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
+      
+      // Create keypair from the derived seed
+      keypair = Keypair.fromSeed(Uint8Array.from(key));
+      console.log("Created Solana wallet from seed phrase with proper ed25519 derivation");
     } else {
       // Generate a random keypair
       keypair = Keypair.generate();
