@@ -41,6 +41,19 @@ async function fetchUserWallets(supabase: any, userId: string) {
   return wallets;
 }
 
+function filterNativeWallets(wallets: any[]) {
+  if (!wallets || wallets.length === 0) return [];
+  
+  const nativeWallets = wallets.filter(wallet => (
+    (wallet.blockchain === 'Ethereum' && wallet.currency === 'ETH') ||
+    (wallet.blockchain === 'Solana' && wallet.currency === 'SOL') ||
+    (wallet.blockchain === 'Bitcoin' && wallet.currency === 'BTC' && wallet.wallet_type === 'Native SegWit')
+  ));
+  
+  console.log(`Filtered ${wallets.length} wallets down to ${nativeWallets.length} native wallets`);
+  return nativeWallets;
+}
+
 function processWalletBalances(wallets) {
   return wallets.map(wallet => ({
     ...wallet,
@@ -50,18 +63,14 @@ function processWalletBalances(wallets) {
 
 function checkWalletTypes(wallets) {
   const hasSol = wallets.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
+  const hasEth = wallets.some(w => w.currency === 'ETH' && w.blockchain === 'Ethereum');
   const hasBtcSegwit = wallets.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Native SegWit');
   
   console.log(`Has SOL wallet: ${hasSol}`);
+  console.log(`Has ETH wallet: ${hasEth}`);
   console.log(`Has BTC SegWit: ${hasBtcSegwit}`);
   
-  return { hasSol, hasUsdtSol: true, hasBtcSegwit };
-}
-
-function filterTaprootWallets(wallets) {
-  return wallets.filter(w => 
-    !(w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Taproot')
-  );
+  return { hasSol, hasEth, hasBtcSegwit };
 }
 
 serve(async (req: Request) => {
@@ -111,6 +120,8 @@ serve(async (req: Request) => {
     try {
       wallets = await trackOperation(fetchUserWallets(supabase, userId));
       
+      wallets = filterNativeWallets(wallets);
+      
       if (forceRefresh && wallets && wallets.length > 0) {
         console.log("Force refresh requested, checking blockchain explorers");
         
@@ -155,11 +166,13 @@ serve(async (req: Request) => {
       try {
         const newWallets = await trackOperation(createInitialWallets(supabase, userId));
         
+        const filteredNewWallets = filterNativeWallets(newWallets);
+        
         return new Response(
           JSON.stringify({ 
             success: true, 
             message: 'Wallets created successfully',
-            wallets: newWallets || []
+            wallets: filteredNewWallets || []
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
         );
@@ -178,17 +191,16 @@ serve(async (req: Request) => {
 
     const walletsWithBalances = processWalletBalances(wallets);
     
-    const { hasSol, hasBtcSegwit } = checkWalletTypes(walletsWithBalances);
+    const { hasSol, hasEth, hasBtcSegwit } = checkWalletTypes(walletsWithBalances);
     
-    const noTaprootWallets = filterTaprootWallets(walletsWithBalances);
-    
-    if (!hasSol || !hasBtcSegwit) {
+    const missingWallets = [];
+    if (!hasSol || !hasEth || !hasBtcSegwit) {
       try {
         const createMissingWalletsPromise = createMissingWallets(
           supabase, 
           userId, 
           hasSol, 
-          true,
+          hasEth,
           hasBtcSegwit
         );
         
@@ -207,21 +219,23 @@ serve(async (req: Request) => {
           console.log(`Created ${addedWallets.length} missing wallets`);
           
           addedWallets.forEach(wallet => {
-            noTaprootWallets.push(wallet);
+            walletsWithBalances.push(wallet);
           });
+          missingWallets.push(...addedWallets);
         }
       } catch (err) {
         console.error("Error handling missing wallet creation:", err);
       }
     }
 
-    console.log(`Returning ${noTaprootWallets.length} wallets with balances`);
+    console.log(`Returning ${walletsWithBalances.length} wallets with balances`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Wallet balances fetched successfully',
-        wallets: noTaprootWallets,
+        wallets: walletsWithBalances,
+        missingWallets: missingWallets,
         refreshed: forceRefresh
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }

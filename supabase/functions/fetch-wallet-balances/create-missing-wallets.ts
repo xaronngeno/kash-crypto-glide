@@ -10,7 +10,7 @@ export async function createMissingWallets(
   supabase: any, 
   userId: string, 
   hasSol: boolean, 
-  hasUsdtSol: boolean, 
+  hasEth: boolean,
   hasBtcSegwit: boolean
 ) {
   console.log("Adding missing wallets");
@@ -38,6 +38,26 @@ export async function createMissingWallets(
         blockchain: 'Solana',
         currency: 'SOL',
         address: hdWallets.solana.address,
+        balance: 0,
+        wallet_type: 'imported'
+      });
+    }
+    
+    if (!hasEth) {
+      await insertWalletIntoDb(
+        supabase, 
+        userId, 
+        'Ethereum', 
+        'ETH', 
+        hdWallets.ethereum.address, 
+        hdWallets.ethereum.private_key, 
+        'imported'
+      );
+      
+      addedWallets.push({
+        blockchain: 'Ethereum',
+        currency: 'ETH',
+        address: hdWallets.ethereum.address,
         balance: 0,
         wallet_type: 'imported'
       });
