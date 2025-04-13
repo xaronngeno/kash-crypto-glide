@@ -18,10 +18,51 @@ function handleCors(req: Request) {
   return null;
 }
 
-// Simple decryption function - in production, use a more secure method
+// Enhanced decryption function that matches the new encryption
 function decryptPrivateKey(encryptedKey: string, userId: string): string {
   try {
-    // This should match the encryption logic used in the create-wallets function
+    // First try to decode base64
+    const binary = atob(encryptedKey);
+    
+    // Create the same secure encryption key used for encryption
+    const serverSalt = "KASH_SECURE_SALT_DO_NOT_CHANGE";
+    const encryptionKeyBase = `${serverSalt}_${userId}_SECURE`;
+    
+    // Use Web Crypto API to create a secure key
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(encryptionKeyBase);
+    
+    // Create the digest
+    return crypto.subtle.digest('SHA-256', keyData)
+      .then(keyBytes => {
+        const keyArray = Array.from(new Uint8Array(keyBytes));
+        const bytes = [];
+        
+        // XOR each byte with the key
+        for (let i = 0; i < binary.length; i++) {
+          const keyByte = keyArray[i % keyArray.length];
+          const encChar = binary.charCodeAt(i);
+          bytes.push(encChar ^ keyByte);
+        }
+        
+        // Convert to hex string with 0x prefix for ethers
+        const hexString = "0x" + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hexString;
+      })
+      .catch(error => {
+        console.error("Crypto API error in decryption:", error);
+        return legacyDecrypt(encryptedKey, userId);
+      });
+  } catch (error) {
+    console.error("Decryption error:", error);
+    // Fall back to legacy method
+    return legacyDecrypt(encryptedKey, userId);
+  }
+}
+
+// Legacy decryption function for backward compatibility
+function legacyDecrypt(encryptedKey: string, userId: string): string {
+  try {
     const encryptionKey = `KASH_SECRET_KEY_${userId}_SECURE`;
     const bytes = [];
     
@@ -39,7 +80,7 @@ function decryptPrivateKey(encryptedKey: string, userId: string): string {
     const hexString = "0x" + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
     return hexString;
   } catch (error) {
-    console.error("Decryption error:", error);
+    console.error("Legacy decryption error:", error);
     throw new Error("Failed to decrypt private key");
   }
 }

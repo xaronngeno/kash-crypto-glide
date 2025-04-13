@@ -1,3 +1,4 @@
+
 import { base58_encode } from "https://esm.sh/bs58@5.0.0/index.js";
 import { encryptPrivateKey } from "./encryption.ts";
 import { generateHDWallets } from "../_shared/wallet-helpers.ts";
@@ -147,12 +148,15 @@ export async function createUserWallets(supabase: any, userId: string) {
     if (!existingWalletKeys.has("Bitcoin-BTC-Native SegWit")) {
       try {
         console.log("Creating Bitcoin SegWit wallet");
+        // Use await with encryptPrivateKey since it now returns a Promise
+        const encryptedBtcKey = await Promise.resolve(encryptPrivateKey(hdWallets.bitcoinSegwit.privateKey, userId));
+        
         wallets.push({
           user_id: userId,
           blockchain: "Bitcoin",
           currency: "BTC",
           address: hdWallets.bitcoinSegwit.address,
-          private_key: encryptPrivateKey(hdWallets.bitcoinSegwit.privateKey, userId),
+          private_key: encryptedBtcKey,
           wallet_type: "Native SegWit",
           balance: 0, // Start with zero balance
         });
@@ -166,12 +170,15 @@ export async function createUserWallets(supabase: any, userId: string) {
     if (!existingWalletKeys.has("Ethereum-ETH")) {
       try {
         console.log("Creating ETH wallet");
+        // Use await with encryptPrivateKey since it now returns a Promise
+        const encryptedEthKey = await Promise.resolve(encryptPrivateKey(hdWallets.ethereum.privateKey, userId));
+        
         wallets.push({
           user_id: userId,
           blockchain: "Ethereum",
           currency: "ETH",
           address: hdWallets.ethereum.address,
-          private_key: encryptPrivateKey(hdWallets.ethereum.privateKey, userId),
+          private_key: encryptedEthKey,
           wallet_type: "imported",
           balance: 0,
         });
@@ -185,12 +192,15 @@ export async function createUserWallets(supabase: any, userId: string) {
     if (!existingWalletKeys.has("Solana-SOL")) {
       try {
         console.log("Creating Solana wallet");
+        // Use await with encryptPrivateKey since it now returns a Promise
+        const encryptedSolKey = await Promise.resolve(encryptPrivateKey(hdWallets.solana.privateKey, userId));
+        
         wallets.push({
           user_id: userId,
           blockchain: "Solana",
           currency: "SOL",
           address: hdWallets.solana.address,
-          private_key: encryptPrivateKey(hdWallets.solana.privateKey, userId),
+          private_key: encryptedSolKey,
           wallet_type: "imported",
           balance: 0,
         });
