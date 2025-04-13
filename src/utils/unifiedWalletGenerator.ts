@@ -5,6 +5,8 @@ import { getBitcoin } from './bitcoinjsWrapper';
 import * as tweetnacl from './tweetnaclWrapper';
 import { Keypair } from '@solana/web3.js';
 import * as bs58 from './bs58Wrapper';
+import { getECPairFactory } from './ecpairWrapper';
+import * as ecc from 'tiny-secp256k1';
 
 // Define the derivation paths following BIP-44 standards
 const DERIVATION_PATHS = {
@@ -112,12 +114,15 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Unifi
       // Convert private key to buffer (removing 0x prefix)
       const privateKeyBuffer = Buffer.from(bitcoinHdNode.privateKey.slice(2), 'hex');
       
-      // Get ECPair factory
-      const ECPair = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer);
+      // Get ECPair factory using the wrapper - this fixes the import issue
+      const ECPair = await getECPairFactory(ecc);
+      
+      // Generate key pair from private key
+      const keyPair = ECPair.fromPrivateKey(privateKeyBuffer);
       
       // Generate a P2WPKH (Native SegWit) address
       const { address } = bitcoin.payments.p2wpkh({
-        pubkey: ECPair.publicKey,
+        pubkey: keyPair.publicKey,
         network: bitcoin.networks.bitcoin
       });
       
