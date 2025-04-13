@@ -4,3 +4,4 @@ export * from './fetchWalletBalances';
 export * from './createWallets';
 export * from './useWalletCreationStatus';
 export * from './useWalletProcessor';
+export * from './useWalletCleanup';
