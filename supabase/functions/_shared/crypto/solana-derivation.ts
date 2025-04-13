@@ -17,19 +17,27 @@ export async function deriveSolanaWallet(seedPhrase: string, path: string) {
       throw new Error("Invalid or empty seed phrase");
     }
     
-    // Convert mnemonic to seed using ethers - consistent with Ethereum approach
+    // First, generate a seed buffer using ethers - similar to Ethereum approach
+    // This is crucial to maintain consistency across wallet derivations
     const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase);
-    const seed = hdNode.seed;
     
-    if (!seed) {
-      throw new Error("Failed to generate seed from mnemonic");
+    // Convert mnemonic to seed bytes
+    const seedHex = hdNode.privateKey.slice(2); // Remove '0x' prefix
+    const seedBuffer = Buffer.from(seedHex, 'hex');
+    
+    if (!seedBuffer || seedBuffer.length === 0) {
+      throw new Error("Failed to generate valid seed buffer");
     }
     
     // For Solana, we need to use ed25519 derivation with the seed
     // This is specific to Solana's ed25519 curve requirement
-    const { key } = derivePath(path, Buffer.from(seed.slice(2), 'hex').toString('hex'));
+    const { key } = derivePath(path, seedBuffer.toString('hex'));
     
-    // For Solana, we'll return just the private key in hex format
+    if (!key || key.length === 0) {
+      throw new Error("Failed to derive Solana key");
+    }
+    
+    // For Solana, we'll return the private key in hex format
     // The actual address will be derived in the frontend using Solana libraries
     return {
       address: "", // Will be derived properly in frontend
