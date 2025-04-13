@@ -1,5 +1,4 @@
-
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -36,7 +35,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<AuthContextType['profile']>(null);
 
-  // Optimized profile fetching with error handling
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -60,12 +58,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
     
-    // Handle URL hash for auth redirects
     const handleHashChange = async () => {
-      // Check if there's a hash that might contain auth parameters
       if (window.location.hash && window.location.hash.includes('access_token')) {
         try {
-          // Using setSession method instead of getSessionFromUrl which doesn't exist
           const { data, error } = await supabase.auth.getSession();
           
           if (error) {
@@ -80,31 +75,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
     
-    // Run hash handling on mount
     handleHashChange();
     
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event);
         
         if (!isMounted) return;
         
-        // Always update basic session state immediately
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Fetch profile when user is available, use setTimeout to prevent auth deadlocks
         if (session?.user) {
           setTimeout(async () => {
             if (isMounted) {
               const profileData = await fetchProfile(session.user.id);
               setProfile(profileData);
               
-              // Only mark as not loading after profile is fetched
               setLoading(false);
               
-              // Log the full auth state for debugging
               console.log('Auth state after profile fetch:', {
                 userId: session.user.id,
                 sessionActive: !!session,
@@ -120,7 +109,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // THEN check for existing session with a timeout to ensure we don't wait forever
     const checkExistingSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -136,7 +124,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Fetch profile when user is available
         if (session?.user) {
           try {
             const profileData = await fetchProfile(session.user.id);
@@ -163,18 +150,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
     
-    // Add a timeout to ensure we don't wait forever
     const sessionTimeout = setTimeout(() => {
       if (isMounted && loading) {
         console.log("Auth session check timed out");
         setLoading(false);
       }
-    }, 3000); // 3 second maximum wait time
+    }, 3000);
     
-    // Run session check
     checkExistingSession();
 
-    // Add an event listener for hash changes
     window.addEventListener('hashchange', handleHashChange);
 
     return () => {
@@ -195,7 +179,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Compute isAuthenticated based on session
   const isAuthenticated = !!session && !!user;
 
   return (
