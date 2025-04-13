@@ -160,6 +160,11 @@ serve(async (req) => {
       .eq('user_id', userId)
       .maybeSingle();
 
+    // Handle potential errors when querying for mnemonics
+    if (mnemonicError) {
+      console.error("Error fetching mnemonic:", mnemonicError);
+    }
+
     if (mnemonicData?.main_mnemonic) {
       // If we have a stored mnemonic, return it
       return new Response(JSON.stringify({ seedPhrase: mnemonicData.main_mnemonic }), {
@@ -171,13 +176,21 @@ serve(async (req) => {
     // If no stored mnemonic, generate a new one
     const seedPhrase = generateSeedPhrase();
     
-    // Store the mnemonic for future use
-    await supabase
+    // Store the mnemonic for future use with error handling for duplicate conflicts
+    const { data: insertData, error: insertError } = await supabase
       .from('user_mnemonics')
-      .insert({
+      .upsert({
         user_id: userId,
         main_mnemonic: seedPhrase,
+      }, {
+        onConflict: 'user_id',
+        ignoreDuplicates: true
       });
+
+    if (insertError) {
+      console.error("Error storing mnemonic:", insertError);
+      // Continue anyway since we have the seed phrase to return
+    }
 
     return new Response(JSON.stringify({ seedPhrase }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

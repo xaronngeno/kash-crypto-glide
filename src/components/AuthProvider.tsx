@@ -60,6 +60,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
     
+    // Handle URL hash for auth redirects
+    const handleHashChange = async () => {
+      // Check if there's a hash that might contain auth parameters
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        try {
+          const { data, error } = await supabase.auth.getSessionFromUrl();
+          if (error) {
+            console.error('Error parsing hash URL:', error);
+          } else if (data.session) {
+            console.log('Successfully authenticated from redirect');
+            window.location.hash = '';
+          }
+        } catch (err) {
+          console.error('Failed to parse hash URL:', err);
+        }
+      }
+    };
+    
+    // Run hash handling on mount
+    handleHashChange();
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -151,10 +172,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Run session check
     checkExistingSession();
 
+    // Add an event listener for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+
     return () => {
       isMounted = false;
       clearTimeout(sessionTimeout);
       subscription.unsubscribe();
+      window.removeEventListener('hashchange', handleHashChange);
     };
   }, []);
 
