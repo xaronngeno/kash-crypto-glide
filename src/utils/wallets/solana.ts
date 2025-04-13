@@ -20,6 +20,7 @@ export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
       
       // Use ed25519-hd-key to derive the key using the proper path
+      // This is crucial for compatibility with Phantom wallet
       const { key } = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
       
       // Create keypair from the derived seed

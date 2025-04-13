@@ -1,8 +1,11 @@
-
 // Define the derivation paths following BIP-44 standards
 export const DERIVATION_PATHS = {
-  // Bitcoin legacy path (BIP44) - Trust Wallet compatibility
+  // Bitcoin Legacy path (BIP44) - P2PKH addresses (start with '1')
   BITCOIN: "m/44'/0'/0'/0/0",
+  // Bitcoin SegWit compatible (P2SH) addresses (start with '3')
+  BITCOIN_SEGWIT: "m/49'/0'/0'/0/0",
+  // Bitcoin Native SegWit (bech32) addresses (start with 'bc1q')
+  BITCOIN_NATIVE_SEGWIT: "m/84'/0'/0'/0/0",
   // Ethereum path (unchanged)
   ETHEREUM: "m/44'/60'/0'/0/0", 
   // Solana path (unchanged)

@@ -6,7 +6,7 @@ import { getECPairFactory } from '../ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 import { WalletData } from '../types/wallet';
 import * as bip39 from 'bip39';
-import { DERIVATION_PATHS } from '../constants/derivationPaths';
+import { BITCOIN_PATHS } from '../constants/derivationPaths';
 
 // Generate a Bitcoin wallet
 export const generateBitcoinWallet = async (seedPhrase?: string): Promise<WalletData> => {
@@ -24,13 +24,13 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       // Generate seed from mnemonic
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
       
-      // Derive key using proper BIP44 path for legacy addresses (Trust Wallet compatibility)
-      // Get bip32 module (now imported separately)
+      // Derive key using proper BIP84 path for Native SegWit addresses (bc1 prefix)
+      // This is what most modern wallets (including Phantom) use by default
       const bip32 = await getBip32();
       
-      // Derive the node from seed using BIP44 legacy path
+      // Derive the node from seed using BIP84 Native SegWit path
       const root = bip32.fromSeed(seed);
-      const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
+      const node = root.derivePath(BITCOIN_PATHS.NATIVE_SEGWIT);
       
       // Get key pair from derived node
       keyPair = ECPair.fromPrivateKey(node.privateKey);
@@ -39,8 +39,8 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       keyPair = ECPair.makeRandom();
     }
     
-    // Generate Legacy (P2PKH) address (starting with '1')
-    const { address } = bitcoin.payments.p2pkh({
+    // Generate Native SegWit (P2WPKH) address (starting with 'bc1')
+    const { address } = bitcoin.payments.p2wpkh({
       pubkey: keyPair.publicKey,
       network: bitcoin.networks.bitcoin,
     });
@@ -57,7 +57,7 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       platform: 'Bitcoin',
       address,
       privateKey: privateKey ? '0x' + privateKey : undefined,
-      walletType: 'Legacy' // Changed from Native SegWit to Legacy
+      walletType: 'Native SegWit'
     };
   } catch (error) {
     console.error('Error generating Bitcoin wallet:', error);

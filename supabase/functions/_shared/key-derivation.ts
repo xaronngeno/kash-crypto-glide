@@ -137,34 +137,9 @@ export async function deriveSolanaWallet(seedPhrase: string, path = DERIVATION_P
       chainCode = hmacArray.slice(32);
     }
 
-    // Generate Base58 encoded public key (simulating Solana address)
-    // This is a simplified version just to get a deterministic string
-    // In the frontend, the actual Solana SDK will be used to derive the proper address
-    const pubKeyBytes = Array.from(key.slice(0, 32));
-    
-    // Simple base58 encoding for the address (simplified)
-    const baseAlphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    let address = "";
-    let num = BigInt(0);
-    
-    for (let i = 0; i < pubKeyBytes.length; i++) {
-      num = (num * 256n) + BigInt(pubKeyBytes[i]);
-    }
-    
-    while (num > 0n) {
-      const mod = Number(num % 58n);
-      num = num / 58n;
-      address = baseAlphabet[mod] + address;
-    }
-    
-    // Add leading 1s for leading zeros (simplified)
-    for (let i = 0; i < pubKeyBytes.length && pubKeyBytes[i] === 0; i++) {
-      address = '1' + address;
-    }
-    
     // The final privateKey will be used by the frontend to derive the actual Solana address
     return {
-      address, // Will be replaced by the proper derivation on frontend
+      address: "", // Will be properly derived in frontend
       privateKey: Buffer.from(key).toString('hex')
     };
   } catch (error) {
@@ -175,9 +150,9 @@ export async function deriveSolanaWallet(seedPhrase: string, path = DERIVATION_P
 
 /**
  * Derive a Bitcoin wallet from a seed phrase and path
- * Using BIP44 Legacy path for Trust Wallet compatibility
+ * Using BIP84 Native SegWit path by default for Phantom wallet compatibility
  */
-export function deriveBitcoinWallet(seedPhrase: string, path = DERIVATION_PATHS.BITCOIN) {
+export function deriveBitcoinWallet(seedPhrase: string, path = DERIVATION_PATHS.BITCOIN_NATIVE_SEGWIT) {
   try {
     console.log(`Deriving Bitcoin wallet with path: ${path}`);
     
@@ -186,19 +161,30 @@ export function deriveBitcoinWallet(seedPhrase: string, path = DERIVATION_PATHS.
       throw new Error("Invalid or empty seed phrase");
     }
     
-    // Create HD wallet from mnemonic using BIP44 for Legacy addresses
+    // Create HD wallet from mnemonic using specified derivation path
     const btcHdNode = ethers.HDNodeWallet.fromPhrase(
       seedPhrase,
       undefined,
       path
     );
     
-    // In a real implementation, we'd convert this to a proper Legacy address
+    // In a real implementation, we'd convert this to a proper Bitcoin address
     // For now, we'll use the ethers derivation and format it as a placeholder
     // The frontend will use bitcoinjs-lib to generate the actual address
     
-    // Generate a placeholder Legacy address (starts with 1)
-    const btcAddress = `1${btcHdNode.address.slice(2, 34)}`;
+    // Generate a placeholder Bitcoin address format based on the path
+    let btcAddress = "";
+    
+    if (path === DERIVATION_PATHS.BITCOIN_NATIVE_SEGWIT) {
+      // BIP84 Native SegWit (bc1 prefix)
+      btcAddress = `bc1q${btcHdNode.address.slice(2, 34)}`;
+    } else if (path === DERIVATION_PATHS.BITCOIN_SEGWIT) {
+      // BIP49 SegWit-compatible (3 prefix)
+      btcAddress = `3${btcHdNode.address.slice(2, 34)}`;
+    } else {
+      // BIP44 Legacy (1 prefix)
+      btcAddress = `1${btcHdNode.address.slice(2, 34)}`;
+    }
     
     return {
       address: btcAddress,
