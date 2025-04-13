@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +21,8 @@ const transformWallet = (wallet: {
   privateKey: undefined // We don't expose private keys on the frontend
 });
 
-export const createUserWallets = async (userId: string): Promise<WalletData[]> => {
+// Standalone wallet creation function for use outside of React components
+export const createUserWallets = async (userId: string): Promise<WalletData[] | null> => {
   if (!userId) return null;
   
   try {
@@ -74,7 +76,7 @@ export const useWalletManager = (userId?: string) => {
   /**
    * Creates wallets for a user if they don't exist
    */
-  const createUserWallets = async (userId: string): Promise<WalletData[] | null> => {
+  const createUserWalletsInternal = async (userId: string): Promise<WalletData[] | null> => {
     if (!userId) return null;
     
     // Prevent multiple simultaneous wallet creation attempts
@@ -85,41 +87,17 @@ export const useWalletManager = (userId?: string) => {
     
     try {
       walletCreationInProgress = true;
-      console.log("Creating wallets for user:", userId);
+      setLoading(true);
+      setError(null);
       
-      // First check if user already has wallets to avoid duplicates
-      const { data: existingWallets, error: checkError } = await supabase
-        .from('wallets')
-        .select('id, blockchain, address, currency')
-        .eq('user_id', userId);
-        
-      if (checkError) {
-        console.error("Error checking existing wallets:", checkError);
-        throw new Error(`Failed to check existing wallets: ${checkError.message}`);
+      const wallets = await createUserWallets(userId);
+      if (wallets && wallets.length > 0) {
+        setWalletsCreated(true);
       }
-      
-      if (existingWallets && existingWallets.length > 0) {
-        console.log(`User already has ${existingWallets.length} wallets, skipping creation`);
-        // Transform DB wallets to WalletData format
-        return existingWallets.map(wallet => transformWallet(wallet));
-      }
-      
-      // Only proceed with wallet creation if no wallets exist
-      const { data, error } = await supabase.functions.invoke('create-wallets', {
-        method: 'POST',
-        body: { userId }
-      });
-      
-      if (error) {
-        throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
-      }
-      
-      console.log("Wallets created successfully:", data);
-      setWalletsCreated(true);
-      return data.wallets || [];
+      return wallets;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error creating wallets";
-      console.error("Error creating wallets:", errorMessage);
+      setError(errorMessage);
       toast({
         title: "Error creating wallets",
         description: "Please try again later",
@@ -127,6 +105,7 @@ export const useWalletManager = (userId?: string) => {
       });
       return null;
     } finally {
+      setLoading(false);
       // Reset the flag when done, with a small delay to prevent race conditions
       setTimeout(() => {
         walletCreationInProgress = false;
@@ -137,7 +116,7 @@ export const useWalletManager = (userId?: string) => {
   /**
    * Fetches a user's seed phrase
    */
-  const fetchSeedPhrase = async (password: string) => {
+  const fetchSeedPhrase = async (password: string): Promise<string | null> => {
     if (!userId) {
       setError("User not authenticated");
       toast({
@@ -196,7 +175,7 @@ export const useWalletManager = (userId?: string) => {
   /**
    * Validate a seed phrase and test against user's wallets
    */
-  const validateSeedPhrase = async (phrase: string) => {
+  const validateSeedPhrase = async (phrase: string): Promise<boolean> => {
     if (!userId) {
       setError("User not authenticated");
       return false;
@@ -309,7 +288,7 @@ export const useWalletManager = (userId?: string) => {
   };
 
   return {
-    createUserWallets,
+    createUserWallets: createUserWalletsInternal,
     fetchSeedPhrase,
     clearSeedPhrase,
     validateSeedPhrase,
