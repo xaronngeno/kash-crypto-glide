@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +30,8 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+// Export the AuthProvider as a proper React function component
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,8 +79,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     handleHashChange();
     
+    // Set up the auth state change listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('Auth state changed:', event);
         
         if (!isMounted) return;
@@ -87,6 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Use setTimeout to avoid potential React state update issues
           setTimeout(async () => {
             if (isMounted) {
               const profileData = await fetchProfile(session.user.id);
@@ -109,6 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
+    // Then check for existing sessions
     const checkExistingSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
