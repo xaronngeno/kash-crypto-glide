@@ -1,6 +1,7 @@
 
 import { Buffer } from '../globalPolyfills';
 import { getBitcoin } from '../bitcoinjsWrapper';
+import { getBip32 } from '../bip32Wrapper';
 import { getECPairFactory } from '../ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 import { WalletData } from '../types/wallet';
@@ -24,8 +25,8 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
       
       // Derive key using proper BIP84 path for Native SegWit
-      const bitcoin = await getBitcoin();
-      const bip32 = bitcoin.bip32;
+      // Get bip32 module (now imported separately)
+      const bip32 = await getBip32();
       
       // Derive the node from seed using BIP84 path
       const root = bip32.fromSeed(seed);

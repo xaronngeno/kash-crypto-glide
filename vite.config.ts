@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
     esbuildOptions: {
       target: 'esnext', // Needed for WebAssembly support
     },
-    include: ['bs58', 'tweetnacl', 'bitcoinjs-lib', 'ecpair', 'tiny-secp256k1', 'buffer'] // Pre-bundle these packages
+    include: ['bs58', 'tweetnacl', 'bitcoinjs-lib', 'ecpair', 'tiny-secp256k1', 'buffer', 'bip32'] // Pre-bundle these packages
   },
   build: {
     target: 'esnext', // Needed for WebAssembly support
@@ -56,8 +56,9 @@ export default defineConfig(({ mode }) => ({
       'ecpair': path.resolve(__dirname, 'node_modules/ecpair'),
       'bitcoinjs-lib': path.resolve(__dirname, 'node_modules/bitcoinjs-lib'),
       'buffer': path.resolve(__dirname, 'node_modules/buffer'),
+      'bip32': path.resolve(__dirname, 'node_modules/bip32'),
     },
-    dedupe: ['bs58', 'tweetnacl', 'buffer'], // Deduplicate packages to use a single instance
+    dedupe: ['bs58', 'tweetnacl', 'buffer', 'bip32'], // Deduplicate packages to use a single instance
   },
   define: {
     // Add global definitions to help with CommonJS modules

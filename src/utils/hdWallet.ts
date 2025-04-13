@@ -6,6 +6,7 @@ import * as bip39 from 'bip39';
 import { derivePath } from 'ed25519-hd-key';
 import { Buffer } from './globalPolyfills';
 import { getBitcoin } from './bitcoinjsWrapper';
+import { getBip32 } from './bip32Wrapper';
 import { getECPairFactory } from './ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 import { DERIVATION_PATHS } from './constants/derivationPaths';
@@ -88,9 +89,11 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Walle
     
     // Generate Bitcoin wallet (Native SegWit - BIP84)
     try {
-      // Get bitcoinjs-lib and the necessary components
+      // Get bitcoinjs-lib
       const bitcoin = await getBitcoin();
-      const bip32 = bitcoin.bip32;
+      
+      // Get bip32 separately
+      const bip32 = await getBip32();
       
       // Generate seed from mnemonic
       const seed = bip39.mnemonicToSeedSync(mnemonic);
