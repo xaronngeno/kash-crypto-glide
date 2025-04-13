@@ -1,5 +1,6 @@
 
-import { generateHDWallets } from "../_shared/wallet-helpers.ts";
+import { getOrCreateSeedPhrase } from "../_shared/wallet-helpers.ts";
+import { generateHDWallets } from "../_shared/hd-wallet-core.ts";
 import { checkExistingWallets, userHasAnyWallets } from "./wallet-checker.ts";
 import { ensureUserHasNumericId } from "./profile-manager.ts";
 import { manageUserMnemonic } from "./mnemonic-handler.ts";
@@ -39,11 +40,14 @@ export async function createUserWallets(supabase: any, userId: string) {
     // Check existing wallets to avoid duplicates
     const { existingWallets, existingWalletKeys } = await checkExistingWallets(supabase, userId);
 
-    // Generate HD wallets from a single seed phrase
-    const hdWallets = await generateHDWallets(userId);
+    // Get or generate seed phrase
+    const mnemonic = await getOrCreateSeedPhrase(supabase, userId);
+    
+    // Generate HD wallets from the seed phrase
+    const hdWallets = await generateHDWallets(mnemonic, userId);
     
     // Store or retrieve seed phrase
-    const storedMnemonic = await manageUserMnemonic(supabase, userId, hdWallets.mnemonic);
+    await manageUserMnemonic(supabase, userId, hdWallets.mnemonic);
 
     // Create wallet objects to insert - only create what's needed
     const wallets = await generateWalletObjects(userId, hdWallets, existingWalletKeys);
@@ -92,19 +96,4 @@ export async function createUserWallets(supabase: any, userId: string) {
     console.error("Error in createUserWallets function:", error);
     return { success: false, error: error.message };
   }
-}
-
-// Variable to store seed phrase
-let seedPhrase: string | undefined;
-
-// Function to get or create seed phrase
-export async function getOrCreateSeedPhrase(userId: string): Promise<string> {
-  if (seedPhrase) {
-    return seedPhrase;
-  }
-  
-  // In a real implementation, you would attempt to fetch the user's stored seed phrase
-  // If none exists, generate a new one
-  seedPhrase = "example seed phrase for testing only";
-  return seedPhrase;
 }

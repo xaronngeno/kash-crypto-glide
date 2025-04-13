@@ -10,8 +10,14 @@ export function deriveEthereumWallet(seedPhrase: string, path = DERIVATION_PATHS
   try {
     console.log(`Deriving Ethereum wallet with path: ${path}`);
     
-    const wallet = ethers.HDNodeWallet.fromMnemonic(
-      ethers.Mnemonic.fromPhrase(seedPhrase),
+    // Ensure seedPhrase is valid before proceeding
+    if (!seedPhrase || typeof seedPhrase !== 'string' || seedPhrase.trim() === '') {
+      throw new Error("Invalid or empty seed phrase");
+    }
+    
+    const wallet = ethers.HDNodeWallet.fromPhrase(
+      seedPhrase,
+      undefined,
       path
     );
     
@@ -32,6 +38,11 @@ export function deriveEthereumWallet(seedPhrase: string, path = DERIVATION_PATHS
 export async function deriveSolanaWallet(seedPhrase: string, path = DERIVATION_PATHS.SOLANA) {
   try {
     console.log(`Deriving Solana wallet with path: ${path}`);
+    
+    // Ensure seedPhrase is valid before proceeding
+    if (!seedPhrase || typeof seedPhrase !== 'string' || seedPhrase.trim() === '') {
+      throw new Error("Invalid or empty seed phrase");
+    }
     
     // We'll use the native crypto API for HMAC and SHA512
     // This implements the key derivation algorithm from BIP32/BIP44
@@ -155,9 +166,15 @@ export function deriveBitcoinWallet(seedPhrase: string, path = DERIVATION_PATHS.
   try {
     console.log(`Deriving Bitcoin wallet with path: ${path}`);
     
+    // Ensure seedPhrase is valid before proceeding
+    if (!seedPhrase || typeof seedPhrase !== 'string' || seedPhrase.trim() === '') {
+      throw new Error("Invalid or empty seed phrase");
+    }
+    
     // Create HD wallet from mnemonic using BIP44 for Legacy addresses
-    const btcHdNode = ethers.HDNodeWallet.fromMnemonic(
-      ethers.Mnemonic.fromPhrase(seedPhrase),
+    const btcHdNode = ethers.HDNodeWallet.fromPhrase(
+      seedPhrase,
+      undefined,
       path
     );
     
