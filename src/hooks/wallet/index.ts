@@ -4,6 +4,10 @@ export * from './fetchWalletBalances';
 export * from './useWalletManager';
 export * from './useWalletProcessor';
 export * from './useWalletCleanup';
+export * from './useSeedPhrase';
+export * from './useWalletValidator';
+export * from './useWalletGenerator';
+export * from './createUserWallets';
 
-// Export createUserWallets for backward compatibility
-export { createUserWallets } from './useWalletManager';
+// For backward compatibility, ensure this is exported
+export { createUserWallets } from './createUserWallets';
