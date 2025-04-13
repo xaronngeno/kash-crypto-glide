@@ -4,11 +4,26 @@ import { WalletData } from '@/utils/walletConfig';
 import { transformWallet } from './utils/transformWallet';
 import { toast } from '@/hooks/use-toast';
 
+// Define allowed blockchains for type checking
+const ALLOWED_BLOCKCHAINS = ['Bitcoin', 'Ethereum', 'Solana'];
+
 // Flag to prevent multiple wallet creation attempts
 let walletCreationInProgress = false;
 
 /**
+ * Validates that wallets are only the supported chains (BTC, ETH, SOL)
+ */
+const validateAllowedWallets = (wallets: any[]): boolean => {
+  if (!wallets || wallets.length === 0) return true;
+  
+  return wallets.every(wallet => 
+    ALLOWED_BLOCKCHAINS.includes(wallet.blockchain)
+  );
+};
+
+/**
  * Creates wallets for a user if they don't exist
+ * Only creates Bitcoin, Ethereum, and Solana wallets
  */
 export const createUserWallets = async (userId: string): Promise<WalletData[] | null> => {
   if (!userId) return null;
@@ -36,8 +51,14 @@ export const createUserWallets = async (userId: string): Promise<WalletData[] | 
     
     if (existingWallets && existingWallets.length > 0) {
       console.log(`User already has ${existingWallets.length} wallets, skipping creation`);
+      
+      // Filter to only include allowed blockchains
+      const filteredWallets = existingWallets.filter(wallet => 
+        ALLOWED_BLOCKCHAINS.includes(wallet.blockchain)
+      );
+      
       // Transform DB wallets to WalletData format
-      return existingWallets.map(wallet => transformWallet(wallet));
+      return filteredWallets.map(wallet => transformWallet(wallet));
     }
     
     // Only proceed with wallet creation if no wallets exist
@@ -48,6 +69,21 @@ export const createUserWallets = async (userId: string): Promise<WalletData[] | 
     
     if (error) {
       throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
+    }
+    
+    // Validate that returned wallets are of supported blockchains
+    if (!validateAllowedWallets(data.wallets)) {
+      console.error("Received wallets contain unsupported blockchain types");
+      toast({
+        title: "Warning",
+        description: "Some wallet types are not supported and will be ignored",
+        variant: "default"
+      });
+      
+      // Filter to only include allowed blockchains
+      data.wallets = data.wallets.filter(wallet => 
+        ALLOWED_BLOCKCHAINS.includes(wallet.blockchain)
+      );
     }
     
     console.log("Wallets created successfully:", data);

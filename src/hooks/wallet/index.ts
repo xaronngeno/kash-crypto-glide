@@ -8,6 +8,7 @@ export * from './useSeedPhrase';
 export * from './useWalletValidator';
 export * from './useWalletGenerator';
 export * from './createUserWallets';
+export * from './useWalletCreationStatus';
 
 // For backward compatibility, ensure this is exported
 export { createUserWallets } from './createUserWallets';

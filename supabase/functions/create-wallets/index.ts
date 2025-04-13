@@ -24,7 +24,6 @@ function encryptPrivateKey(privateKey: string, userId: string): string {
   try {
     // This is a VERY simple encryption method for demonstration
     // In production, use a proper encryption library and secure key management
-    // Example: AES encryption with a proper key derivation function
     
     // Create a simple XOR encryption with user ID as part of the key
     // DO NOT USE THIS IN PRODUCTION - it's not secure!
@@ -45,8 +44,6 @@ function encryptPrivateKey(privateKey: string, userId: string): string {
   }
 }
 
-// WALLET GENERATION FUNCTIONS
-
 // Generate a mnemonic seed phrase that will be used for all wallets
 function generateHDWallets(userId: string) {
   try {
@@ -62,7 +59,7 @@ function generateHDWallets(userId: string) {
     
     console.log("Successfully generated seed phrase");
     
-    // Define derivation paths
+    // Define derivation paths - only keep BTC, ETH, SOL
     const DERIVATION_PATHS = {
       BITCOIN_SEGWIT: "m/84'/0'/0'/0/0", // BIP84 - Native SegWit
       ETHEREUM: "m/44'/60'/0'/0/0",      // BIP44 - Ethereum
@@ -93,10 +90,6 @@ function generateHDWallets(userId: string) {
       DERIVATION_PATHS.BITCOIN_SEGWIT
     );
     
-    // For Bitcoin addresses, we need to use proper BIP84 derivation
-    // We'll create a basic P2WPKH address from the public key
-    // In production, use a full Bitcoin library
-    
     // Basic implementation of Bitcoin P2WPKH (SegWit) address derivation
     // Extract the public key (removing 0x prefix if present)
     const pubKeyHex = btcSegwitHdNode.publicKey.startsWith('0x') 
@@ -107,7 +100,7 @@ function generateHDWallets(userId: string) {
     // This is a simplified implementation - in production use bitcoinjs-lib
     const btcSegwitAddress = `bc1q${base58_encode(Buffer.from(pubKeyHex.slice(0, 20), 'hex'))}`;
     
-    // Store the mnemonic for future recovery (securely encrypted)
+    // Return only BTC, ETH, SOL wallet data
     return {
       mnemonic, 
       ethereum: {

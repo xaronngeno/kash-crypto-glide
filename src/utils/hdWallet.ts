@@ -25,6 +25,7 @@ export const generateWalletsFromSeed = async (seedPhrase: string): Promise<Walle
 
 /**
  * Generate unified wallets with ethers built-in HD wallet functionality
+ * Only generates BTC, ETH, and SOL wallets
  */
 export const generateUnifiedWallets = async (seedPhrase?: string): Promise<WalletData[]> => {
   try {

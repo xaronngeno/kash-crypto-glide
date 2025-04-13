@@ -10,7 +10,7 @@ import { getCryptoLibs } from '../cryptoWrappers';
 import * as ecc from 'tiny-secp256k1';
 import { DERIVATION_PATHS, WalletData } from '../walletConfig';
 
-// Unified wallet generator functions
+// Unified wallet generator functions - only BTC, ETH, SOL
 export const generateWallet = {
   // Ethereum wallet generation
   ethereum: async (seedPhrase?: string): Promise<WalletData> => {
@@ -122,14 +122,6 @@ export const generateWallet = {
 };
 
 // Re-export individual functions for backward compatibility
-export const generateEthWallet = (blockchain = 'Ethereum', platform = 'Ethereum'): WalletData => {
-  return generateWallet.ethereum() as any;
-};
-
-export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
-  return generateWallet.solana(seedPhrase) as any;
-};
-
-export const generateBitcoinWallet = async (seedPhrase?: string): Promise<WalletData> => {
-  return generateWallet.bitcoin(seedPhrase);
-};
+export const generateEthWallet = generateWallet.ethereum;
+export const generateSolanaWallet = generateWallet.solana;
+export const generateBitcoinWallet = generateWallet.bitcoin;
