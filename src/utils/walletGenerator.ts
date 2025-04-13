@@ -2,7 +2,7 @@
 import { Buffer } from './globalPolyfills';
 import { WalletData } from './types/wallet';
 import { generateSolanaWallet } from './wallets/solana';
-import { generateEthWallet, generateTronWallet } from './wallets/ethereum';
+import { generateEthWallet } from './wallets/ethereum';
 import { generateBitcoinWallet } from './wallets/bitcoin';
 import { 
   generateUnifiedWallets, 
@@ -42,13 +42,6 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
       // Add Ethereum wallet
       wallets.push(generateEthWallet('Ethereum', 'Ethereum'));
       
-      // Add Tron wallet
-      try {
-        wallets.push(generateTronWallet());
-      } catch (tronError) {
-        console.error('Failed to generate Tron wallet:', tronError);
-      }
-      
       // Add Bitcoin wallet (Native SegWit only)
       try {
         console.log('Attempting to generate Bitcoin wallet');
@@ -77,6 +70,5 @@ export {
   generateWalletsFromSeedPhrase,
   generateSolanaWallet,
   generateEthWallet,
-  generateTronWallet,
   generateBitcoinWallet
 };

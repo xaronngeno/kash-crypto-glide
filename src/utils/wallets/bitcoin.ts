@@ -4,18 +4,41 @@ import { getBitcoin } from '../bitcoinjsWrapper';
 import { getECPairFactory } from '../ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 import { WalletData } from '../types/wallet';
+import * as bip39 from 'bip39';
+import { DERIVATION_PATHS } from '../constants/derivationPaths';
 
 // Generate a Bitcoin wallet
-export const generateBitcoinWallet = async (): Promise<WalletData> => {
+export const generateBitcoinWallet = async (seedPhrase?: string): Promise<WalletData> => {
   try {
     // Get Bitcoin module
     const bitcoin = await getBitcoin();
     
-    // Create a random key pair
+    // Create key pair from seed phrase or generate new random one
     const ECPair = await getECPairFactory(ecc);
-    const keyPair = ECPair.makeRandom();
+    let keyPair;
+    let mnemonicPhrase;
     
-    // Native SegWit (P2WPKH)
+    if (seedPhrase) {
+      mnemonicPhrase = seedPhrase;
+      // Generate seed from mnemonic
+      const seed = bip39.mnemonicToSeedSync(seedPhrase);
+      
+      // Derive key using proper BIP84 path for Native SegWit
+      const bitcoin = await getBitcoin();
+      const bip32 = bitcoin.bip32;
+      
+      // Derive the node from seed using BIP84 path
+      const root = bip32.fromSeed(seed);
+      const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
+      
+      // Get key pair from derived node
+      keyPair = ECPair.fromPrivateKey(node.privateKey);
+    } else {
+      // Generate random key pair
+      keyPair = ECPair.makeRandom();
+    }
+    
+    // Generate Native SegWit (P2WPKH) address
     const { address } = bitcoin.payments.p2wpkh({
       pubkey: keyPair.publicKey,
       network: bitcoin.networks.bitcoin,
@@ -25,7 +48,7 @@ export const generateBitcoinWallet = async (): Promise<WalletData> => {
       throw new Error('Failed to generate Bitcoin address');
     }
     
-    // Convert private key to WIF format
+    // Convert private key to hex format
     const privateKey = keyPair.privateKey?.toString('hex');
     
     return {

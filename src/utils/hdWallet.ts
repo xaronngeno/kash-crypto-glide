@@ -72,13 +72,13 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Walle
       console.log('Generating Solana wallet with proper ed25519 derivation');
       const seed = bip39.mnemonicToSeedSync(mnemonic);
       const solDerivation = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
-      const keypair = Keypair.fromSeed(solDerivation.key);
+      const keypair = Keypair.fromSeed(Uint8Array.from(solDerivation.key));
 
       wallets.push({
         blockchain: "Solana",
         platform: "Solana",
-        address: keypair.publicKey.toBase58(),
-        privateKey: bs58.encode(keypair.secretKey)
+        address: keypair.publicKey.toString(),
+        privateKey: Buffer.from(keypair.secretKey).toString('hex')
       });
       
       console.log("Generated Solana wallet successfully with ed25519 derivation");
@@ -88,23 +88,20 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Walle
     
     // Generate Bitcoin wallet (Native SegWit - BIP84)
     try {
-      // Import bitcoinjs-lib dynamically to ensure Buffer is available
+      // Get bitcoinjs-lib and the necessary components
       const bitcoin = await getBitcoin();
+      const bip32 = bitcoin.bip32;
       
-      // Get the Bitcoin node using BIP84 derivation path for SegWit
-      const bitcoinHdNode = ethers.HDNodeWallet.fromMnemonic(
-        ethers.Mnemonic.fromPhrase(mnemonic),
-        DERIVATION_PATHS.BITCOIN
-      );
+      // Generate seed from mnemonic
+      const seed = bip39.mnemonicToSeedSync(mnemonic);
       
-      // Convert private key to buffer (removing 0x prefix)
-      const privateKeyBuffer = Buffer.from(bitcoinHdNode.privateKey.slice(2), 'hex');
+      // Derive the BIP84 path for SegWit
+      const root = bip32.fromSeed(seed);
+      const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
       
-      // Get ECPair factory using the wrapper - this fixes the import issue
+      // Get ECPair factory
       const ECPair = await getECPairFactory(ecc);
-      
-      // Generate key pair from private key
-      const keyPair = ECPair.fromPrivateKey(privateKeyBuffer);
+      const keyPair = ECPair.fromPrivateKey(node.privateKey);
       
       // Generate a P2WPKH (Native SegWit) address
       const { address } = bitcoin.payments.p2wpkh({
@@ -120,42 +117,12 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Walle
         blockchain: "Bitcoin",
         platform: "Bitcoin",
         address: address,
-        privateKey: bitcoinHdNode.privateKey,
+        privateKey: '0x' + node.privateKey.toString('hex'),
         walletType: "Native SegWit"
       });
       console.log("Generated Bitcoin wallet successfully");
     } catch (error) {
       console.error("Failed to generate Bitcoin wallet:", error);
-    }
-
-    // Generate Tron wallet
-    try {
-      // Use HDNodeWallet.fromMnemonic with the Tron path
-      const tronHdNode = ethers.HDNodeWallet.fromMnemonic(
-        ethers.Mnemonic.fromPhrase(mnemonic),
-        DERIVATION_PATHS.TRON
-      );
-      
-      // Extract the private key (remove 0x prefix)
-      const privateKeyBytes = Buffer.from(tronHdNode.privateKey.slice(2), 'hex');
-      
-      // Derive the public key using keccak256 hash (similar to Ethereum)
-      // This is a simplification - in production use actual TronWeb library
-      const ethAddress = tronHdNode.address; // Get the Ethereum-format address
-      
-      // Convert Ethereum address to Tron format (simplified)
-      const tronAddress = "T" + ethAddress.slice(3, 37);
-      
-      wallets.push({
-        blockchain: "Tron",
-        platform: "Tron",
-        address: tronAddress,
-        privateKey: tronHdNode.privateKey
-      });
-      
-      console.log("Generated Tron wallet successfully");
-    } catch (error) {
-      console.error("Failed to generate Tron wallet:", error);
     }
     
     // Return the generated seed phrase along with the wallets

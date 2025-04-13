@@ -7,47 +7,18 @@ import { derivePath } from 'ed25519-hd-key';
 import { DERIVATION_PATHS } from '../constants/derivationPaths';
 import { WalletData } from '../types/wallet';
 
-// Generate a Solana wallet
-export const generateSolanaWallet = (privateKeyHex?: string, seedPhrase?: string): WalletData => {
+// Generate a Solana wallet using proper derivation
+export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
   try {
     let keypair: Keypair;
     
     if (seedPhrase) {
       // Derive Solana keypair from seed phrase using proper ed25519 derivation
-      console.log("Generating Solana wallet from seed phrase with ed25519 derivation");
+      console.log("Generating Solana wallet from seed phrase with proper ed25519 derivation");
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
-      const derived = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex')).key;
-      keypair = Keypair.fromSeed(new Uint8Array(derived));
+      const derived = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
+      keypair = Keypair.fromSeed(Uint8Array.from(derived.key));
       console.log("Created Solana wallet from seed phrase with proper derivation");
-    } else if (privateKeyHex) {
-      // Convert hex string to Uint8Array for Solana keypair
-      // For ed25519, we need the full 64-byte secret key (32 bytes private + 32 bytes public)
-      // If we have just the 32-byte private key, we need to create a proper secret key
-      let secretKey: Uint8Array;
-      
-      if (privateKeyHex.startsWith('0x')) {
-        privateKeyHex = privateKeyHex.substring(2);
-      }
-      
-      const privateKeyBytes = Buffer.from(privateKeyHex, 'hex');
-      
-      // Check if we have a 32-byte private key or a 64-byte secret key
-      if (privateKeyBytes.length === 32) {
-        // We have a 32-byte private key, create a proper 64-byte secret key
-        // This is a simplified approach - in production, derivation should use ed25519-hd-key
-        secretKey = new Uint8Array(64);
-        secretKey.set(privateKeyBytes);
-        
-        // The public key part will be auto-derived by the Keypair constructor
-        keypair = Keypair.fromSeed(privateKeyBytes);
-      } else if (privateKeyBytes.length === 64) {
-        // We have a full secret key (private + public parts)
-        keypair = Keypair.fromSecretKey(privateKeyBytes);
-      } else {
-        throw new Error(`Invalid Solana private key length: ${privateKeyBytes.length} bytes`);
-      }
-      
-      console.log("Created Solana wallet from provided private key");
     } else {
       // Generate a random keypair
       keypair = Keypair.generate();
@@ -58,7 +29,7 @@ export const generateSolanaWallet = (privateKeyHex?: string, seedPhrase?: string
       blockchain: 'Solana',
       platform: 'Solana',
       address: keypair.publicKey.toString(),
-      privateKey: Buffer.from(keypair.secretKey).toString('hex'),
+      privateKey: bs58.encode(keypair.secretKey),
     };
   } catch (error) {
     console.error('Error generating Solana wallet:', error);
