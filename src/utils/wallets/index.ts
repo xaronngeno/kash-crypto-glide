@@ -9,6 +9,7 @@ import { Buffer } from '../globalPolyfills';
 import { getCryptoLibs } from '../cryptoWrappers';
 import * as ecc from 'tiny-secp256k1';
 import { DERIVATION_PATHS, WalletData } from '../walletConfig';
+import { getBip32 } from '../bip32Wrapper';
 
 // Unified wallet generator functions - only BTC, ETH, SOL
 export const generateWallet = {
@@ -86,10 +87,10 @@ export const generateWallet = {
         
         // Derive the node from seed using BIP84 path for Native SegWit addresses
         // This is what most modern wallets use by default
-        const bip32 = await getBip32();
+        const bip32Instance = await getBip32();
         
         // Derive the node from seed using BIP84 path for Native SegWit addresses (bc1 prefix)
-        const root = bip32.fromSeed(seed);
+        const root = bip32Instance.fromSeed(seed);
         const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
         
         // Get key pair from derived node
