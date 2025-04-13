@@ -20,12 +20,22 @@ export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
       
       // Use ed25519-hd-key to derive the key using the proper path
-      // This is crucial for compatibility with Phantom wallet
+      // This is crucial for compatibility with Phantom wallet and other Solana wallets
       const { key } = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
+      
+      if (!key || key.length === 0) {
+        throw new Error("Failed to derive key from seed phrase");
+      }
       
       // Create keypair from the derived seed
       keypair = Keypair.fromSeed(Uint8Array.from(key));
-      console.log("Created Solana wallet from seed phrase with proper ed25519 derivation");
+      
+      // Double-check that we have a valid public key
+      if (!keypair.publicKey || !keypair.publicKey.toString()) {
+        throw new Error("Generated Solana keypair has invalid public key");
+      }
+      
+      console.log("Successfully created Solana wallet from seed phrase with ed25519 derivation");
       console.log("Solana address:", keypair.publicKey.toString());
     } else {
       // Generate a random keypair
@@ -34,23 +44,29 @@ export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
       console.log("Solana address:", keypair.publicKey.toString());
     }
     
+    // Final validation to ensure we have a valid address
+    const address = keypair.publicKey.toString();
+    if (!address || address.trim() === '') {
+      throw new Error("Generated Solana address is empty or invalid");
+    }
+    
     return {
       blockchain: 'Solana',
       platform: 'Solana',
-      address: keypair.publicKey.toString(),
+      address: address,
       privateKey: bs58.encode(keypair.secretKey),
     };
   } catch (error) {
     console.error('Error generating Solana wallet:', error);
-    throw new Error('Failed to generate Solana wallet');
+    throw new Error('Failed to generate Solana wallet: ' + (error instanceof Error ? error.message : String(error)));
   }
 };
 
 // Verify a Solana address is valid
 export const verifySolanaAddress = (address: string): boolean => {
   try {
-    // Basic validation - Solana addresses are base58 encoded and typically around 44 chars
-    if (!address || typeof address !== 'string') return false;
+    // Basic validation - Solana addresses are base58 encoded and typically around 32-44 chars
+    if (!address || typeof address !== 'string' || address.trim() === '') return false;
     
     const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
     return base58Regex.test(address);

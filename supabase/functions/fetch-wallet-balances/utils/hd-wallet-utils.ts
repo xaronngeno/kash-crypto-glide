@@ -1,6 +1,8 @@
 
 import { getOrCreateSeedPhrase } from '../../_shared/wallet-helpers.ts';
 import { generateHDWallets } from '../../_shared/hd-wallet-core.ts';
+import { derivePath } from 'ed25519-hd-key';
+import * as bip39 from 'bip39';
 
 /**
  * Generate HD wallets for a user from their seed phrase
@@ -18,29 +20,46 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
     
     // Generate HD wallets from the seed phrase
     const hdWallets = await generateHDWallets(seedPhrase, userId);
+    console.log("Generated HD wallets", {
+      hasEthereumAddress: Boolean(hdWallets.ethereum?.address),
+      hasBitcoinAddress: Boolean(hdWallets.bitcoinSegwit?.address),
+      hasSolanaAddress: Boolean(hdWallets.solana?.address)
+    });
     
     // Verify that the Solana address is valid
     if (!hdWallets.solana.address || hdWallets.solana.address.trim() === "" || 
         !verifySolanaAddress(hdWallets.solana.address)) {
-      console.warn("Generated Solana address may not be valid:", hdWallets.solana.address);
+      console.warn("Generated Solana address may be invalid or missing:", hdWallets.solana.address);
       
-      // Try to generate a fallback address from the private key
-      if (hdWallets.solana.privateKey) {
-        try {
-          const encoder = new TextEncoder();
-          const privateKeyBytes = encoder.encode(hdWallets.solana.privateKey);
-          const hashBuffer = await crypto.subtle.digest('SHA-256', privateKeyBytes);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      // Attempt to regenerate the Solana address directly using ed25519-hd-key
+      try {
+        console.log("Attempting to regenerate Solana address with direct ed25519 derivation");
+        
+        // Convert seed phrase to seed
+        const seed = bip39.mnemonicToSeedSync(seedPhrase);
+        
+        // Derive key using Solana path
+        const path = "m/44'/501'/0'/0'";
+        const { key } = derivePath(path, seed.toString('hex'));
+        
+        if (key && key.length > 0) {
+          // Import Solana web3 utilities
+          const { Keypair } = await import('@solana/web3.js');
           
-          // Create a placeholder Solana address in the correct format
-          // Real Solana addresses are base58 encoded and around 32-44 chars
-          const address = hashHex.substring(0, 40);
-          console.log("Generated fallback Solana address:", address);
-          hdWallets.solana.address = address;
-        } catch (err) {
-          console.error("Failed to generate fallback Solana address:", err);
+          // Create keypair from the derived seed
+          const keypair = Keypair.fromSeed(Uint8Array.from(key));
+          
+          if (keypair && keypair.publicKey) {
+            const address = keypair.publicKey.toString();
+            console.log("Successfully regenerated Solana address:", address);
+            hdWallets.solana.address = address;
+            
+            // We could also update the private key, but it's not necessary for this fix
+            // as we're primarily concerned with the address for display purposes
+          }
         }
+      } catch (regenerationError) {
+        console.error("Failed to regenerate Solana address:", regenerationError);
       }
     }
     

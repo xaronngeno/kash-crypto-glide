@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, QrCode, Info, Wallet, ArrowRight, Search } from 'lucide-react';
@@ -340,6 +339,69 @@ const Receive = () => {
     });
   };
 
+  const handleTryAgain = async () => {
+    if (!user || !user.id) return;
+    
+    setLoading(true);
+    
+    try {
+      toast({
+        title: "Refreshing wallets",
+        description: "Attempting to regenerate wallet addresses...",
+      });
+      
+      await refreshWalletBalances(user.id);
+      
+      const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
+        method: 'POST',
+        body: { userId: user.id, forceRefresh: true }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.success && data.wallets && data.wallets.length > 0) {
+        console.log("Refreshed wallet addresses:", data.wallets);
+        
+        const addresses: WalletAddress[] = data.wallets.map(wallet => ({
+          blockchain: wallet.blockchain,
+          symbol: wallet.currency,
+          address: wallet.address,
+          logo: getCurrencyLogo(wallet.currency)
+        }));
+        
+        setWalletAddresses(addresses);
+        
+        if (currentStep === ReceiveStep.VIEW_ADDRESS && selectedWallet && selectedToken) {
+          const refreshedWallet = addresses.find(
+            w => w.symbol === selectedToken.symbol && w.blockchain === selectedNetwork
+          );
+          
+          if (refreshedWallet) {
+            setSelectedWallet(refreshedWallet);
+          }
+        }
+        
+        toast({
+          title: "Wallets refreshed",
+          description: "Your wallet addresses have been updated.",
+        });
+      } else {
+        throw new Error("No wallets found after refresh");
+      }
+    } catch (error) {
+      console.error("Error refreshing wallets:", error);
+      toast({
+        title: "Refresh failed",
+        description: "Failed to refresh wallet addresses. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchWalletAddresses = async () => {
       if (!user) {
@@ -617,10 +679,10 @@ const Receive = () => {
                     <h3 className="font-medium text-amber-700">Address Not Available</h3>
                   </div>
                   <p className="text-amber-600 mb-3">
-                    There was an issue retrieving your {selectedWallet.symbol} address. 
+                    There was an issue retrieving your {selectedWallet.symbol} address.
                   </p>
                   <KashButton 
-                    onClick={() => refreshWalletBalances(user?.id || "")}
+                    onClick={handleTryAgain}
                     variant="outline"
                     size="sm"
                   >
