@@ -118,9 +118,16 @@ export const fetchWalletBalances = async ({
       return [];
     }
 
+    // Filter only native wallets (ETH, SOL, BTC)
+    const nativeWallets = data.wallets.filter(wallet => 
+      (wallet.blockchain === 'Ethereum' && wallet.currency === 'ETH') ||
+      (wallet.blockchain === 'Solana' && wallet.currency === 'SOL') ||
+      (wallet.blockchain === 'Bitcoin' && wallet.currency === 'BTC' && wallet.wallet_type === 'Native SegWit')
+    );
+    
     // Deduplicate the wallets
-    const uniqueWallets = deduplicateWallets(data.wallets);
-    console.log(`Successfully fetched ${data.wallets.length} wallets, deduplicated to ${uniqueWallets.length}`);
+    const uniqueWallets = deduplicateWallets(nativeWallets);
+    console.log(`Filtered to ${uniqueWallets.length} native wallets from ${data.wallets.length} total wallets`);
     
     // Cache the successful response for potential fallback
     cachedWallets = uniqueWallets;

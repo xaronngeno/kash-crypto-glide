@@ -25,7 +25,7 @@ export async function createInitialWallets(supabase: any, userId: string) {
     
     const wallets = [];
     
-    // Create Ethereum wallet and tokens
+    // Create Ethereum wallet only, no tokens
     const ethereumWallets = await createEthereumWallets(
       supabase, 
       userId,
@@ -34,7 +34,7 @@ export async function createInitialWallets(supabase: any, userId: string) {
     );
     wallets.push(...ethereumWallets);
     
-    // Create Solana wallet and tokens
+    // Create Solana wallet only, no tokens
     const solanaWallets = await createSolanaWallets(
       supabase, 
       userId,
