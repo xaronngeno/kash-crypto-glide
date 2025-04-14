@@ -36,26 +36,26 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
         console.log("Attempting to regenerate Solana address with direct ed25519 derivation");
         
         // Convert seed phrase to seed
-        const seed = bip39.mnemonicToSeedSync(seedPhrase);
+        const seed = await bip39.mnemonicToSeed(seedPhrase);
         
         // Derive key using Solana path
         const path = "m/44'/501'/0'/0'";
-        const { key } = derivePath(path, seed.toString('hex'));
+        const { key } = derivePath(path, Buffer.from(seed).toString('hex'));
         
         if (key && key.length > 0) {
           // Import Solana web3 utilities
           const { Keypair } = await import('https://esm.sh/@solana/web3.js@1.91.1');
           
           // Create keypair from the derived seed
-          const keypair = Keypair.fromSeed(Uint8Array.from(key));
+          const keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
           
           if (keypair && keypair.publicKey) {
             const address = keypair.publicKey.toString();
             console.log("Successfully regenerated Solana address:", address);
             hdWallets.solana.address = address;
             
-            // We could also update the private key, but it's not necessary for this fix
-            // as we're primarily concerned with the address for display purposes
+            // Store the private key as well
+            hdWallets.solana.privateKey = Buffer.from(keypair.secretKey).toString('hex');
           }
         }
       } catch (regenerationError) {
@@ -80,6 +80,15 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
 // Helper function to verify Solana address
 function verifySolanaAddress(address: string): boolean {
   if (!address || typeof address !== 'string') return false;
+  
+  // Solana addresses should be base58 encoded and typically 32-44 characters long
   const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-  return base58Regex.test(address);
+  
+  // Check if it's in the right format
+  const isValidFormat = base58Regex.test(address);
+  
+  // Additional check: Solana addresses shouldn't have the pattern appearing in the problematic address
+  const hasInvalidParts = /8aCNAc8AQBprr32JoGNA6w2SSS69WbPd/.test(address);
+  
+  return isValidFormat && !hasInvalidParts;
 }
