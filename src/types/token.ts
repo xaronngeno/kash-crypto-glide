@@ -7,4 +7,6 @@ export interface Token {
   decimals: number;
   logo?: string;
   networks?: string[];
+  commissionEnabled?: boolean;
+  commissionPercentage?: number;
 }

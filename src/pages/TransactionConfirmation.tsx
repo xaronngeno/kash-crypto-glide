@@ -1,7 +1,6 @@
-
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { KashButton } from '@/components/ui/KashButton';
@@ -17,6 +16,12 @@ const TransactionConfirmation = () => {
   
   // Get transaction details from location state
   const transactionData = location.state || {};
+  
+  // Calculate commission (if applicable)
+  const showCommission = transactionData.type === 'send' && transactionData.includeCommission;
+  const commissionPercentage = showCommission ? 1 : 0; // 1% commission
+  const commissionAmount = showCommission ? transactionData.amount * (commissionPercentage / 100) : 0;
+  const finalAmount = transactionData.amount - commissionAmount;
   
   // Validate the address one more time
   const addressValid = transactionData.type === 'send' ? 
@@ -83,6 +88,21 @@ const TransactionConfirmation = () => {
                     <span className="text-gray-600">Amount</span>
                     <span className="font-medium">{transactionData.amount} {transactionData.asset?.symbol}</span>
                   </div>
+                  
+                  {showCommission && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">App Fee ({commissionPercentage}%)</span>
+                      <span className="font-medium">{commissionAmount.toFixed(6)} {transactionData.asset?.symbol}</span>
+                    </div>
+                  )}
+                  
+                  {showCommission && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Recipient Gets</span>
+                      <span className="font-medium">{finalAmount.toFixed(6)} {transactionData.asset?.symbol}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between">
                     <span className="text-gray-600">Network Fee</span>
                     <span className="font-medium">{transactionData.fee} {transactionData.asset?.symbol}</span>
@@ -94,7 +114,9 @@ const TransactionConfirmation = () => {
                   <div className="border-t border-gray-100 pt-2 mt-2"></div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Amount</span>
-                    <span className="font-semibold">{(transactionData.amount + transactionData.fee).toFixed(6)} {transactionData.asset?.symbol}</span>
+                    <span className="font-semibold">
+                      {(transactionData.amount + transactionData.fee).toFixed(6)} {transactionData.asset?.symbol}
+                    </span>
                   </div>
                 </>
               )}
@@ -123,6 +145,18 @@ const TransactionConfirmation = () => {
             </div>
           </div>
         </KashCard>
+        
+        {showCommission && (
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+            <div className="flex items-start">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 mr-2" />
+              <div className="text-sm text-blue-700">
+                <p className="font-medium mb-1">Transaction Fee Information</p>
+                <p>This transaction includes a {commissionPercentage}% commission fee. The recipient will receive {finalAmount.toFixed(6)} {transactionData.asset?.symbol}.</p>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="space-y-3 pt-4">
           <KashButton

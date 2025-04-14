@@ -14,3 +14,19 @@ export interface WalletResponse {
   balance?: number;
   logo?: string;
 }
+
+export interface TransactionCommission {
+  percentage: number;
+  flatFee?: number;
+  minCommission?: number;
+  maxCommission?: number;
+  applicationAddress: string;
+}
+
+export interface TransactionWithCommission {
+  originalAmount: number;
+  commissionAmount: number;
+  finalAmount: number;
+  recipientAddress: string;
+  applicationAddress: string;
+}
