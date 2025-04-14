@@ -1,19 +1,5 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-// CORS headers for browser requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Handle CORS preflight request
-function handleCors(req: Request): Response | undefined {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-  return undefined;
-}
+import { corsHeaders, handleCors } from "../_shared/cors.ts";
 
 // Base64 encode credentials for authentication
 function encodeCredentials(consumerKey: string, consumerSecret: string): string {
@@ -247,7 +233,7 @@ async function initiateSTKPush(
 }
 
 serve(async (req) => {
-  // Handle CORS
+  // Handle CORS preflight requests
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
   
