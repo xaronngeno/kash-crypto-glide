@@ -147,7 +147,7 @@ const TransactionHistory = () => {
     <MainLayout title="Recent Activity">
       <div className="space-y-4 pb-20">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">Recent Activity</h2>
+          {/* Heading "Recent Activity" removed */}
         </div>
       
         {transactions.length === 0 ? (
