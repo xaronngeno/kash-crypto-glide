@@ -1,8 +1,8 @@
 
 import { getOrCreateSeedPhrase } from '../../_shared/wallet-helpers.ts';
 import { generateHDWallets } from '../../_shared/hd-wallet-core.ts';
-import { derivePath } from 'ed25519-hd-key';
-import * as bip39 from 'bip39';
+import { derivePath } from 'https://esm.sh/ed25519-hd-key@1.3.0';
+import * as bip39 from 'https://esm.sh/bip39@3.1.0';
 
 /**
  * Generate HD wallets for a user from their seed phrase
@@ -44,7 +44,7 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
         
         if (key && key.length > 0) {
           // Import Solana web3 utilities
-          const { Keypair } = await import('@solana/web3.js');
+          const { Keypair } = await import('https://esm.sh/@solana/web3.js@1.91.1');
           
           // Create keypair from the derived seed
           const keypair = Keypair.fromSeed(Uint8Array.from(key));
