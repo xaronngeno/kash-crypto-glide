@@ -1,65 +1,69 @@
 
-import * as ethers from "https://esm.sh/ethers@6.13.5";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { generateHDWallets } from "./hd-wallet-core.ts";
+import * as bip39 from "https://esm.sh/bip39@3.1.0";
 
 /**
- * Generate a BIP39 mnemonic
- */
-export function generateMnemonic() {
-  try {
-    // Use ethers to generate a valid BIP39 mnemonic
-    const wallet = ethers.Wallet.createRandom();
-    if (!wallet.mnemonic || !wallet.mnemonic.phrase) {
-      throw new Error("Failed to generate valid mnemonic");
-    }
-    
-    return wallet.mnemonic.phrase;
-  } catch (error) {
-    console.error("Error generating mnemonic:", error);
-    throw error;
-  }
-}
-
-/**
- * Get or create a seed phrase for a user
+ * Generate or retrieve a seed phrase for a user
+ * This is a critical function that needs proper error handling
  */
 export async function getOrCreateSeedPhrase(supabase: any, userId: string): Promise<string> {
   try {
-    // Check if user already has a stored seed phrase
-    const { data: existingMnemonic, error: fetchError } = await supabase
+    // First check if the user already has a seed phrase
+    const { data: mnemonicData, error: mnemonicError } = await supabase
       .from('user_mnemonics')
       .select('main_mnemonic')
       .eq('user_id', userId)
       .maybeSingle();
       
-    if (fetchError) {
-      console.error("Error fetching existing mnemonic:", fetchError);
+    if (mnemonicError) {
+      console.error("Error checking for existing seed phrase:", mnemonicError);
     }
     
-    if (existingMnemonic?.main_mnemonic) {
+    // If a seed phrase exists, return it
+    if (mnemonicData?.main_mnemonic) {
       console.log("Found existing seed phrase");
-      return existingMnemonic.main_mnemonic;
+      return mnemonicData.main_mnemonic;
     }
     
-    // No existing seed phrase, generate a new one
-    console.log("Generating new seed phrase");
-    const mnemonic = generateMnemonic();
+    console.log("No existing seed phrase found, generating new one");
     
-    // Store the mnemonic
+    // Generate a new random seed phrase (12 words by default)
+    const seedPhrase = bip39.generateMnemonic(128); // 128 bits = 12 words
+    
+    // Store the seed phrase in the database
     const { error: insertError } = await supabase
       .from('user_mnemonics')
       .insert({
         user_id: userId,
-        main_mnemonic: mnemonic
-      });
+        main_mnemonic: seedPhrase
+      })
+      .select()
+      .single();
       
     if (insertError) {
-      console.error("Error storing mnemonic:", insertError);
-      throw insertError;
+      console.error("Error storing seed phrase:", insertError);
+      
+      // If there's a conflict (another process might have created it), try to fetch again
+      if (insertError.code === '23505') { // Unique violation
+        const { data: retryData, error: retryError } = await supabase
+          .from('user_mnemonics')
+          .select('main_mnemonic')
+          .eq('user_id', userId)
+          .maybeSingle();
+          
+        if (retryError) {
+          console.error("Error in retry fetch of seed phrase:", retryError);
+          throw new Error("Failed to retrieve or create seed phrase");
+        }
+        
+        if (retryData?.main_mnemonic) {
+          return retryData.main_mnemonic;
+        }
+      }
+      
+      throw new Error(`Failed to store seed phrase: ${insertError.message}`);
     }
     
-    return mnemonic;
+    return seedPhrase;
   } catch (error) {
     console.error("Error in getOrCreateSeedPhrase:", error);
     throw error;
@@ -67,21 +71,11 @@ export async function getOrCreateSeedPhrase(supabase: any, userId: string): Prom
 }
 
 /**
- * Generate HD wallets for a user
+ * Generate HD wallets from seed phrase
+ * This is just a re-export for backward compatibility
  */
 export async function generateHDWallets(seedPhrase: string, userId: string) {
-  try {
-    console.log("Generating HD wallets from seed phrase");
-    
-    // First validate the seed phrase
-    if (!ethers.Mnemonic.isValidMnemonic(seedPhrase)) {
-      throw new Error("Invalid seed phrase format");
-    }
-    
-    // Now proceed with wallet generation
-    return await generateHDWallets(seedPhrase, userId);
-  } catch (error) {
-    console.error("Error generating HD wallets:", error);
-    throw error;
-  }
+  // Import the function dynamically to avoid circular dependencies
+  const { generateHDWallets: generateWallets } = await import("./hd-wallet-core.ts");
+  return generateWallets(seedPhrase, userId);
 }

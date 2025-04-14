@@ -1,8 +1,9 @@
 
 import { getOrCreateSeedPhrase } from '../../_shared/wallet-helpers.ts';
 import { generateHDWallets } from '../../_shared/hd-wallet-core.ts';
-import { derivePath } from 'https://esm.sh/ed25519-hd-key@1.3.0';
+import { Keypair } from 'https://esm.sh/@solana/web3.js@1.91.1';
 import * as bip39 from 'https://esm.sh/bip39@3.1.0';
+import { derivePath } from 'https://esm.sh/ed25519-hd-key@1.3.0';
 
 /**
  * Generate HD wallets for a user from their seed phrase
@@ -30,9 +31,9 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
     });
     
     // Verify that the Solana address is valid
-    if (!hdWallets.solana.address || hdWallets.solana.address.trim() === "" || 
+    if (!hdWallets.solana?.address || hdWallets.solana.address.trim() === "" || 
         !verifySolanaAddress(hdWallets.solana.address)) {
-      console.warn("Generated Solana address may be invalid or missing:", hdWallets.solana.address);
+      console.warn("Generated Solana address may be invalid or missing:", hdWallets.solana?.address);
       
       // Attempt to regenerate the Solana address directly using ed25519-hd-key
       try {
@@ -46,19 +47,16 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
         const { key } = derivePath(path, Buffer.from(seed).toString('hex'));
         
         if (key && key.length > 0) {
-          // Import Solana web3 utilities
-          const { Keypair } = await import('https://esm.sh/@solana/web3.js@1.91.1');
-          
           // Create keypair from the derived seed
           const keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
           
           if (keypair && keypair.publicKey) {
             const address = keypair.publicKey.toString();
             console.log("Successfully regenerated Solana address:", address);
-            hdWallets.solana.address = address;
-            
-            // Store the private key as well
-            hdWallets.solana.privateKey = Buffer.from(keypair.secretKey).toString('hex');
+            hdWallets.solana = {
+              address: address,
+              privateKey: Buffer.from(keypair.secretKey).toString('hex')
+            };
           }
         }
       } catch (regenerationError) {
@@ -68,11 +66,12 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
     
     return {
       solana: {
-        address: hdWallets.solana.address,
-        private_key: hdWallets.solana.privateKey
+        address: hdWallets.solana?.address,
+        private_key: hdWallets.solana?.privateKey
       },
       ethereum: hdWallets.ethereum,
-      bitcoin: hdWallets.bitcoin
+      bitcoin: hdWallets.bitcoin,
+      bitcoinSegwit: hdWallets.bitcoin // For compatibility
     };
   } catch (error) {
     console.error("Error generating HD wallets:", error);
