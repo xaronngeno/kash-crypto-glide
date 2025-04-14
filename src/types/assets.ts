@@ -16,5 +16,8 @@ export interface Asset {
     logo: string;
   };
   networks?: Record<string, { address: string, balance: number }>;
-  walletType?: string; // Added wallet type property
+  walletType?: string;         // 'native', 'token', 'imported', etc.
+  contractAddress?: string;    // For ERC-20 and SPL tokens
+  decimals?: number;           // Token decimals
+  tokenStandard?: string;      // 'ERC20', 'SPL', etc.
 }

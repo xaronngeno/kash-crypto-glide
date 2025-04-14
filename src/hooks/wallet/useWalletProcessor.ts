@@ -14,21 +14,19 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         return [];
       }
 
-      // Filter out Bitcoin wallets and log remaining wallets
-      const filteredWallets = wallets.filter(w => w.blockchain !== 'Bitcoin' && w.currency !== 'BTC');
-      
       // Log all wallet types being processed
-      const ethereumWallets = filteredWallets.filter(w => w.blockchain === 'Ethereum');
-      const solanaWallets = filteredWallets.filter(w => w.blockchain === 'Solana');
+      const ethereumWallets = wallets.filter(w => w.blockchain === 'Ethereum');
+      const solanaWallets = wallets.filter(w => w.blockchain === 'Solana');
       
-      console.log(`Processing ${filteredWallets.length} total wallets:`);
+      console.log(`Processing ${wallets.length} total wallets:`);
       console.log(`ETH wallets found: ${ethereumWallets.length > 0 ? JSON.stringify(ethereumWallets) : 'None'}`);
       console.log(`SOL wallets found: ${solanaWallets.length > 0 ? JSON.stringify(solanaWallets) : 'None'}`);
       
       if (ethereumWallets.length > 0) console.log("Has Ethereum ETH:", true);
       if (solanaWallets.length > 0) console.log("Has Solana SOL:", true);
 
-      return filteredWallets.map(wallet => {
+      // Process all wallets (native and token wallets)
+      const processedAssets = wallets.map(wallet => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
         
@@ -52,7 +50,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         }
         
         const asset: Asset = {
-          id: `${wallet.blockchain}-${wallet.currency}`,
+          id: `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type || 'default'}`,
           name: priceData?.name || wallet.currency || 'Unknown',
           symbol: symbol,
           logo: priceData?.logo || `/placeholder.svg`,
@@ -64,10 +62,27 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           value: (parseFloat(wallet.balance as any) || 0) * (priceData?.price || 0),
           icon: symbol.slice(0, 1),
           platform: priceData?.platform || { name: wallet.blockchain, logo: `/placeholder.svg` },
-          walletType: wallet.wallet_type,
+          walletType: wallet.wallet_type || (wallet.blockchain === wallet.currency ? 'native' : 'token'),
+          contractAddress: wallet.contract_address,
         };
         
         return asset;
+      });
+      
+      // Sort assets - native tokens first, then by value
+      return processedAssets.sort((a, b) => {
+        // Native tokens first
+        if (a.walletType === 'native' && b.walletType !== 'native') return -1;
+        if (a.walletType !== 'native' && b.walletType === 'native') return 1;
+        
+        // Then by blockchain (ETH first, then SOL)
+        if (a.blockchain === 'Ethereum' && b.blockchain !== 'Ethereum') return -1;
+        if (a.blockchain !== 'Ethereum' && b.blockchain === 'Ethereum') return 1;
+        if (a.blockchain === 'Solana' && b.blockchain !== 'Solana') return -1;
+        if (a.blockchain !== 'Solana' && b.blockchain === 'Solana') return 1;
+        
+        // Then by value (highest first)
+        return b.value - a.value;
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
