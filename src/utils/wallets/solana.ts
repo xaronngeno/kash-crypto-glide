@@ -30,11 +30,6 @@ export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
       // Create keypair from the derived seed, using only the first 32 bytes as required by fromSeed
       keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
       
-      // Double-check that we have a valid public key
-      if (!keypair.publicKey || !keypair.publicKey.toString()) {
-        throw new Error("Generated Solana keypair has invalid public key");
-      }
-      
       console.log("Successfully created Solana wallet from seed phrase with ed25519 derivation");
       console.log("Solana address:", keypair.publicKey.toString());
     } else {
@@ -48,11 +43,6 @@ export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
     const address = keypair.publicKey.toString();
     if (!address || address.trim() === '') {
       throw new Error("Generated Solana address is empty or invalid");
-    }
-    
-    // Verify it's not our problematic placeholder address
-    if (address === '8aCNAc8AQBprr32JoGNA6w2SSS69WbPd') {
-      throw new Error("Generated Solana address matches known problematic placeholder");
     }
     
     return {
@@ -74,10 +64,6 @@ export const verifySolanaAddress = (address: string): boolean => {
     if (!address || typeof address !== 'string' || address.trim() === '') return false;
     
     const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-    
-    // Check if it's a known invalid placeholder
-    if (address === '8aCNAc8AQBprr32JoGNA6w2SSS69WbPd') return false;
-    
     return base58Regex.test(address);
   } catch (error) {
     console.error('Error validating Solana address:', error);

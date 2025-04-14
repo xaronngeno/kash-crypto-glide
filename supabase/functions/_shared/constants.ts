@@ -1,10 +1,14 @@
 
 // Define derivation paths following BIP-44 standards
 export const DERIVATION_PATHS = {
-  BITCOIN_SEGWIT: "m/84'/0'/0'/0/0", // BIP84 - Native SegWit
-  BITCOIN: "m/44'/0'/0'/0/0",      // BIP44 - Legacy for Trust Wallet compatibility
-  ETHEREUM: "m/44'/60'/0'/0/0",    // BIP44 - Ethereum
-  SOLANA: "m/44'/501'/0'/0'"       // BIP44 - Solana
+  // Bitcoin paths for different address types
+  BITCOIN_NATIVE_SEGWIT: "m/84'/0'/0'/0/0",  // BIP84 - Native SegWit (bc1 addresses)
+  BITCOIN_SEGWIT: "m/49'/0'/0'/0/0",         // BIP49 - SegWit (3 addresses)
+  BITCOIN: "m/44'/0'/0'/0/0",               // BIP44 - Legacy (1 addresses)
+  
+  // Standard paths for other blockchains
+  ETHEREUM: "m/44'/60'/0'/0/0",             // BIP44 - Ethereum
+  SOLANA: "m/44'/501'/0'/0'"                // BIP44 - Solana
 };
 
 // Define additional constants for clarity
