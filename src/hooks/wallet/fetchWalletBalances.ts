@@ -95,7 +95,10 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
               const now = Date.now();
               const cachedValue = balanceCache.get(cacheKey);
               
-              if (cachedValue && (now - cachedValue.timestamp < CACHE_DURATION) && !forceRefresh) {
+              // Use a local variable to determine if we need to force refresh
+              const shouldForceRefresh = true; // We're always forcing refresh in this function
+              
+              if (cachedValue && (now - cachedValue.timestamp < CACHE_DURATION) && !shouldForceRefresh) {
                 wallet.balance = cachedValue.balance;
                 console.log(`Using cached balance for ${wallet.blockchain} address ${wallet.address}`);
               } else {
