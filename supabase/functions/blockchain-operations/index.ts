@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -31,14 +32,14 @@ const APPLICATION_WALLETS = {
 
 // Commission settings (can be moved to database later)
 const COMMISSION_SETTINGS = {
-  PERCENTAGE: 0.01, // 1% commission
+  PERCENTAGE: 0.005, // 0.5% commission (updated from 1%)
   MIN_COMMISSION: {
-    ETHEREUM: 0.0005, // Minimum 0.0005 ETH
-    SOLANA: 0.01, // Minimum 0.01 SOL
+    ETHEREUM: 0.0002, // Minimum 0.0002 ETH (reduced to match percentage)
+    SOLANA: 0.005, // Minimum 0.005 SOL (reduced to match percentage)
   },
   MAX_COMMISSION: {
-    ETHEREUM: 0.05, // Maximum 0.05 ETH
-    SOLANA: 1, // Maximum 1 SOL
+    ETHEREUM: 0.025, // Maximum 0.025 ETH (reduced to match percentage)
+    SOLANA: 0.5, // Maximum 0.5 SOL (reduced to match percentage)
   }
 };
 

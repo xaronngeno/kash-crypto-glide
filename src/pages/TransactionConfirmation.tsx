@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Info } from 'lucide-react';
@@ -20,7 +19,7 @@ const TransactionConfirmation = () => {
   
   // Calculate commission (if applicable)
   const showCommission = transactionData.type === 'send' && transactionData.includeCommission;
-  const commissionPercentage = showCommission ? 1 : 0; // 1% commission
+  const commissionPercentage = showCommission ? 0.5 : 0; // 0.5% commission (updated from 1%)
   const commissionAmount = showCommission ? transactionData.amount * (commissionPercentage / 100) : 0;
   const finalAmount = transactionData.amount - commissionAmount;
   
