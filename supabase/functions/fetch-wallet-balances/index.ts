@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -38,7 +37,27 @@ async function fetchUserWallets(supabase: any, userId: string) {
     throw walletsError;
   }
 
-  console.log(`Found ${wallets?.length || 0} wallets for user ${userId}`);
+  const walletsCount = wallets?.length || 0;
+  console.log(`Found ${walletsCount} wallets for user ${userId}`);
+  
+  if (wallets && wallets.length > 0) {
+    const bitcoinWallets = wallets.filter(w => w.blockchain === 'Bitcoin');
+    const ethereumWallets = wallets.filter(w => w.blockchain === 'Ethereum');
+    const solanaWallets = wallets.filter(w => w.blockchain === 'Solana');
+    
+    console.log(`Wallet breakdown - BTC: ${bitcoinWallets.length}, ETH: ${ethereumWallets.length}, SOL: ${solanaWallets.length}`);
+    
+    if (bitcoinWallets.length > 0) {
+      console.log(`Bitcoin addresses:`, bitcoinWallets.map(w => w.address));
+    }
+    if (ethereumWallets.length > 0) {
+      console.log(`Ethereum addresses:`, ethereumWallets.map(w => w.address));
+    }
+    if (solanaWallets.length > 0) {
+      console.log(`Solana addresses:`, solanaWallets.map(w => w.address));
+    }
+  }
+  
   return wallets;
 }
 
@@ -141,9 +160,10 @@ serve(async (req: Request) => {
       wallets = await trackOperation(fetchUserWallets(supabase, userId));
       
       wallets = filterNativeWallets(wallets);
+      console.log(`After filtering to native wallets: ${wallets?.length || 0} wallets`);
       
-      // Deduplicate wallets before processing
       wallets = deduplicateWallets(wallets);
+      console.log(`After deduplication: ${wallets?.length || 0} wallets`);
       
       if (forceRefresh && wallets && wallets.length > 0) {
         console.log("Force refresh requested, checking blockchain explorers");
@@ -241,7 +261,6 @@ serve(async (req: Request) => {
           const addedWallets = await trackOperation(createMissingWalletsPromise);
           console.log(`Created ${addedWallets.length} missing wallets`);
           
-          // Deduplicate before adding to the response
           const dedupedAddedWallets = deduplicateWallets(addedWallets);
           
           dedupedAddedWallets.forEach(wallet => {

@@ -34,6 +34,15 @@ export const fetchWalletBalances = async ({
       return [];
     }
     
+    // Log wallet types received
+    if (data?.wallets) {
+      const btcWallets = data.wallets.filter(w => w.blockchain === 'Bitcoin');
+      const ethWallets = data.wallets.filter(w => w.blockchain === 'Ethereum');
+      const solWallets = data.wallets.filter(w => w.blockchain === 'Solana');
+      
+      console.log(`Received wallets - BTC: ${btcWallets.length}, ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
+    }
+    
     return data?.wallets || [];
   } catch (err) {
     console.error("Error in fetchWalletBalances:", err);
@@ -72,6 +81,13 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
         description: "Fetching latest data from mainnet networks...",
       });
       
+      // Log wallet types being refreshed
+      const btcWallets = data.wallets.filter(w => w.blockchain === 'Bitcoin');
+      const ethWallets = data.wallets.filter(w => w.blockchain === 'Ethereum');
+      const solWallets = data.wallets.filter(w => w.blockchain === 'Solana');
+      
+      console.log(`Refreshing wallets - BTC: ${btcWallets.length}, ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
+      
       // Track successful updates
       let successCount = 0;
       let failureCount = 0;
@@ -103,6 +119,7 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
                 console.log(`Using cached balance for ${wallet.blockchain} address ${wallet.address}`);
               } else {
                 // Get balance from the blockchain
+                console.log(`Fetching ${wallet.blockchain} balance for address ${wallet.address}`);
                 const balance = await getBlockchainBalance(
                   wallet.address, 
                   wallet.blockchain as 'Ethereum' | 'Solana' | 'Bitcoin'
@@ -111,6 +128,7 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
                 // Update the cache
                 if (typeof balance === 'number') {
                   balanceCache.set(cacheKey, { balance, timestamp: now });
+                  console.log(`Updated ${wallet.blockchain} balance: ${balance}`);
                 
                   // Update the balance in the database
                   await supabase
@@ -156,6 +174,9 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
       while (activePromises.size > 0) {
         await Promise.race(activePromises);
       }
+      
+      // Log final refresh results
+      console.log(`Wallet refresh results - Success: ${successCount}, Failures: ${failureCount}`);
       
       // Show appropriate toast based on results
       if (successCount > 0) {
