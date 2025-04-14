@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { Asset } from '@/types/assets';
 import { CryptoPrices } from '@/hooks/useCryptoPrices';
+import { isBitcoinAddress, isEthereumAddress, isSolanaAddress } from '@/utils/addressValidator';
 
 export const useWalletProcessor = (prices: CryptoPrices) => {
   const [error, setError] = useState<string | null>(null);
@@ -27,18 +28,26 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         
         // Validate address format based on blockchain type
         let validAddress = wallet.address || 'Address Not Available';
+        let validationPassed = true;
         
         // Format validation for popular blockchains
-        if (wallet.blockchain === 'Bitcoin' && !validAddress.startsWith('bc1') && !validAddress.startsWith('1') && !validAddress.startsWith('3')) {
+        if (wallet.blockchain === 'Bitcoin' && !isBitcoinAddress(validAddress)) {
           console.warn(`Warning: Bitcoin address doesn't match expected format: ${validAddress}`);
+          validationPassed = false;
         }
         
-        if (wallet.blockchain === 'Ethereum' && !validAddress.startsWith('0x')) {
+        if (wallet.blockchain === 'Ethereum' && !isEthereumAddress(validAddress)) {
           console.warn(`Warning: Ethereum address doesn't match expected format: ${validAddress}`);
+          validationPassed = false;
         }
         
-        if (wallet.blockchain === 'Solana' && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(validAddress)) {
+        if (wallet.blockchain === 'Solana' && !isSolanaAddress(validAddress)) {
           console.warn(`Warning: Solana address doesn't match expected format: ${validAddress}`);
+          validationPassed = false;
+        }
+        
+        if (!validationPassed && process.env.NODE_ENV === 'development') {
+          console.info('Continuing with address despite validation failure (development mode)');
         }
         
         const asset: Asset = {

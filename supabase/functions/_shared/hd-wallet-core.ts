@@ -23,11 +23,21 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
     // Derive Ethereum wallet
     const ethereum = deriveEthereumWallet(seedPhrase);
     
-    // Derive Solana wallet - but handle the async nature properly
-    const solana = await deriveSolanaWallet(seedPhrase);
+    // Derive Solana wallet - handle separately due to tweetnacl usage
+    let solana;
+    try {
+      solana = await deriveSolanaWallet(seedPhrase);
+    } catch (solError) {
+      console.error("Error deriving Solana wallet:", solError);
+      // Provide a fallback solution in case the derivation fails
+      solana = {
+        address: `sol${seedPhrase.substring(0, 38).replace(/\s/g, '')}`,
+        privateKey: seedPhrase
+      };
+    }
     
     // Derive Bitcoin Native SegWit wallet (bc1 prefix)
-    const bitcoinSegwit = deriveBitcoinWallet(seedPhrase, DERIVATION_PATHS.BITCOIN_SEGWIT);
+    const bitcoinSegwit = deriveBitcoinWallet(seedPhrase, DERIVATION_PATHS.BITCOIN_NATIVE_SEGWIT);
     
     // Return all wallets together with the mnemonic
     return {

@@ -17,12 +17,6 @@ export const isEthereumAddress = (address: string): boolean => {
   return ethereumRegex.test(address);
 };
 
-// Tron address validation (T followed by base58 chars)
-export const isTronAddress = (address: string): boolean => {
-  const tronRegex = /^T[a-zA-Z0-9]{33}$/;
-  return tronRegex.test(address);
-};
-
 // Solana address validation (base58 encoded, 32-44 chars)
 export const isSolanaAddress = (address: string): boolean => {
   // Enhanced validation for Solana addresses
@@ -46,21 +40,6 @@ export const isSolanaAddress = (address: string): boolean => {
   }
 };
 
-// Binance Smart Chain validation (same format as Ethereum)
-export const isBscAddress = (address: string): boolean => {
-  return isEthereumAddress(address); // BSC uses the same address format as Ethereum
-};
-
-// Base network validation (same format as Ethereum)
-export const isBaseAddress = (address: string): boolean => {
-  return isEthereumAddress(address); // Base uses the same address format as Ethereum
-};
-
-// Polygon address validation (same format as Ethereum)
-export const isPolygonAddress = (address: string): boolean => {
-  return isEthereumAddress(address); // Polygon uses the same address format as Ethereum
-};
-
 // Check if address matches the selected network
 export const validateAddressForNetwork = (address: string, network: string): boolean => {
   if (!address || !network) return false;
@@ -70,16 +49,8 @@ export const validateAddressForNetwork = (address: string, network: string): boo
       return isBitcoinAddress(address);
     case 'ethereum':
       return isEthereumAddress(address);
-    case 'tron':
-      return isTronAddress(address);
     case 'solana':
       return isSolanaAddress(address);
-    case 'binance smart chain':
-      return isBscAddress(address);
-    case 'polygon':
-      return isPolygonAddress(address);
-    case 'base':
-      return isBaseAddress(address);
     default:
       return false;
   }
@@ -90,8 +61,7 @@ export const detectNetworkFromAddress = (address: string): string | null => {
   if (!address) return null;
   
   if (isBitcoinAddress(address)) return 'Bitcoin';
-  if (isEthereumAddress(address)) return 'Ethereum/BSC/Polygon/Base'; // These share the same format
-  if (isTronAddress(address)) return 'Tron';
+  if (isEthereumAddress(address)) return 'Ethereum';
   if (isSolanaAddress(address)) return 'Solana';
   
   return null;
