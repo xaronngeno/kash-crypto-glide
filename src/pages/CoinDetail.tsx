@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
@@ -199,7 +200,6 @@ const CoinDetail = () => {
             priceData={coinData}
             timeframe={selectedTimeframe} 
             color={coinData.change_24h >= 0 ? '#10B981' : '#EF4444'}
-            
           />
           
           <div className="flex justify-between pt-2">
@@ -249,6 +249,19 @@ const CoinDetail = () => {
             </div>
             <span className="text-xs">Swap</span>
           </KashButton>
+          
+          {coinSymbol.toUpperCase() === 'USDT' && (
+            <KashButton 
+              variant="outline"
+              className="flex flex-col items-center justify-center py-3 h-auto"
+              onClick={() => navigate('/sell-usdt')}
+            >
+              <div className="text-indigo-500 mb-1">
+                <DollarSign size={20} />
+              </div>
+              <span className="text-xs">Buy</span>
+            </KashButton>
+          )}
           
           <KashButton 
             variant="outline"
