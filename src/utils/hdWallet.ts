@@ -25,7 +25,7 @@ export const generateWalletsFromSeed = async (seedPhrase: string): Promise<Walle
 
 /**
  * Generate unified wallets with ethers built-in HD wallet functionality
- * Only generates BTC, ETH, and SOL wallets
+ * Only generates ETH and SOL wallets
  */
 export const generateUnifiedWallets = async (seedPhrase?: string): Promise<WalletData[]> => {
   try {
@@ -67,14 +67,6 @@ export const generateUnifiedWallets = async (seedPhrase?: string): Promise<Walle
       wallets.push(solWallet);
     } catch (error) {
       console.error("Failed to generate Solana wallet:", error);
-    }
-    
-    try {
-      // Generate Bitcoin wallet - always use Native SegWit now for consistency
-      const btcWallet = await generateWallet.bitcoin(mnemonic);
-      wallets.push(btcWallet);
-    } catch (error) {
-      console.error("Failed to generate Bitcoin wallet:", error);
     }
     
     // Return the generated seed phrase along with the wallets

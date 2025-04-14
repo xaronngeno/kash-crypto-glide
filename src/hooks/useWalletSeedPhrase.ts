@@ -1,8 +1,9 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateWalletsFromSeed } from '@/utils/walletGenerators';
-import { isSolanaAddress, isEthereumAddress, isBitcoinAddress } from '@/utils/addressValidator';
+import { isSolanaAddress, isEthereumAddress } from '@/utils/addressValidator';
 
 export const useWalletSeedPhrase = (userId: string | undefined) => {
   const [seedPhrase, setSeedPhrase] = useState<string | null>(null);
@@ -78,8 +79,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
       // Extract addresses for comparison
       const generatedAddresses = {
         ethereum: wallets.find(w => w.blockchain === 'Ethereum')?.address?.toLowerCase(),
-        solana: wallets.find(w => w.blockchain === 'Solana')?.address,
-        bitcoin: wallets.find(w => w.blockchain === 'Bitcoin')?.address
+        solana: wallets.find(w => w.blockchain === 'Solana')?.address
       };
       
       console.log("Generated addresses from seed phrase:", generatedAddresses);
@@ -99,8 +99,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
       // Extract the user's actual addresses
       const userAddresses = {
         ethereum: userWallets?.find(w => w.blockchain === 'Ethereum' && w.currency === 'ETH')?.address?.toLowerCase(),
-        solana: userWallets?.find(w => w.blockchain === 'Solana' && w.currency === 'SOL')?.address,
-        bitcoin: userWallets?.find(w => w.blockchain === 'Bitcoin')?.address
+        solana: userWallets?.find(w => w.blockchain === 'Solana' && w.currency === 'SOL')?.address
       };
       
       // Compare addresses to validate
@@ -123,16 +122,6 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         
         if (generatedAddresses.solana === userAddresses.solana) {
           matches.push('Solana');
-        }
-      }
-      
-      if (generatedAddresses.bitcoin && userAddresses.bitcoin) {
-        console.log("Comparing Bitcoin addresses:");
-        console.log("- Generated:", generatedAddresses.bitcoin);
-        console.log("- User's:", userAddresses.bitcoin);
-        
-        if (generatedAddresses.bitcoin === userAddresses.bitcoin) {
-          matches.push('Bitcoin');
         }
       }
       

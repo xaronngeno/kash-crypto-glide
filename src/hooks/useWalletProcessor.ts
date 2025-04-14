@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { Asset } from '@/types/assets';
 import { CryptoPrices } from '@/hooks/useCryptoPrices';
-import { isBitcoinAddress, isEthereumAddress, isSolanaAddress } from '@/utils/addressValidator';
+import { isEthereumAddress, isSolanaAddress } from '@/utils/addressValidator';
 
 export const useWalletProcessor = (prices: CryptoPrices) => {
   const [error, setError] = useState<string | null>(null);
@@ -15,16 +15,13 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
       }
 
       // Log all wallet types being processed
-      const bitcoinWallets = wallets.filter(w => w.blockchain === 'Bitcoin');
       const ethereumWallets = wallets.filter(w => w.blockchain === 'Ethereum');
       const solanaWallets = wallets.filter(w => w.blockchain === 'Solana');
       
       console.log(`Processing ${wallets.length} total wallets:`);
-      console.log(`BTC wallets found: ${bitcoinWallets.length > 0 ? JSON.stringify(bitcoinWallets) : 'None'}`);
       console.log(`ETH wallets found: ${ethereumWallets.length > 0 ? JSON.stringify(ethereumWallets) : 'None'}`);
       console.log(`SOL wallets found: ${solanaWallets.length > 0 ? JSON.stringify(solanaWallets) : 'None'}`);
       
-      if (bitcoinWallets.length > 0) console.log("Has Bitcoin BTC:", true);
       if (ethereumWallets.length > 0) console.log("Has Ethereum ETH:", true);
       if (solanaWallets.length > 0) console.log("Has Solana SOL:", true);
 
@@ -37,11 +34,6 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         let validationPassed = true;
         
         // Format validation for popular blockchains
-        if (wallet.blockchain === 'Bitcoin' && !isBitcoinAddress(validAddress)) {
-          console.warn(`Warning: Bitcoin address doesn't match expected format: ${validAddress}`);
-          validationPassed = false;
-        }
-        
         if (wallet.blockchain === 'Ethereum' && !isEthereumAddress(validAddress)) {
           console.warn(`Warning: Ethereum address doesn't match expected format: ${validAddress}`);
           validationPassed = false;

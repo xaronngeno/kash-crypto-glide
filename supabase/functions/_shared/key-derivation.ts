@@ -70,34 +70,6 @@ export async function deriveSolanaWallet(seedPhrase: string) {
   }
 }
 
-// Derive Bitcoin wallet from seed phrase
-export function deriveBitcoinWallet(seedPhrase: string) {
-  try {
-    console.log("Deriving Bitcoin wallet with path:", DERIVATION_PATHS.BITCOIN);
-    
-    // For Bitcoin in Deno environment, we generate a deterministic address from the mnemonic
-    // This is a simplified approach due to bitcoinjs-lib compatibility issues with Deno
-    
-    // Generate a seed buffer from the mnemonic
-    const seedBuffer = bip39.mnemonicToSeedSync(seedPhrase);
-    
-    // Use first bytes of seed to create a hex private key
-    const privateKey = Buffer.from(seedBuffer.slice(0, 32)).toString("hex");
-    
-    // Create a deterministic address from the hash of the private key
-    const addressHash = privateKey.substring(0, 40);
-    const address = `bc1q${addressHash}`;
-    
-    return {
-      address,
-      privateKey: `0x${privateKey}`
-    };
-  } catch (error) {
-    console.error("Error deriving Bitcoin wallet:", error);
-    throw error;
-  }
-}
-
 // Create Ethereum wallet using RPC derivation
 export async function createEthereumWallet(mnemonic?: string) {
   try {
@@ -148,38 +120,6 @@ export async function createSolanaWallet(mnemonic?: string) {
     };
   } catch (error) {
     console.error("Error creating Solana wallet:", error);
-    throw error;
-  }
-}
-
-// Create Bitcoin SegWit wallet
-export async function createBitcoinSegWitWallet(mnemonic?: string) {
-  try {
-    if (mnemonic) {
-      const wallet = deriveBitcoinWallet(mnemonic);
-      return {
-        address: wallet.address,
-        private_key: wallet.privateKey
-      };
-    }
-    
-    // For random wallet, generate a hex private key
-    const randomBytes = new Uint8Array(32);
-    crypto.getRandomValues(randomBytes);
-    const privateKey = Array.from(randomBytes)
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
-      
-    // Generate a deterministic address
-    const addressHash = privateKey.substring(0, 40);
-    const address = `bc1q${addressHash}`;
-    
-    return {
-      address,
-      private_key: `0x${privateKey}`,
-    };
-  } catch (error) {
-    console.error("Error creating Bitcoin wallet:", error);
     throw error;
   }
 }

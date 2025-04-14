@@ -1,18 +1,7 @@
-
-// Export all wallet-related hooks and functions from a single file
-export * from './useWalletManager';
-export * from './useWalletProcessor';
-export * from './useWalletCleanup';
-export * from './useSeedPhrase';
-export * from './useWalletValidator';
-export * from './useWalletGenerator';
-export * from './createUserWallets';
-
-// Export the fetchWalletBalances functions directly
-export { 
-  fetchWalletBalances,
-  refreshWalletBalances 
-} from './fetchWalletBalances';
-
-// For backward compatibility, ensure this is exported
+// Centralized exports for wallet-related hooks and functions
+export { useWalletProcessor } from './useWalletProcessor';
+export { useWalletCreationStatus } from './useWalletCreationStatus';
+export { fetchWalletBalances, refreshWalletBalances } from './fetchWalletBalances';
 export { createUserWallets } from './createUserWallets';
+
+// Re-export any other wallet-related hooks and functions

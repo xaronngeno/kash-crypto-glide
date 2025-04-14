@@ -136,79 +136,66 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
                       updated_at: new Date().toISOString()
                     })
                     .eq('id', wallet.id);
-                  
-                  // Update the wallet object
-                  wallet.balance = balance;
+                    
+                  console.log(`Updated ${wallet.blockchain} balance: ${balance}`);
                   successCount++;
                 }
               }
             }
           } catch (error) {
-            console.error(`Error updating ${wallet.blockchain} wallet balance:`, error);
+            console.error(`Error updating ${wallet?.blockchain} wallet:`, error);
             failureCount++;
           } finally {
             activePromises.delete(walletPromise);
-            // Process next wallet if any left
+            
+            // Process the next wallet in the queue if any remain
             if (walletQueue.length > 0) {
               await processNextWallet();
             }
           }
         })();
         
-        // Add to active promises
         activePromises.add(walletPromise);
-        
-        // Start the request
-        walletPromise;
+        await walletPromise;
       };
       
-      // Start initial batch of wallet processing
+      // Process wallets with concurrency limit
       const initialBatch = Math.min(concurrentLimit, walletQueue.length);
+      const startPromises = [];
+      
       for (let i = 0; i < initialBatch; i++) {
-        await processNextWallet();
+        startPromises.push(processNextWallet());
       }
       
-      // Wait for all processing to complete
-      while (activePromises.size > 0) {
-        await Promise.race(activePromises);
+      // Wait for all wallets to be processed
+      await Promise.all(startPromises);
+      
+      // Wait for any remaining active promises
+      if (activePromises.size > 0) {
+        await Promise.all(Array.from(activePromises));
       }
       
-      // Log final refresh results
       console.log(`Wallet refresh results - Success: ${successCount}, Failures: ${failureCount}`);
       
-      // Show appropriate toast based on results
-      if (successCount > 0) {
-        toast({
-          title: `${successCount} wallets refreshed`,
-          description: "Your wallet balances have been updated from the blockchain",
-        });
-      } else if (failureCount > 0) {
-        toast({
-          title: "Error refreshing wallets",
-          description: `Failed to update ${failureCount} wallet balances`,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "No changes needed",
-          description: "Your wallet balances are already up to date",
-        });
-      }
+      toast({
+        title: "Wallet balances updated",
+        description: `Successfully refreshed ${successCount} wallets.`,
+      });
       
-      return successCount > 0;
+      return true;
+    } else {
+      toast({
+        title: "No wallets found",
+        description: "No wallets available to refresh",
+        variant: "destructive"
+      });
+      return false;
     }
-    
-    console.log("Wallet balances refreshed successfully:", data);
-    toast({
-      title: "Wallets refreshed",
-      description: "Your wallet addresses have been updated",
-    });
-    return true;
   } catch (error) {
     console.error("Error refreshing wallet balances:", error);
     toast({
       title: "Error refreshing wallets",
-      description: "Failed to refresh wallet addresses",
+      description: "Failed to refresh wallet balances",
       variant: "destructive"
     });
     return false;
