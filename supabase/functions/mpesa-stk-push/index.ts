@@ -1,5 +1,14 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+
+// Helper function to handle CORS
+export function handleCors(req: Request) {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+  return null;
+}
 
 // Base64 encode credentials for authentication
 function encodeCredentials(consumerKey: string, consumerSecret: string): string {
@@ -262,7 +271,11 @@ serve(async (req) => {
     let requestData;
     try {
       requestData = await req.json();
-      console.log("Received request data:", JSON.stringify(requestData));
+      console.log("Received request data:", JSON.stringify({
+        phone: requestData?.phone ? `${requestData.phone.substring(0, 3)}...` : undefined,
+        amount: requestData?.amount,
+        reference: requestData?.reference
+      }));
     } catch (error) {
       console.error("Error parsing request JSON:", error);
       return new Response(

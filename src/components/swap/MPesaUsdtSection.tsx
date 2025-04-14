@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { KashButton } from '@/components/ui/KashButton';
 import { Input } from '@/components/ui/input';
 import { KashInput } from '@/components/ui/KashInput';
-import { RefreshCw, Phone, ArrowUpDown, BadgeDollarSign } from 'lucide-react';
+import { RefreshCw, Phone, ArrowUpDown, BadgeDollarSign, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { KashCard } from '@/components/ui/KashCard';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface MPesaUsdtSectionProps {
   asset?: {
@@ -30,6 +31,7 @@ const MPesaUsdtSection = ({ asset, balance, onTransactionComplete }: MPesaUsdtSe
   // Common states
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone || '');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Sell USDT states
   const [sellAmount, setSellAmount] = useState('');
@@ -54,7 +56,12 @@ const MPesaUsdtSection = ({ asset, balance, onTransactionComplete }: MPesaUsdtSe
   const buyUsdtAmountNum = parseFloat(buyUsdtAmount);
   const exceedsUsdtLimit = buyUsdtAmountNum > maxUsdtLimit;
 
+  const clearError = () => {
+    setError(null);
+  };
+
   const handleSellUsdt = async () => {
+    clearError();
     if (!asset || !sellAmount || !phoneNumber || Number(sellAmount) <= 0) {
       toast({
         title: "Invalid Input",
@@ -126,6 +133,7 @@ const MPesaUsdtSection = ({ asset, balance, onTransactionComplete }: MPesaUsdtSe
   };
 
   const handleBuyUsdt = async () => {
+    clearError();
     if (!buyAmount || Number(buyAmount) < minKesAmount) {
       toast({
         title: "Invalid amount",
@@ -179,7 +187,7 @@ const MPesaUsdtSection = ({ asset, balance, onTransactionComplete }: MPesaUsdtSe
       
       if (error) {
         console.error("Supabase function error:", error);
-        
+        setError("Failed to initiate M-PESA payment. Please try again later.");
         toast({
           title: "Payment failed",
           description: "Failed to initiate M-PESA payment. Please try again.",
@@ -190,6 +198,7 @@ const MPesaUsdtSection = ({ asset, balance, onTransactionComplete }: MPesaUsdtSe
       
       if (data?.error) {
         console.error("M-PESA API error:", data);
+        setError(data.error || "An error occurred with the M-PESA transaction.");
         
         toast({
           title: "M-PESA error",
@@ -220,6 +229,7 @@ const MPesaUsdtSection = ({ asset, balance, onTransactionComplete }: MPesaUsdtSe
       
     } catch (error: any) {
       console.error('STK push error:', error);
+      setError("Could not initiate M-PESA payment. Please try again.");
       
       toast({
         title: "Payment failed",
@@ -233,6 +243,13 @@ const MPesaUsdtSection = ({ asset, balance, onTransactionComplete }: MPesaUsdtSe
 
   return (
     <div className="space-y-4">
+      {error && (
+        <Alert variant="destructive" className="mb-2">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
       <Tabs defaultValue="sell" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="sell">Sell USDT</TabsTrigger>

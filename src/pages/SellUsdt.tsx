@@ -6,9 +6,12 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 const SellUsdt = () => {
   const [balance, setBalance] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const { prices } = useCryptoPrices();
   const { user } = useAuth();
   
@@ -23,7 +26,10 @@ const SellUsdt = () => {
           body: { userId: user.id }
         });
         
-        if (error) throw error;
+        if (error) {
+          setError(`Failed to fetch wallet balance: ${error.message}`);
+          throw error;
+        }
         
         if (data?.wallets) {
           // Find USDT wallet(s) and sum balances
@@ -35,6 +41,7 @@ const SellUsdt = () => {
         }
       } catch (err) {
         console.error('Failed to fetch USDT balance:', err);
+        setError('Failed to fetch your USDT balance. Please try again later.');
       }
     };
     
@@ -70,6 +77,13 @@ const SellUsdt = () => {
   return (
     <MainLayout title="M-PESA ↔ USDT" showBack>
       <div className="max-w-md mx-auto">
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
         <MPesaUsdtSection 
           asset={usdtAsset}
           balance={balance}
