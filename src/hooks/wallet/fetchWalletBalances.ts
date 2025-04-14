@@ -3,8 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { getBlockchainBalance } from '@/utils/blockchainConnectors';
 
+// Cache for wallet balances to reduce API calls to mainnet
+const balanceCache = new Map<string, { balance: number, timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
 /**
- * Fetch wallet balances and addresses
+ * Fetch wallet balances and addresses with caching
  */
 export const fetchWalletBalances = async ({ 
   userId, 
@@ -16,6 +20,9 @@ export const fetchWalletBalances = async ({
   forceRefresh?: boolean
 }) => {
   try {
+    // Log that we're fetching wallet balances for debugging
+    console.log(`Fetching wallet balances for user ${userId}, force refresh: ${forceRefresh}`);
+    
     const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
       method: 'POST',
       body: { userId, forceRefresh }
@@ -37,7 +44,8 @@ export const fetchWalletBalances = async ({
 };
 
 /**
- * Force refresh wallet balances and addresses from actual blockchain networks
+ * Force refresh wallet balances and addresses from actual blockchain mainnet networks
+ * with optimized error handling and rate limiting
  */
 export const refreshWalletBalances = async (userId: string): Promise<boolean> => {
   try {
@@ -61,48 +69,111 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
     if (data?.wallets && data.wallets.length > 0) {
       toast({
         title: "Checking blockchain balances",
-        description: "Fetching latest data from networks...",
+        description: "Fetching latest data from mainnet networks...",
       });
       
-      // For each wallet, get the latest balance from the blockchain
-      const updatedWallets = await Promise.all(
-        data.wallets.map(async (wallet: any) => {
+      // Track successful updates
+      let successCount = 0;
+      let failureCount = 0;
+      
+      // Create a queue to process wallet balance checks
+      const walletQueue = [...data.wallets];
+      const concurrentLimit = 3; // Process 3 wallets at a time
+      const activePromises = new Set();
+      
+      const processNextWallet = async () => {
+        if (walletQueue.length === 0) return;
+        
+        const wallet = walletQueue.shift();
+        
+        // Create a promise for the current wallet
+        const walletPromise = (async () => {
           try {
             if (wallet.blockchain && wallet.address) {
-              // Get balance from the actual blockchain
-              const balance = await getBlockchainBalance(
-                wallet.address, 
-                wallet.blockchain as 'Ethereum' | 'Solana' | 'Bitcoin'
-              );
+              // Check cache first
+              const cacheKey = `${wallet.blockchain}-${wallet.address}`;
+              const now = Date.now();
+              const cachedValue = balanceCache.get(cacheKey);
               
-              // Update the balance in the database
-              if (typeof balance === 'number') {
-                await supabase
-                  .from('wallets')
-                  .update({ 
-                    balance: balance,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', wallet.id);
+              if (cachedValue && (now - cachedValue.timestamp < CACHE_DURATION) && !forceRefresh) {
+                wallet.balance = cachedValue.balance;
+                console.log(`Using cached balance for ${wallet.blockchain} address ${wallet.address}`);
+              } else {
+                // Get balance from the blockchain
+                const balance = await getBlockchainBalance(
+                  wallet.address, 
+                  wallet.blockchain as 'Ethereum' | 'Solana' | 'Bitcoin'
+                );
                 
-                // Update the wallet object
-                wallet.balance = balance;
+                // Update the cache
+                if (typeof balance === 'number') {
+                  balanceCache.set(cacheKey, { balance, timestamp: now });
+                
+                  // Update the balance in the database
+                  await supabase
+                    .from('wallets')
+                    .update({ 
+                      balance: balance,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', wallet.id);
+                  
+                  // Update the wallet object
+                  wallet.balance = balance;
+                  successCount++;
+                }
               }
             }
-            return wallet;
           } catch (error) {
             console.error(`Error updating ${wallet.blockchain} wallet balance:`, error);
-            return wallet;
+            failureCount++;
+          } finally {
+            activePromises.delete(walletPromise);
+            // Process next wallet if any left
+            if (walletQueue.length > 0) {
+              await processNextWallet();
+            }
           }
-        })
-      );
+        })();
+        
+        // Add to active promises
+        activePromises.add(walletPromise);
+        
+        // Start the request
+        walletPromise;
+      };
       
-      toast({
-        title: "Wallets refreshed",
-        description: "Your wallet balances have been updated from the blockchain",
-      });
+      // Start initial batch of wallet processing
+      const initialBatch = Math.min(concurrentLimit, walletQueue.length);
+      for (let i = 0; i < initialBatch; i++) {
+        await processNextWallet();
+      }
       
-      return true;
+      // Wait for all processing to complete
+      while (activePromises.size > 0) {
+        await Promise.race(activePromises);
+      }
+      
+      // Show appropriate toast based on results
+      if (successCount > 0) {
+        toast({
+          title: `${successCount} wallets refreshed`,
+          description: "Your wallet balances have been updated from the blockchain",
+        });
+      } else if (failureCount > 0) {
+        toast({
+          title: "Error refreshing wallets",
+          description: `Failed to update ${failureCount} wallet balances`,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "No changes needed",
+          description: "Your wallet balances are already up to date",
+        });
+      }
+      
+      return successCount > 0;
     }
     
     console.log("Wallet balances refreshed successfully:", data);
