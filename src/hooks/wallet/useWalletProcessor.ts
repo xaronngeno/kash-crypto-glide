@@ -3,21 +3,27 @@ import { useState, useCallback } from 'react';
 import { Asset } from '@/types/assets';
 import { CryptoPrices } from '@/hooks/useCryptoPrices';
 
-/**
- * Hook for processing wallet data into assets
- */
 export const useWalletProcessor = (prices: CryptoPrices) => {
   const [error, setError] = useState<string | null>(null);
   
   const processWallets = useCallback((wallets: any[]): Asset[] => {
     try {
       if (!wallets || wallets.length === 0) {
+        console.log('No wallets to process');
         return [];
       }
+
+      console.log('Processing wallets:', JSON.stringify(wallets, null, 2));
 
       return wallets.map(wallet => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
+        
+        console.log(`Processing wallet for ${symbol}:`, {
+          address: wallet.address,
+          blockchain: wallet.blockchain,
+          balance: wallet.balance
+        });
         
         const asset: Asset = {
           id: `${wallet.blockchain}-${wallet.currency}`,
