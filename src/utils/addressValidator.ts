@@ -3,16 +3,20 @@
  * Validates cryptocurrency addresses for different blockchain networks
  */
 
-// Bitcoin address validation (starts with 1, 3, bc1, or special format for our local dev)
+// Bitcoin address validation
 export const isBitcoinAddress = (address: string): boolean => {
-  // Standard Bitcoin address formats - only SegWit (bc1...)
-  const segwitBitcoinRegex = /^(bc1)[a-zA-Z0-9]{25,62}$/;
+  if (!address || typeof address !== 'string') return false;
   
-  return segwitBitcoinRegex.test(address);
+  // BIP44 legacy address format (starts with 1)
+  const legacyBitcoinRegex = /^1[1-9A-HJ-NP-Za-km-z]{25,34}$/;
+  
+  return legacyBitcoinRegex.test(address);
 };
 
 // Ethereum address validation (0x followed by 40 hex chars)
 export const isEthereumAddress = (address: string): boolean => {
+  if (!address || typeof address !== 'string') return false;
+  
   const ethereumRegex = /^0x[a-fA-F0-9]{40}$/;
   return ethereumRegex.test(address);
 };
@@ -28,10 +32,6 @@ export const isSolanaAddress = (address: string): boolean => {
     
     // Check basic format
     if (!base58Regex.test(address)) return false;
-    
-    // In a real-world scenario, we could perform additional validation:
-    // 1. Try decoding the base58 string and check if it's 32 bytes
-    // 2. Verify with Solana web3.js if it's a valid public key
     
     return true;
   } catch (error) {

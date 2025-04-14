@@ -5,6 +5,10 @@ import { DERIVATION_PATHS } from "./constants.ts";
 
 /**
  * Generate wallets from seed phrase for all supported blockchains
+ * Using standardized derivation paths:
+ * SOL: m/44'/501'/0'/0' (ed25519)
+ * ETH: m/44'/60'/0'/0/0 (secp256k1)
+ * BTC: m/44'/0'/0'/0/0 (secp256k1)
  */
 export async function generateHDWallets(seedPhrase: string, userId: string) {
   try {
@@ -20,30 +24,26 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
       throw new Error(`Invalid mnemonic format: ${seedPhrase.substring(0, 5)}...`);
     }
     
-    // Derive Ethereum wallet
+    // Derive Ethereum wallet with BIP44 path m/44'/60'/0'/0/0
     const ethereum = deriveEthereumWallet(seedPhrase);
     
-    // Derive Solana wallet - handle separately due to tweetnacl usage
+    // Derive Solana wallet with BIP44 path m/44'/501'/0'/0'
     let solana;
     try {
       solana = await deriveSolanaWallet(seedPhrase);
     } catch (solError) {
       console.error("Error deriving Solana wallet:", solError);
-      // Provide a fallback solution in case the derivation fails
-      solana = {
-        address: `sol${seedPhrase.substring(0, 38).replace(/\s/g, '')}`,
-        privateKey: seedPhrase
-      };
+      throw new Error(`Solana wallet derivation failed: ${solError instanceof Error ? solError.message : String(solError)}`);
     }
     
-    // Derive Bitcoin Native SegWit wallet (bc1 prefix)
-    const bitcoinSegwit = deriveBitcoinWallet(seedPhrase, DERIVATION_PATHS.BITCOIN_NATIVE_SEGWIT);
+    // Derive Bitcoin wallet with BIP44 path m/44'/0'/0'/0/0
+    const bitcoin = deriveBitcoinWallet(seedPhrase);
     
     // Return all wallets together with the mnemonic
     return {
       ethereum,
       solana,
-      bitcoinSegwit,
+      bitcoin,
       mnemonic: seedPhrase
     };
   } catch (error) {

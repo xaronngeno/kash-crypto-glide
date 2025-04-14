@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateWalletsFromSeed } from '@/utils/walletGenerators';
-import { isSolanaAddress, isEthereumAddress, isBitcoinAddress, isTronAddress } from '@/utils/addressValidator';
+import { isSolanaAddress, isEthereumAddress, isBitcoinAddress } from '@/utils/addressValidator';
 
 export const useWalletSeedPhrase = (userId: string | undefined) => {
   const [seedPhrase, setSeedPhrase] = useState<string | null>(null);
@@ -80,8 +79,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
       const generatedAddresses = {
         ethereum: wallets.find(w => w.blockchain === 'Ethereum')?.address?.toLowerCase(),
         solana: wallets.find(w => w.blockchain === 'Solana')?.address,
-        bitcoin: wallets.find(w => w.blockchain === 'Bitcoin')?.address,
-        tron: wallets.find(w => w.blockchain === 'Tron')?.address
+        bitcoin: wallets.find(w => w.blockchain === 'Bitcoin')?.address
       };
       
       console.log("Generated addresses from seed phrase:", generatedAddresses);
@@ -102,8 +100,7 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
       const userAddresses = {
         ethereum: userWallets?.find(w => w.blockchain === 'Ethereum' && w.currency === 'ETH')?.address?.toLowerCase(),
         solana: userWallets?.find(w => w.blockchain === 'Solana' && w.currency === 'SOL')?.address,
-        bitcoin: userWallets?.find(w => w.blockchain === 'Bitcoin')?.address,
-        tron: userWallets?.find(w => w.blockchain === 'Tron')?.address
+        bitcoin: userWallets?.find(w => w.blockchain === 'Bitcoin')?.address
       };
       
       // Compare addresses to validate
@@ -136,16 +133,6 @@ export const useWalletSeedPhrase = (userId: string | undefined) => {
         
         if (generatedAddresses.bitcoin === userAddresses.bitcoin) {
           matches.push('Bitcoin');
-        }
-      }
-      
-      if (generatedAddresses.tron && userAddresses.tron) {
-        console.log("Comparing Tron addresses:");
-        console.log("- Generated:", generatedAddresses.tron);
-        console.log("- User's:", userAddresses.tron);
-        
-        if (generatedAddresses.tron === userAddresses.tron) {
-          matches.push('Tron');
         }
       }
       

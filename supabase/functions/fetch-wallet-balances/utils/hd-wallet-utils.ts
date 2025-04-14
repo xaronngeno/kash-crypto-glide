@@ -6,7 +6,10 @@ import * as bip39 from 'https://esm.sh/bip39@3.1.0';
 
 /**
  * Generate HD wallets for a user from their seed phrase
- * This ensures addresses are derived consistently and will work with external wallet apps
+ * This ensures addresses are derived consistently with the following standards:
+ * SOL: m/44'/501'/0'/0' (ed25519)
+ * ETH: m/44'/60'/0'/0/0 (secp256k1)
+ * BTC: m/44'/0'/0'/0/0 (secp256k1)
  */
 export async function generateUserHDWallets(supabase: any, userId: string) {
   try {
@@ -22,7 +25,7 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
     const hdWallets = await generateHDWallets(seedPhrase, userId);
     console.log("Generated HD wallets", {
       hasEthereumAddress: Boolean(hdWallets.ethereum?.address),
-      hasBitcoinAddress: Boolean(hdWallets.bitcoinSegwit?.address),
+      hasBitcoinAddress: Boolean(hdWallets.bitcoin?.address),
       hasSolanaAddress: Boolean(hdWallets.solana?.address)
     });
     
@@ -69,7 +72,7 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
         private_key: hdWallets.solana.privateKey
       },
       ethereum: hdWallets.ethereum,
-      bitcoinSegwit: hdWallets.bitcoinSegwit
+      bitcoin: hdWallets.bitcoin
     };
   } catch (error) {
     console.error("Error generating HD wallets:", error);
@@ -87,7 +90,7 @@ function verifySolanaAddress(address: string): boolean {
   // Check if it's in the right format
   const isValidFormat = base58Regex.test(address);
   
-  // Additional check: Solana addresses shouldn't have the pattern appearing in the problematic address
+  // Additional check: Solana addresses shouldn't have specific patterns that are known to be problematic
   const hasInvalidParts = /8aCNAc8AQBprr32JoGNA6w2SSS69WbPd/.test(address);
   
   return isValidFormat && !hasInvalidParts;
