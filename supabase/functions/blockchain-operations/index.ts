@@ -106,6 +106,9 @@ serve(async (req: Request) => {
             const rawBalance = await trackOperation(provider.getBalance(address));
             balance = parseFloat(ethers.formatEther(rawBalance));
           }
+          else {
+            throw new Error(`Unsupported blockchain: ${blockchain}`);
+          }
         } catch (blockchainError) {
           console.error(`Error fetching ${blockchain} balance:`, blockchainError);
           // Continue with zero balance rather than failing completely

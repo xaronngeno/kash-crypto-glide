@@ -14,18 +14,21 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         return [];
       }
 
-      // Log all wallet types being processed
-      const ethereumWallets = wallets.filter(w => w.blockchain === 'Ethereum');
-      const solanaWallets = wallets.filter(w => w.blockchain === 'Solana');
+      // Filter out Bitcoin wallets and log remaining wallets
+      const filteredWallets = wallets.filter(w => w.blockchain !== 'Bitcoin' && w.currency !== 'BTC');
       
-      console.log(`Processing ${wallets.length} total wallets:`);
+      // Log all wallet types being processed
+      const ethereumWallets = filteredWallets.filter(w => w.blockchain === 'Ethereum');
+      const solanaWallets = filteredWallets.filter(w => w.blockchain === 'Solana');
+      
+      console.log(`Processing ${filteredWallets.length} total wallets:`);
       console.log(`ETH wallets found: ${ethereumWallets.length > 0 ? JSON.stringify(ethereumWallets) : 'None'}`);
       console.log(`SOL wallets found: ${solanaWallets.length > 0 ? JSON.stringify(solanaWallets) : 'None'}`);
       
       if (ethereumWallets.length > 0) console.log("Has Ethereum ETH:", true);
       if (solanaWallets.length > 0) console.log("Has Solana SOL:", true);
 
-      return wallets.map(wallet => {
+      return filteredWallets.map(wallet => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
         

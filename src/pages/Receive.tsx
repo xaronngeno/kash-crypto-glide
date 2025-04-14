@@ -49,21 +49,17 @@ enum ReceiveStep {
 
 const getNetworkLogo = (blockchain: string) => {
   switch (blockchain.toLowerCase()) {
-    case 'bitcoin':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
     case 'ethereum':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
     case 'solana':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png';
     default:
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
+      return '/placeholder.svg';
   }
 };
 
 const getCurrencyLogo = (symbol: string) => {
   switch (symbol.toUpperCase()) {
-    case 'BTC':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
     case 'ETH':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
     case 'SOL':
@@ -71,7 +67,7 @@ const getCurrencyLogo = (symbol: string) => {
     case 'USDT':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/825.png';
     default:
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
+      return '/placeholder.svg';
   }
 };
 
@@ -84,9 +80,6 @@ const NetworkBadge = ({ network, className }: NetworkBadgeProps) => {
   let color = "bg-gray-100 text-gray-500";
   
   switch (network.toLowerCase()) {
-    case 'bitcoin':
-      color = "bg-amber-100 text-amber-600";
-      break;
     case 'ethereum':
       color = "bg-indigo-100 text-indigo-600";
       break;
@@ -131,20 +124,23 @@ const Receive = () => {
   const [creatingWallets, setCreatingWallets] = useState(false);
 
   const supportedNetworks = [
-    'Bitcoin', 
     'Ethereum', 
     'Solana'
   ];
   
   const solanaCompatibleTokens = ['SOL', 'USDT', 'USDC'];
-  const bitcoinCompatibleTokens = ['BTC'];
 
   useEffect(() => {
     if (walletAddresses.length > 0) {
       console.log("Processing wallet addresses:", walletAddresses);
+      
+      const filteredAddresses = walletAddresses.filter(
+        wallet => wallet.blockchain !== 'Bitcoin' && wallet.symbol !== 'BTC'
+      );
+      
       const tokenMap = new Map<string, Token>();
       
-      walletAddresses.forEach(wallet => {
+      filteredAddresses.forEach(wallet => {
         const existingToken = tokenMap.get(wallet.symbol);
         
         if (existingToken) {
@@ -159,7 +155,7 @@ const Receive = () => {
             name: wallet.symbol,
             symbol: wallet.symbol,
             icon: wallet.symbol[0],
-            decimals: 8,
+            decimals: wallet.symbol === 'SOL' ? 9 : 18,
             logo: getCurrencyLogo(wallet.symbol),
             networks: [wallet.blockchain]
           });
@@ -221,10 +217,11 @@ const Receive = () => {
       }
       
       if (wallets && wallets.success && wallets.wallets && wallets.wallets.length > 0) {
-        const btcWallets = wallets.wallets.filter(w => w.currency === 'BTC');
-        console.log("BTC wallets after creation:", btcWallets);
+        const filteredWallets = wallets.wallets.filter(
+          w => w.blockchain !== 'Bitcoin' && w.currency !== 'BTC'
+        );
         
-        const addresses: WalletAddress[] = wallets.wallets.map(wallet => ({
+        const addresses: WalletAddress[] = filteredWallets.map(wallet => ({
           blockchain: wallet.blockchain,
           symbol: wallet.currency,
           address: wallet.address,
@@ -304,16 +301,7 @@ const Receive = () => {
     return tokens.filter(token => {
       const nameMatch = token.name.toLowerCase().includes(lowercaseSearch);
       const symbolMatch = token.symbol.toLowerCase().includes(lowercaseSearch);
-      
-      const isBitcoinSearch = 
-        lowercaseSearch === 'bitcoin' || 
-        lowercaseSearch === 'btc' || 
-        lowercaseSearch.includes('bitcoin') || 
-        lowercaseSearch.includes('btc');
-      
-      const isBitcoinToken = token.symbol.toLowerCase() === 'btc';
-      
-      return nameMatch || symbolMatch || (isBitcoinSearch && isBitcoinToken);
+      return nameMatch || symbolMatch;
     });
   };
 
@@ -340,9 +328,13 @@ const Receive = () => {
       }
       
       if (data && data.success && data.wallets && data.wallets.length > 0) {
-        console.log("Refreshed wallet addresses:", data.wallets);
+        const filteredWallets = data.wallets.filter(
+          w => w.blockchain !== 'Bitcoin' && w.currency !== 'BTC'
+        );
         
-        const addresses: WalletAddress[] = data.wallets.map(wallet => ({
+        console.log("Refreshed wallet addresses:", filteredWallets);
+        
+        const addresses: WalletAddress[] = filteredWallets.map(wallet => ({
           blockchain: wallet.blockchain,
           symbol: wallet.currency,
           address: wallet.address,
@@ -402,32 +394,26 @@ const Receive = () => {
         }
 
         if (data && data.success && data.wallets && data.wallets.length > 0) {
-          console.log("Fetched wallet addresses:", data.wallets);
+          const filteredWallets = data.wallets.filter(
+            w => w.blockchain !== 'Bitcoin' && w.currency !== 'BTC'
+          );
           
-          const btcWallets = data.wallets.filter(w => w.currency === 'BTC');
-          console.log("BTC wallets found:", btcWallets);
+          console.log("Fetched wallet addresses:", filteredWallets);
           
-          const addresses: WalletAddress[] = data.wallets.map(wallet => ({
+          const addresses: WalletAddress[] = filteredWallets.map(wallet => ({
             blockchain: wallet.blockchain,
             symbol: wallet.currency,
             address: wallet.address,
             logo: getCurrencyLogo(wallet.currency)
           }));
           
-          const hasBitcoinBTC = addresses.some(
-            wallet => wallet.symbol === 'BTC' && wallet.blockchain === 'Bitcoin'
-          );
-          
-          console.log("Has Bitcoin BTC:", hasBitcoinBTC);
-          
-          if (!hasBitcoinBTC) {
-            console.log("Missing Bitcoin tokens, creating wallets");
-            await createWallets();
-            return;
-          }
-          
           setWalletAddresses(addresses);
-          setNoWalletsFound(false);
+          setNoWalletsFound(addresses.length === 0);
+          
+          if (addresses.length === 0) {
+            console.log("No supported wallets found for user, attempting to create wallets");
+            await createWallets();
+          }
         } else {
           console.log("No wallets found for user, attempting to create wallets");
           await createWallets();

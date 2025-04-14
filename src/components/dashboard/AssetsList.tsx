@@ -10,9 +10,14 @@ interface AssetsListProps {
 }
 
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
+  // Filter out Bitcoin assets
+  const filteredAssets = assets.filter(asset => 
+    asset.blockchain !== 'Bitcoin' && asset.symbol !== 'BTC'
+  );
+  
   return (
     <div className="space-y-3">
-      {assets.map((asset) => (
+      {filteredAssets.map((asset) => (
         <KashCard key={asset.id} className="hover:bg-kash-lightGray cursor-pointer transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
