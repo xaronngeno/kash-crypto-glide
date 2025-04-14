@@ -12,10 +12,6 @@ const NETWORK_ENDPOINTS = {
   SOLANA: {
     MAINNET: 'https://solana-mainnet.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p',
     TESTNET: clusterApiUrl('devnet'), // Solana devnet for testing
-  },
-  BITCOIN: {
-    MAINNET: 'https://blockstream.info/api',
-    TESTNET: 'https://blockstream.info/testnet/api',
   }
 };
 
@@ -81,30 +77,10 @@ export const fetchEthereumBalance = async (address: string): Promise<number> => 
   }
 };
 
-// Fetch balance from Bitcoin blockchain with better error handling for mainnet
-export const fetchBitcoinBalance = async (address: string): Promise<number> => {
-  try {
-    // Use blockstream.info API for Bitcoin balance lookups - reliable mainnet service
-    const response = await fetch(`${NETWORK_ENDPOINTS.BITCOIN[NETWORK_ENV]}/address/${address}`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Bitcoin balance: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    // Convert from satoshis to BTC
-    const balanceBTC = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100_000_000;
-    return balanceBTC;
-  } catch (error) {
-    console.error(`Error fetching Bitcoin balance for ${address}:`, error);
-    return 0;
-  }
-};
-
 // Get balance for any supported blockchain address with improved timeout handling
 export const getBlockchainBalance = async (
   address: string, 
-  blockchain: 'Ethereum' | 'Solana' | 'Bitcoin'
+  blockchain: 'Ethereum' | 'Solana'
 ): Promise<number> => {
   // Create a promise that rejects after timeout
   const timeout = (ms: number): Promise<never> => {
@@ -126,8 +102,6 @@ export const getBlockchainBalance = async (
                 return await fetchEthereumBalance(address);
               case 'Solana':
                 return await fetchSolanaBalance(address);
-              case 'Bitcoin':
-                return await fetchBitcoinBalance(address);
               default:
                 console.error(`Unsupported blockchain: ${blockchain}`);
                 return 0;

@@ -42,17 +42,6 @@ export const generateAllWallets = async (): Promise<WalletData[]> => {
       const ethereumWallet = await generateWallet.ethereum();
       wallets.push(ethereumWallet);
       
-      // Add Bitcoin wallet (Native SegWit only)
-      try {
-        console.log('Attempting to generate Bitcoin wallet');
-        const bitcoinWallet = await generateWallet.bitcoin();
-        wallets.push(bitcoinWallet);
-        console.log('Successfully generated Bitcoin wallet');
-      } catch (bitcoinError) {
-        console.error('Failed to generate Bitcoin wallet:', bitcoinError);
-        // Continue without Bitcoin wallet
-      }
-      
       return wallets;
     } catch (error) {
       console.error('Error generating wallets:', error);

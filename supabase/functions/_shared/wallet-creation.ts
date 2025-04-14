@@ -32,15 +32,3 @@ export async function createSolanaWallet(userId: string) {
     throw error;
   }
 }
-
-// Create Bitcoin SegWit wallet
-export async function createBitcoinSegWitWallet(userId: string) {
-  const privateKey = await generatePrivateKey();
-  const address = `bc1q${privateKey.substring(0, 38)}`;
-  
-  return {
-    address,
-    private_key: privateKey,
-    wallet_type: 'Native SegWit'
-  };
-}

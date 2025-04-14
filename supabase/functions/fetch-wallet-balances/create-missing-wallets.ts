@@ -1,5 +1,5 @@
 
-import { createEthereumWallets, createSolanaWallets, createBitcoinWallet } from './utils/wallet-db-ops.ts';
+import { createEthereumWallets, createSolanaWallets } from './utils/wallet-db-ops.ts';
 import { generateUserHDWallets } from './utils/hd-wallet-utils.ts';
 
 /**
@@ -10,14 +10,13 @@ export async function createMissingWallets(
   userId: string,
   hasSol: boolean,
   hasEth: boolean,
-  hasBtcSegwit: boolean
 ) {
   try {
     console.log(`Creating missing wallets for user: ${userId}`);
-    console.log(`Current wallet status - SOL: ${hasSol}, ETH: ${hasEth}, BTC SegWit: ${hasBtcSegwit}`);
+    console.log(`Current wallet status - SOL: ${hasSol}, ETH: ${hasEth}`);
     
     // If user has all wallets, nothing to do
-    if (hasSol && hasEth && hasBtcSegwit) {
+    if (hasSol && hasEth) {
       console.log("User already has all required wallet types");
       return [];
     }
@@ -67,17 +66,6 @@ export async function createMissingWallets(
         hdWallets.solana.private_key
       );
       createdWallets.push(...solWallets);
-    }
-    
-    if (!hasBtcSegwit) {
-      console.log("Creating missing Bitcoin SegWit wallet");
-      const btcWallet = await createBitcoinWallet(
-        supabase, 
-        userId,
-        hdWallets.bitcoinSegwit.address, 
-        hdWallets.bitcoinSegwit.private_key
-      );
-      createdWallets.push(btcWallet);
     }
     
     console.log(`Created ${createdWallets.length} missing wallets`);

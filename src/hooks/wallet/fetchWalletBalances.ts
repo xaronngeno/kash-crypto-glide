@@ -36,11 +36,10 @@ export const fetchWalletBalances = async ({
     
     // Log wallet types received
     if (data?.wallets) {
-      const btcWallets = data.wallets.filter(w => w.blockchain === 'Bitcoin');
       const ethWallets = data.wallets.filter(w => w.blockchain === 'Ethereum');
       const solWallets = data.wallets.filter(w => w.blockchain === 'Solana');
       
-      console.log(`Received wallets - BTC: ${btcWallets.length}, ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
+      console.log(`Received wallets - ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
     }
     
     return data?.wallets || [];
@@ -82,11 +81,10 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
       });
       
       // Log wallet types being refreshed
-      const btcWallets = data.wallets.filter(w => w.blockchain === 'Bitcoin');
       const ethWallets = data.wallets.filter(w => w.blockchain === 'Ethereum');
       const solWallets = data.wallets.filter(w => w.blockchain === 'Solana');
       
-      console.log(`Refreshing wallets - BTC: ${btcWallets.length}, ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
+      console.log(`Refreshing wallets - ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
       
       // Track successful updates
       let successCount = 0;
@@ -122,7 +120,7 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
                 console.log(`Fetching ${wallet.blockchain} balance for address ${wallet.address}`);
                 const balance = await getBlockchainBalance(
                   wallet.address, 
-                  wallet.blockchain as 'Ethereum' | 'Solana' | 'Bitcoin'
+                  wallet.blockchain as 'Ethereum' | 'Solana'
                 );
                 
                 // Update the cache

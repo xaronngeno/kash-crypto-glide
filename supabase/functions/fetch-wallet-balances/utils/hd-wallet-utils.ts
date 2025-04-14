@@ -6,7 +6,6 @@ import * as bip39 from 'https://esm.sh/bip39@3.1.0';
 import { derivePath } from 'https://esm.sh/ed25519-hd-key@1.3.0';
 import { 
   deriveEthereumWallet, 
-  deriveBitcoinWallet, 
   createSolanaWallet 
 } from '../../_shared/key-derivation.ts';
 
@@ -15,7 +14,6 @@ import {
  * This ensures addresses are derived consistently with the following standards:
  * SOL: m/44'/501'/0'/0' (ed25519)
  * ETH: m/44'/60'/0'/0/0 (secp256k1)
- * BTC: m/44'/0'/0'/0/0 (secp256k1)
  */
 export async function generateUserHDWallets(supabase: any, userId: string) {
   try {
@@ -30,9 +28,6 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
     try {
       // Generate Ethereum wallet from seed phrase
       const ethereum = await deriveEthereumWallet(seedPhrase);
-      
-      // Generate Bitcoin wallet from seed phrase
-      const bitcoin = await deriveBitcoinWallet(seedPhrase);
       
       // Special handling for Solana wallet
       let solana;
@@ -67,9 +62,7 @@ export async function generateUserHDWallets(supabase: any, userId: string) {
           address: solana.address,
           private_key: solana.privateKey
         },
-        ethereum,
-        bitcoin,
-        bitcoinSegwit: bitcoin // For compatibility
+        ethereum
       };
     } catch (error) {
       console.error("Error generating HD wallets:", error);

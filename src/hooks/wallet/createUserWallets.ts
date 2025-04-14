@@ -5,13 +5,13 @@ import { transformWallet } from './utils/transformWallet';
 import { toast } from '@/hooks/use-toast';
 
 // Define allowed blockchains for type checking
-const ALLOWED_BLOCKCHAINS = ['Bitcoin', 'Ethereum', 'Solana'];
+const ALLOWED_BLOCKCHAINS = ['Ethereum', 'Solana'];
 
 // Flag to prevent multiple wallet creation attempts
 let walletCreationInProgress = false;
 
 /**
- * Validates that wallets are only the supported chains (BTC, ETH, SOL)
+ * Validates that wallets are only the supported chains (ETH, SOL)
  */
 const validateAllowedWallets = (wallets: any[]): boolean => {
   if (!wallets || wallets.length === 0) return true;
@@ -23,7 +23,7 @@ const validateAllowedWallets = (wallets: any[]): boolean => {
 
 /**
  * Creates wallets for a user if they don't exist
- * Only creates Bitcoin, Ethereum, and Solana wallets
+ * Only creates Ethereum and Solana wallets
  */
 export const createUserWallets = async (userId: string): Promise<WalletData[] | null> => {
   if (!userId) return null;

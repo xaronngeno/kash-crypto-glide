@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { Asset } from '@/types/assets';
 import { CryptoPrices } from '@/hooks/useCryptoPrices';
-import { isBitcoinAddress, isEthereumAddress, isSolanaAddress } from '@/utils/addressValidator';
+import { isEthereumAddress, isSolanaAddress } from '@/utils/addressValidator';
 
 export const useWalletProcessor = (prices: CryptoPrices) => {
   const [error, setError] = useState<string | null>(null);
@@ -14,28 +14,26 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         return [];
       }
 
-      console.log('Processing wallets:', JSON.stringify(wallets, null, 2));
+      // Log all wallet types being processed
+      const ethereumWallets = wallets.filter(w => w.blockchain === 'Ethereum');
+      const solanaWallets = wallets.filter(w => w.blockchain === 'Solana');
+      
+      console.log(`Processing ${wallets.length} total wallets:`);
+      console.log(`ETH wallets found: ${ethereumWallets.length > 0 ? JSON.stringify(ethereumWallets) : 'None'}`);
+      console.log(`SOL wallets found: ${solanaWallets.length > 0 ? JSON.stringify(solanaWallets) : 'None'}`);
+      
+      if (ethereumWallets.length > 0) console.log("Has Ethereum ETH:", true);
+      if (solanaWallets.length > 0) console.log("Has Solana SOL:", true);
 
       return wallets.map(wallet => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
-        
-        console.log(`Processing wallet for ${symbol}:`, {
-          address: wallet.address,
-          blockchain: wallet.blockchain,
-          balance: wallet.balance
-        });
         
         // Validate address format based on blockchain type
         let validAddress = wallet.address || 'Address Not Available';
         let validationPassed = true;
         
         // Format validation for popular blockchains
-        if (wallet.blockchain === 'Bitcoin' && !isBitcoinAddress(validAddress)) {
-          console.warn(`Warning: Bitcoin address doesn't match expected format: ${validAddress}`);
-          validationPassed = false;
-        }
-        
         if (wallet.blockchain === 'Ethereum' && !isEthereumAddress(validAddress)) {
           console.warn(`Warning: Ethereum address doesn't match expected format: ${validAddress}`);
           validationPassed = false;

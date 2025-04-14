@@ -18,10 +18,6 @@ const NETWORK_ENDPOINTS = {
   SOLANA: {
     MAINNET: 'https://api.mainnet-beta.solana.com',
     TESTNET: 'https://api.devnet.solana.com',
-  },
-  BITCOIN: {
-    MAINNET: 'https://blockstream.info/api',
-    TESTNET: 'https://blockstream.info/testnet/api',
   }
 };
 
@@ -110,19 +106,6 @@ serve(async (req: Request) => {
             const rawBalance = await trackOperation(provider.getBalance(address));
             balance = parseFloat(ethers.formatEther(rawBalance));
           }
-          else if (blockchain === 'Bitcoin') {
-            const response = await trackOperation(
-              fetch(`${NETWORK_ENDPOINTS.BITCOIN[NETWORK_ENV]}/address/${address}`)
-            );
-            
-            if (response.ok) {
-              const data = await response.json();
-              const satoshis = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
-              balance = satoshis / 100_000_000; // Convert satoshis to BTC
-            } else {
-              console.error(`Bitcoin API error: ${response.statusText}`);
-            }
-          }
         } catch (blockchainError) {
           console.error(`Error fetching ${blockchain} balance:`, blockchainError);
           // Continue with zero balance rather than failing completely
@@ -142,8 +125,7 @@ serve(async (req: Request) => {
         // Use appropriate mainnet explorer APIs based on blockchain
         const explorerUrls = {
           Ethereum: `https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&sort=desc`,
-          Solana: `https://api.solscan.io/account/transaction?address=${address}&limit=10`,
-          Bitcoin: `${NETWORK_ENDPOINTS.BITCOIN[NETWORK_ENV]}/address/${address}/txs`
+          Solana: `https://api.solscan.io/account/transaction?address=${address}&limit=10`
         };
         
         try {

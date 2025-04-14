@@ -3,22 +3,6 @@
  * Validates cryptocurrency addresses for different blockchain networks
  */
 
-// Bitcoin address validation - supports both legacy and SegWit formats
-export const isBitcoinAddress = (address: string): boolean => {
-  if (!address || typeof address !== 'string') return false;
-  
-  // BIP44 legacy address format (starts with 1)
-  const legacyBitcoinRegex = /^1[1-9A-HJ-NP-Za-km-z]{25,34}$/;
-  
-  // Native SegWit address format (starts with bc1)
-  const segWitBitcoinRegex = /^bc1[a-zA-Z0-9]{25,90}$/;
-  
-  // Check if address matches either format
-  const isValid = legacyBitcoinRegex.test(address) || segWitBitcoinRegex.test(address);
-  console.log(`Bitcoin address validation for ${address}: ${isValid}`);
-  return isValid;
-};
-
 // Ethereum address validation (0x followed by 40 hex chars)
 export const isEthereumAddress = (address: string): boolean => {
   if (!address || typeof address !== 'string') return false;
@@ -54,8 +38,6 @@ export const validateAddressForNetwork = (address: string, network: string): boo
   
   const result = (() => {
     switch (network.toLowerCase()) {
-      case 'bitcoin':
-        return isBitcoinAddress(address);
       case 'ethereum':
         return isEthereumAddress(address);
       case 'solana':
@@ -74,7 +56,6 @@ export const validateAddressForNetwork = (address: string, network: string): boo
 export const detectNetworkFromAddress = (address: string): string | null => {
   if (!address) return null;
   
-  if (isBitcoinAddress(address)) return 'Bitcoin';
   if (isEthereumAddress(address)) return 'Ethereum';
   if (isSolanaAddress(address)) return 'Solana';
   

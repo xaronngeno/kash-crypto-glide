@@ -72,37 +72,3 @@ export async function createSolanaWallets(
     return [];
   }
 }
-
-/**
- * Insert Bitcoin SegWit wallet into database
- */
-export async function createBitcoinWallet(
-  supabase: any, 
-  userId: string,
-  address: string,
-  privateKey: string
-) {
-  try {
-    // Create Bitcoin SegWit wallet
-    await insertWalletIntoDb(
-      supabase, 
-      userId, 
-      'Bitcoin', 
-      'BTC', 
-      address, 
-      privateKey, 
-      'Native SegWit'
-    );
-    
-    return {
-      blockchain: 'Bitcoin',
-      currency: 'BTC',
-      address: address,
-      balance: 0,
-      wallet_type: 'Native SegWit'
-    };
-  } catch (error) {
-    console.error("Error creating Bitcoin wallet:", error);
-    throw error;
-  }
-}

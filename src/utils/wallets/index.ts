@@ -1,17 +1,14 @@
 
-// Unified wallet generation for Ethereum, Solana, and Bitcoin
+// Unified wallet generation for Ethereum and Solana
 import { ethers } from 'ethers';
 import { Keypair } from '@solana/web3.js';
 import * as bs58 from '../bs58Wrapper';
 import * as bip39 from 'bip39';
 import { derivePath } from 'ed25519-hd-key';
 import { Buffer } from '../globalPolyfills';
-import { getCryptoLibs } from '../cryptoWrappers';
-import * as ecc from 'tiny-secp256k1';
 import { DERIVATION_PATHS, WalletData } from '../walletConfig';
-import { getBip32 } from '../bip32Wrapper';
 
-// Unified wallet generator functions - only BTC, ETH, SOL
+// Unified wallet generator functions - only ETH, SOL
 export const generateWallet = {
   // Ethereum wallet generation
   ethereum: async (seedPhrase?: string): Promise<WalletData> => {
@@ -70,66 +67,9 @@ export const generateWallet = {
       console.error('Error generating Solana wallet:', error);
       throw new Error('Failed to generate Solana wallet');
     }
-  },
-  
-  // Bitcoin wallet generation (Native SegWit - BIP84)
-  bitcoin: async (seedPhrase?: string): Promise<WalletData> => {
-    try {
-      // Get crypto libraries
-      const { bitcoin, bip32, ECPair } = await getCryptoLibs();
-      
-      // Create key pair from seed phrase or generate new random one
-      let keyPair;
-      let mnemonicPhrase;
-      
-      if (seedPhrase) {
-        mnemonicPhrase = seedPhrase;
-        // Generate seed from mnemonic
-        const seed = bip39.mnemonicToSeedSync(seedPhrase);
-        
-        // Derive the node from seed using BIP84 path for Native SegWit addresses
-        // This is what most modern wallets use by default
-        const bip32Instance = await getBip32();
-        
-        // Derive the node from seed using BIP84 path for Native SegWit addresses (bc1 prefix)
-        const root = bip32Instance.fromSeed(seed);
-        const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
-        
-        // Get key pair from derived node
-        keyPair = ECPair.fromPrivateKey(node.privateKey);
-      } else {
-        // Generate random key pair
-        keyPair = ECPair.makeRandom();
-      }
-      
-      // Generate Native SegWit (P2WPKH) address (starting with 'bc1')
-      const { address } = bitcoin.payments.p2wpkh({
-        pubkey: keyPair.publicKey,
-        network: bitcoin.networks.bitcoin,
-      });
-      
-      if (!address) {
-        throw new Error('Failed to generate Bitcoin address');
-      }
-      
-      // Convert private key to hex format
-      const privateKey = keyPair.privateKey?.toString('hex');
-      
-      return {
-        blockchain: 'Bitcoin',
-        platform: 'Bitcoin',
-        address,
-        privateKey: privateKey ? '0x' + privateKey : undefined,
-        walletType: 'Native SegWit' 
-      };
-    } catch (error) {
-      console.error('Error generating Bitcoin wallet:', error);
-      throw new Error('Failed to generate Bitcoin wallet');
-    }
   }
 };
 
 // Re-export individual functions for backward compatibility
 export const generateEthWallet = generateWallet.ethereum;
 export const generateSolanaWallet = generateWallet.solana;
-export const generateBitcoinWallet = generateWallet.bitcoin;

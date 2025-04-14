@@ -4,8 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { generateUserHDWallets } from './utils/hd-wallet-utils.ts';
 import { 
   createEthereumWallets, 
-  createSolanaWallets, 
-  createBitcoinWallet 
+  createSolanaWallets
 } from './utils/wallet-db-ops.ts';
 import { ensureUserProfile } from './utils/profile-utils.ts';
 import { createMissingWallets } from './create-missing-wallets.ts';
@@ -42,15 +41,6 @@ export async function createInitialWallets(supabase: any, userId: string) {
       hdWallets.solana.private_key
     );
     wallets.push(...solanaWallets);
-    
-    // Create Bitcoin SegWit wallet
-    const bitcoinWallet = await createBitcoinWallet(
-      supabase, 
-      userId,
-      hdWallets.bitcoinSegwit.address, 
-      hdWallets.bitcoinSegwit.private_key
-    );
-    wallets.push(bitcoinWallet);
     
     console.log("Created wallets directly with proper HD derivation");
     

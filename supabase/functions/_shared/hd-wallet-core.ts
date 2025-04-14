@@ -1,7 +1,7 @@
 
 import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
-import { deriveEthereumWallet, deriveSolanaWallet, deriveBitcoinWallet } from "./key-derivation.ts";
+import { deriveEthereumWallet, deriveSolanaWallet } from "./key-derivation.ts";
 import { DERIVATION_PATHS } from "./hd-constants.ts";
 
 /**
@@ -9,7 +9,6 @@ import { DERIVATION_PATHS } from "./hd-constants.ts";
  * Using standardized derivation paths:
  * SOL: m/44'/501'/0'/0' (ed25519)
  * ETH: m/44'/60'/0'/0/0 (secp256k1)
- * BTC: m/44'/0'/0'/0/0 (secp256k1)
  */
 export async function generateHDWallets(seedPhrase: string, userId: string) {
   try {
@@ -27,9 +26,6 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
     
     // Derive Ethereum wallet with BIP44 path m/44'/60'/0'/0/0
     const ethereum = deriveEthereumWallet(seedPhrase);
-    
-    // Derive Bitcoin wallet with BIP44 path m/44'/0'/0'/0/0
-    const bitcoin = deriveBitcoinWallet(seedPhrase);
     
     // Derive Solana wallet with BIP44 path m/44'/501'/0'/0'
     let solana;
@@ -53,8 +49,6 @@ export async function generateHDWallets(seedPhrase: string, userId: string) {
     return {
       ethereum,
       solana,
-      bitcoin,
-      bitcoinSegwit: bitcoin, // For compatibility with existing code
       mnemonic: seedPhrase
     };
   } catch (error) {
