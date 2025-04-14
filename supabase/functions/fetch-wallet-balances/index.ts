@@ -66,8 +66,7 @@ function filterNativeWallets(wallets: any[]) {
   
   const nativeWallets = wallets.filter(wallet => (
     (wallet.blockchain === 'Ethereum' && wallet.currency === 'ETH') ||
-    (wallet.blockchain === 'Solana' && wallet.currency === 'SOL') ||
-    (wallet.blockchain === 'Bitcoin' && wallet.currency === 'BTC' && wallet.wallet_type === 'Native SegWit')
+    (wallet.blockchain === 'Solana' && wallet.currency === 'SOL')
   ));
   
   console.log(`Filtered ${wallets.length} wallets down to ${nativeWallets.length} native wallets`);
@@ -103,13 +102,11 @@ function processWalletBalances(wallets) {
 function checkWalletTypes(wallets) {
   const hasSol = wallets.some(w => w.currency === 'SOL' && w.blockchain === 'Solana');
   const hasEth = wallets.some(w => w.currency === 'ETH' && w.blockchain === 'Ethereum');
-  const hasBtcSegwit = wallets.some(w => w.currency === 'BTC' && w.blockchain === 'Bitcoin' && w.wallet_type === 'Native SegWit');
   
   console.log(`Has SOL wallet: ${hasSol}`);
   console.log(`Has ETH wallet: ${hasEth}`);
-  console.log(`Has BTC SegWit: ${hasBtcSegwit}`);
   
-  return { hasSol, hasEth, hasBtcSegwit };
+  return { hasSol, hasEth };
 }
 
 serve(async (req: Request) => {
@@ -182,11 +179,6 @@ serve(async (req: Request) => {
                 console.log("Would check Ethereum balances for:", ethereumAddresses);
               }
               
-              const bitcoinAddresses = wallets.filter(w => w.blockchain === 'Bitcoin').map(w => w.address);
-              if (bitcoinAddresses.length > 0) {
-                console.log("Would check Bitcoin balances for:", bitcoinAddresses);
-              }
-              
               console.log("Background task completed successfully");
             } catch (err) {
               console.error("Error in background task:", err);
@@ -234,17 +226,17 @@ serve(async (req: Request) => {
 
     const walletsWithBalances = processWalletBalances(wallets);
     
-    const { hasSol, hasEth, hasBtcSegwit } = checkWalletTypes(walletsWithBalances);
+    const { hasSol, hasEth } = checkWalletTypes(walletsWithBalances);
     
     const missingWallets = [];
-    if (!hasSol || !hasEth || !hasBtcSegwit) {
+    if (!hasSol || !hasEth) {
       try {
         const createMissingWalletsPromise = createMissingWallets(
           supabase, 
           userId, 
           hasSol, 
           hasEth,
-          hasBtcSegwit
+          false
         );
         
         if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {

@@ -10,14 +10,9 @@ interface AssetsListProps {
 }
 
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
-  // Filter out Bitcoin assets
-  const filteredAssets = assets.filter(asset => 
-    asset.blockchain !== 'Bitcoin' && asset.symbol !== 'BTC'
-  );
-  
   return (
     <div className="space-y-3">
-      {filteredAssets.map((asset) => (
+      {assets.map((asset) => (
         <KashCard key={asset.id} className="hover:bg-kash-lightGray cursor-pointer transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -47,7 +42,7 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
                 </div>
                 <p className="text-sm text-gray-500">
                   {asset.amount.toLocaleString('en-US', { 
-                    maximumFractionDigits: asset.symbol === 'BTC' ? 8 : 6,
+                    maximumFractionDigits: 6,
                     minimumFractionDigits: 0
                   })} {asset.symbol}
                 </p>
@@ -65,6 +60,12 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
           </div>
         </KashCard>
       ))}
+      
+      {assets.length === 0 && (
+        <div className="text-center py-8 text-gray-500">
+          No assets found. Add Ethereum or Solana to get started.
+        </div>
+      )}
     </div>
   );
 });
