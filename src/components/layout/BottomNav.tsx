@@ -11,7 +11,7 @@ const BottomNav = () => {
     { icon: Wallet, label: "Wallet", path: "/dashboard" },
     { icon: Search, label: "Search", path: "/search" },
     { icon: DollarSign, label: "Sell USDT", path: "/sell-usdt" },
-    { icon: BarChart3, label: "Activity", path: "/history" },
+    { icon: BarChart3, label: "History", path: "/history" }, // Updated label to "History"
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
@@ -37,3 +37,4 @@ const BottomNav = () => {
 };
 
 export default BottomNav;
+

@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -15,7 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import Receive from "./pages/Receive";
 import Send from "./pages/Send";
 import Buy from "./pages/Buy";
-import History from "./pages/History";
+import TransactionHistory from "./pages/History";
 import Settings from "./pages/Settings";
 import TransactionConfirmation from "./pages/TransactionConfirmation";
 import SwapCrypto from "./pages/SwapCrypto";
@@ -92,7 +91,7 @@ const App: React.FC = () => {
               } />
               <Route path="/history" element={
                 <ProtectedRoute>
-                  <History />
+                  <TransactionHistory />
                 </ProtectedRoute>
               } />
               <Route path="/settings" element={
@@ -125,7 +124,6 @@ const App: React.FC = () => {
               
               <Route path="*" element={<NotFound />} />
             </Routes>
-            {/* Place Toasters after the Routes to ensure they are available throughout the app */}
             <Toaster />
             <Sonner />
           </AuthProvider>

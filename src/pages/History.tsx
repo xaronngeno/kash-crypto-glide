@@ -1,8 +1,7 @@
-
 import { useEffect, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
-import { ArrowUpRight, ArrowDownRight, Repeat, CreditCard, Loader2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Repeat, CreditCard, Loader2, History as HistoryIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Table,
@@ -38,7 +37,7 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-const History = () => {
+const TransactionHistory = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +73,7 @@ const History = () => {
 
   if (loading) {
     return (
-      <MainLayout title="Activity">
+      <MainLayout title="Transaction History">
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-kash-green" />
         </div>
@@ -84,7 +83,7 @@ const History = () => {
 
   if (error) {
     return (
-      <MainLayout title="Activity">
+      <MainLayout title="Transaction History">
         <div className="text-center p-4 text-kash-error">
           <p>{error}</p>
           <p className="mt-2 text-sm">Please try again later</p>
@@ -94,10 +93,13 @@ const History = () => {
   }
 
   return (
-    <MainLayout title="Activity">
+    <MainLayout title="Transaction History">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Transaction History</h2>
+          <div className="flex items-center gap-3">
+            <HistoryIcon size={24} className="text-gray-600" />
+            <h2 className="text-xl font-semibold">All Transactions</h2>
+          </div>
           <div className="flex space-x-2">
             <button 
               onClick={() => setViewType('card')}
@@ -215,4 +217,4 @@ const History = () => {
   );
 };
 
-export default History;
+export default TransactionHistory;
