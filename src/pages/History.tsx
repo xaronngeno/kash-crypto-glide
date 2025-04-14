@@ -1,16 +1,9 @@
+
 import { useEffect, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
 import { ArrowUpRight, ArrowDownRight, Repeat, CreditCard, Loader2, Clock, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useAuth } from '@/components/AuthProvider';
 
 interface Transaction {
@@ -59,7 +52,6 @@ const TransactionHistory = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewType, setViewType] = useState<'card' | 'table'>('card');
   const { user } = useAuth();
 
   useEffect(() => {
@@ -154,22 +146,8 @@ const TransactionHistory = () => {
   return (
     <MainLayout title="Recent Activity">
       <div className="space-y-4 pb-20">
-        <div className="flex justify-between items-center mb-6">
+        <div className="mb-6">
           <h2 className="text-2xl font-bold">Recent Activity</h2>
-          <div className="flex space-x-2">
-            <button 
-              onClick={() => setViewType('card')}
-              className={`px-3 py-1 rounded-md text-sm ${viewType === 'card' ? 'bg-kash-green text-white' : 'bg-gray-100'}`}
-            >
-              Card
-            </button>
-            <button 
-              onClick={() => setViewType('table')}
-              className={`px-3 py-1 rounded-md text-sm ${viewType === 'table' ? 'bg-kash-green text-white' : 'bg-gray-100'}`}
-            >
-              Table
-            </button>
-          </div>
         </div>
       
         {transactions.length === 0 ? (
@@ -177,87 +155,42 @@ const TransactionHistory = () => {
             <p className="text-gray-500">No transaction history yet</p>
           </div>
         ) : (
-          <>
-            {viewType === 'card' ? (
-              <div className="space-y-6">
-                {Object.entries(groupedTransactions).map(([date, dateTransactions]) => (
-                  <div key={date} className="space-y-3">
-                    <h3 className="text-lg text-gray-500 font-medium">{date}</h3>
-                    {dateTransactions.map((tx) => (
-                      <KashCard key={tx.id} className="hover:bg-kash-lightGray cursor-pointer">
-                        <div className="flex items-center">
-                          {getTransactionIcon(tx)}
-                          
-                          <div className="flex-1 ml-4">
-                            <div className="flex justify-between">
-                              <h3 className="font-medium capitalize">
-                                {tx.status === 'Failed' ? 'Failed app interaction' : tx.transaction_type}
-                              </h3>
-                              <span className={`font-medium ${tx.transaction_type === 'send' ? 'text-kash-error' : 'text-kash-green'}`}>
-                                {tx.transaction_type === 'send' ? '-' : 
-                                tx.transaction_type === 'receive' ? '+' : ''}
-                                {tx.status !== 'Failed' && `${tx.amount} ${tx.currency}`}
-                              </span>
-                            </div>
-                            
-                            <div className="text-sm text-gray-500 mt-0.5">
-                              {tx.status === 'Failed' ? 'Unknown' : (
-                                tx.transaction_type === 'send' && tx.to_address ? 
-                                  `To ${formatAddress(tx.to_address)}` : 
-                                tx.transaction_type === 'receive' && tx.from_address ? 
-                                  `From ${formatAddress(tx.from_address)}` : ''
-                              )}
-                            </div>
-                          </div>
+          <div className="space-y-6">
+            {Object.entries(groupedTransactions).map(([date, dateTransactions]) => (
+              <div key={date} className="space-y-3">
+                <h3 className="text-lg text-gray-500 font-medium">{date}</h3>
+                {dateTransactions.map((tx) => (
+                  <KashCard key={tx.id} className="hover:bg-kash-lightGray cursor-pointer">
+                    <div className="flex items-center">
+                      {getTransactionIcon(tx)}
+                      
+                      <div className="flex-1 ml-4">
+                        <div className="flex justify-between">
+                          <h3 className="font-medium capitalize">
+                            {tx.status === 'Failed' ? 'Failed app interaction' : tx.transaction_type}
+                          </h3>
+                          <span className={`font-medium ${tx.transaction_type === 'send' ? 'text-kash-error' : 'text-kash-green'}`}>
+                            {tx.transaction_type === 'send' ? '-' : 
+                            tx.transaction_type === 'receive' ? '+' : ''}
+                            {tx.status !== 'Failed' && `${tx.amount} ${tx.currency}`}
+                          </span>
                         </div>
-                      </KashCard>
-                    ))}
-                  </div>
+                        
+                        <div className="text-sm text-gray-500 mt-0.5">
+                          {tx.status === 'Failed' ? 'Unknown' : (
+                            tx.transaction_type === 'send' && tx.to_address ? 
+                              `To ${formatAddress(tx.to_address)}` : 
+                            tx.transaction_type === 'receive' && tx.from_address ? 
+                              `From ${formatAddress(tx.from_address)}` : ''
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </KashCard>
                 ))}
               </div>
-            ) : (
-              <div className="overflow-hidden rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Details</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.map((tx) => (
-                      <TableRow key={tx.id}>
-                        <TableCell className="font-medium capitalize">{tx.transaction_type}</TableCell>
-                        <TableCell>{formatDate(tx.created_at)}</TableCell>
-                        <TableCell className={tx.transaction_type === 'send' ? 'text-kash-error' : 'text-kash-green'}>
-                          {tx.transaction_type === 'send' ? '-' : 
-                           tx.transaction_type === 'receive' ? '+' : 
-                           tx.transaction_type === 'swap' ? '' : '+'}
-                          {tx.amount} {tx.currency}
-                        </TableCell>
-                        <TableCell className={tx.status === 'Failed' ? 'text-kash-error' : ''}>
-                          {tx.status}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {tx.transaction_type === 'swap' && tx.target_currency && tx.swap_amount ? 
-                            `Swapped to ${tx.swap_amount} ${tx.target_currency}` : ''}
-                          {tx.transaction_type === 'buy' && tx.payment_method ? 
-                            `Paid with ${tx.payment_method}` : ''}
-                          {tx.transaction_type === 'send' && tx.to_address ? 
-                            `To: ${tx.to_address.substring(0, 10)}...` : ''}
-                          {tx.transaction_type === 'receive' && tx.from_address ? 
-                            `From: ${tx.from_address.substring(0, 10)}...` : ''}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </>
+            ))}
+          </div>
         )}
       </div>
     </MainLayout>
