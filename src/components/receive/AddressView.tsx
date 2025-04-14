@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Copy, QrCode, Info } from 'lucide-react';
+import { Copy, QrCode, Info, RefreshCw } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
 import { WalletAddress } from '@/types/wallet';
@@ -12,14 +12,17 @@ interface AddressViewProps {
   selectedWallet: WalletAddress;
   onReset: () => void;
   onTryAgain: () => void;
+  refreshBalance?: () => Promise<void>;
 }
 
 export const AddressView: React.FC<AddressViewProps> = ({ 
   selectedWallet, 
   onReset,
-  onTryAgain 
+  onTryAgain,
+  refreshBalance
 }) => {
   const [showQR, setShowQR] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
   const copyToClipboard = (text: string) => {
@@ -28,6 +31,28 @@ export const AddressView: React.FC<AddressViewProps> = ({
       title: "Address copied",
       description: "Wallet address copied to clipboard",
     });
+  };
+
+  const handleRefreshBalance = async () => {
+    if (refreshBalance && !refreshing) {
+      setRefreshing(true);
+      try {
+        await refreshBalance();
+        toast({
+          title: "Balance refreshed",
+          description: "Your wallet balance has been updated",
+        });
+      } catch (error) {
+        console.error("Error refreshing balance:", error);
+        toast({
+          title: "Refresh failed",
+          description: "Could not update balance at this time",
+          variant: "destructive"
+        });
+      } finally {
+        setRefreshing(false);
+      }
+    }
   };
 
   return (
@@ -100,7 +125,19 @@ export const AddressView: React.FC<AddressViewProps> = ({
         </ul>
       </div>
       
-      <div className="mt-4">
+      <div className="mt-4 space-y-2">
+        {refreshBalance && (
+          <KashButton 
+            variant="outline"
+            fullWidth
+            disabled={refreshing}
+            onClick={handleRefreshBalance}
+            icon={<RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />}
+          >
+            {refreshing ? "Refreshing Balance..." : "Refresh Balance"}
+          </KashButton>
+        )}
+        
         <KashButton 
           variant="outline"
           fullWidth

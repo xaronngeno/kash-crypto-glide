@@ -8,6 +8,7 @@ import { getCurrencyLogo } from '@/utils/currencyUtils';
 
 interface UseWalletManagementProps {
   userId: string | undefined;
+  skipInitialLoad?: boolean;
 }
 
 interface UseWalletManagementReturn {
@@ -17,9 +18,26 @@ interface UseWalletManagementReturn {
   noWalletsFound: boolean;
   createWallets: () => Promise<void>;
   handleTryAgain: () => Promise<void>;
+  refreshWalletBalancesOnly: (userId: string) => Promise<void>;
 }
 
-export const useWalletManagement = ({ userId }: UseWalletManagementProps): UseWalletManagementReturn => {
+// Caching for wallet addresses to optimize performance
+const cachedWallets: {
+  addresses: WalletAddress[];
+  timestamp: number;
+  userId: string | null;
+} = {
+  addresses: [],
+  timestamp: 0,
+  userId: null
+};
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
+
+export const useWalletManagement = ({ 
+  userId, 
+  skipInitialLoad = false 
+}: UseWalletManagementProps): UseWalletManagementReturn => {
   const { toast } = useToast();
   const [walletAddresses, setWalletAddresses] = useState<WalletAddress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +86,9 @@ export const useWalletManagement = ({ userId }: UseWalletManagementProps): UseWa
         setWalletAddresses(addresses);
         setNoWalletsFound(false);
         
+        // Update the cache
+        updateWalletCache(addresses, userId);
+        
         toast({
           title: "Wallets created",
           description: "Your wallets have been created successfully.",
@@ -86,6 +107,31 @@ export const useWalletManagement = ({ userId }: UseWalletManagementProps): UseWa
       setNoWalletsFound(true);
     } finally {
       setCreatingWallets(false);
+    }
+  };
+
+  // Helper function to update the wallet cache
+  const updateWalletCache = (addresses: WalletAddress[], userId: string) => {
+    cachedWallets.addresses = addresses;
+    cachedWallets.timestamp = Date.now();
+    cachedWallets.userId = userId;
+  };
+  
+  // Function to refresh only wallet balances without fetching addresses again
+  const refreshWalletBalancesOnly = async (userId: string) => {
+    try {
+      await refreshWalletBalances(userId);
+      toast({
+        title: "Balance updated",
+        description: "Your wallet balances have been refreshed",
+      });
+    } catch (error) {
+      console.error("Error refreshing wallet balances:", error);
+      toast({
+        title: "Balance update failed",
+        description: "Could not refresh wallet balances at this time",
+        variant: "destructive"
+      });
     }
   };
 
@@ -126,6 +172,7 @@ export const useWalletManagement = ({ userId }: UseWalletManagementProps): UseWa
         }));
         
         setWalletAddresses(addresses);
+        updateWalletCache(addresses, userId);
         
         toast({
           title: "Wallets refreshed",
@@ -149,6 +196,22 @@ export const useWalletManagement = ({ userId }: UseWalletManagementProps): UseWa
   const fetchWalletAddresses = useCallback(async () => {
     if (!userId) {
       console.error("User not authenticated");
+      setLoading(false);
+      return;
+    }
+    
+    // Check if we have valid cached data for this user
+    const now = Date.now();
+    const cacheIsValid = 
+      cachedWallets.userId === userId && 
+      cachedWallets.addresses.length > 0 && 
+      (now - cachedWallets.timestamp < CACHE_DURATION);
+    
+    // Use cached data if available and skipInitialLoad is true
+    if (skipInitialLoad && cacheIsValid) {
+      console.log("Using cached wallet addresses");
+      setWalletAddresses(cachedWallets.addresses);
+      setNoWalletsFound(cachedWallets.addresses.length === 0);
       setLoading(false);
       return;
     }
@@ -183,6 +246,9 @@ export const useWalletManagement = ({ userId }: UseWalletManagementProps): UseWa
         setWalletAddresses(addresses);
         setNoWalletsFound(addresses.length === 0);
         
+        // Update the cache
+        updateWalletCache(addresses, userId);
+        
         if (addresses.length === 0) {
           console.log("No supported wallets found for user, attempting to create wallets");
           await createWallets();
@@ -203,7 +269,7 @@ export const useWalletManagement = ({ userId }: UseWalletManagementProps): UseWa
     } finally {
       setLoading(false);
     }
-  }, [userId, toast]);
+  }, [userId, toast, skipInitialLoad]);
 
   useEffect(() => {
     fetchWalletAddresses();
@@ -215,6 +281,7 @@ export const useWalletManagement = ({ userId }: UseWalletManagementProps): UseWa
     creatingWallets,
     noWalletsFound,
     createWallets,
-    handleTryAgain
+    handleTryAgain,
+    refreshWalletBalancesOnly
   };
 };

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Info, ArrowRight } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
@@ -18,6 +18,7 @@ import { TokenList } from '@/components/receive/TokenList';
 import { NetworkList } from '@/components/receive/NetworkList';
 import { NetworkBadge } from '@/components/receive/NetworkBadge';
 import { AddressView } from '@/components/receive/AddressView';
+import { refreshWalletBalances } from '@/hooks/wallet';
 
 enum ReceiveStep {
   SELECT_COIN = 'select_coin',
@@ -35,8 +36,12 @@ const Receive = () => {
     creatingWallets, 
     noWalletsFound, 
     createWallets, 
-    handleTryAgain 
-  } = useWalletManagement({ userId: user?.id });
+    handleTryAgain,
+    refreshWalletBalancesOnly
+  } = useWalletManagement({ 
+    userId: user?.id,
+    skipInitialLoad: true // Skip loading on first render, use cached data
+  });
   
   const { availableTokens } = useTokenProcessing(walletAddresses);
   
@@ -45,12 +50,17 @@ const Receive = () => {
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<WalletAddress | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   useEffect(() => {
     if (availableTokens.length > 0 && !selectedToken) {
       setSelectedToken(availableTokens[0]);
     }
-  }, [availableTokens, selectedToken]);
+    
+    if (!initialLoadComplete && walletAddresses.length > 0) {
+      setInitialLoadComplete(true);
+    }
+  }, [availableTokens, selectedToken, walletAddresses, initialLoadComplete]);
 
   useEffect(() => {
     if (selectedToken && currentStep === ReceiveStep.SELECT_NETWORK) {
@@ -94,8 +104,14 @@ const Receive = () => {
     setSelectedNetwork(null);
     setSelectedWallet(null);
   };
+  
+  const handleRefreshBalance = async () => {
+    if (user?.id) {
+      await refreshWalletBalancesOnly(user.id);
+    }
+  };
 
-  if (loading) {
+  if (loading && !initialLoadComplete) {
     return (
       <MainLayout title="Receive" showBack>
         <LoadingView />
@@ -234,6 +250,7 @@ const Receive = () => {
               selectedWallet={selectedWallet}
               onReset={resetFlow}
               onTryAgain={handleTryAgain}
+              refreshBalance={handleRefreshBalance}
             />
           </KashCard>
         )}
