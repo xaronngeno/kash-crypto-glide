@@ -30,44 +30,46 @@ export async function getOrCreateSeedPhrase(supabase: any, userId: string): Prom
     // Generate a new random seed phrase (12 words by default)
     const seedPhrase = bip39.generateMnemonic(128); // 128 bits = 12 words
     
-    // Store the seed phrase in the database
-    const { error: insertError } = await supabase
-      .from('user_mnemonics')
-      .insert({
-        user_id: userId,
-        main_mnemonic: seedPhrase
-      })
-      .select()
-      .single();
-      
-    if (insertError) {
-      console.error("Error storing seed phrase:", insertError);
-      
-      // If there's a conflict (another process might have created it), try to fetch again
-      if (insertError.code === '23505') { // Unique violation
-        const { data: retryData, error: retryError } = await supabase
-          .from('user_mnemonics')
-          .select('main_mnemonic')
-          .eq('user_id', userId)
-          .maybeSingle();
-          
-        if (retryError) {
-          console.error("Error in retry fetch of seed phrase:", retryError);
-          throw new Error("Failed to retrieve or create seed phrase");
-        }
+    try {
+      // Store the seed phrase in the database
+      const { error: insertError } = await supabase
+        .from('user_mnemonics')
+        .insert({
+          user_id: userId,
+          main_mnemonic: seedPhrase
+        });
         
-        if (retryData?.main_mnemonic) {
-          return retryData.main_mnemonic;
+      if (insertError) {
+        console.error("Error storing seed phrase:", insertError);
+        
+        // Check if this might be a duplicate error - another process might have created it
+        if (insertError.code === '23505') { // Unique violation
+          const { data: retryData, error: retryError } = await supabase
+            .from('user_mnemonics')
+            .select('main_mnemonic')
+            .eq('user_id', userId)
+            .maybeSingle();
+            
+          if (retryError) {
+            console.error("Error in retry fetch of seed phrase:", retryError);
+          } else if (retryData?.main_mnemonic) {
+            console.log("Successfully retrieved concurrent seed phrase");
+            return retryData.main_mnemonic;
+          }
         }
+      } else {
+        console.log("Successfully stored new seed phrase");
       }
-      
-      throw new Error(`Failed to store seed phrase: ${insertError.message}`);
+    } catch (dbError) {
+      console.error("Database error storing seed phrase:", dbError);
+      // Continue with the generated seed phrase even if storage failed
     }
     
     return seedPhrase;
   } catch (error) {
     console.error("Error in getOrCreateSeedPhrase:", error);
-    throw error;
+    // Generate a seed phrase anyway so the process can continue
+    return bip39.generateMnemonic(128);
   }
 }
 

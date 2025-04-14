@@ -14,6 +14,8 @@ export async function insertWalletIntoDb(
   walletType: string
 ) {
   try {
+    console.log(`Inserting ${blockchain} ${currency} wallet for user ${userId.substring(0, 8)}...`);
+    
     const { error } = await supabase
       .from('wallets')
       .insert({
@@ -27,6 +29,12 @@ export async function insertWalletIntoDb(
       });
       
     if (error) {
+      // Check if this is a duplicate wallet error
+      if (error.code === '23505') { // Unique violation code
+        console.log(`Wallet for ${blockchain} ${currency} already exists, skipping insert`);
+        return; // Return silently for duplicate keys
+      }
+      
       console.error(`Error inserting ${blockchain} ${currency} wallet:`, error);
       throw error;
     } else {

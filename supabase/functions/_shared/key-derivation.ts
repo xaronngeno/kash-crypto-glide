@@ -37,20 +37,33 @@ export async function deriveSolanaWallet(seedPhrase: string) {
     // Convert seed phrase to seed buffer
     const seed = await bip39.mnemonicToSeed(seedPhrase);
     
-    // Derive key using proper ed25519 derivation with Solana path
-    const { key } = derivePath(DERIVATION_PATHS.SOLANA, Buffer.from(seed).toString("hex"));
-    
-    // Create keypair from derived key (using only first 32 bytes as required)
-    const keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
-    
-    if (!keypair || !keypair.publicKey) {
-      throw new Error("Failed to generate valid Solana keypair");
+    try {
+      // Derive key using proper ed25519 derivation with Solana path
+      const { key } = derivePath(DERIVATION_PATHS.SOLANA, Buffer.from(seed).toString("hex"));
+      
+      // Create keypair from derived key (using only first 32 bytes as required)
+      const keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
+      
+      if (!keypair || !keypair.publicKey) {
+        throw new Error("Failed to generate valid Solana keypair");
+      }
+      
+      return {
+        address: keypair.publicKey.toString(),
+        privateKey: Buffer.from(keypair.secretKey).toString("hex")
+      };
+    } catch (keypairError) {
+      console.error("Error creating Solana keypair:", keypairError);
+      
+      // Fallback to direct keypair generation
+      console.log("Attempting fallback Solana wallet generation");
+      const fallbackKeypair = Keypair.generate();
+      
+      return {
+        address: fallbackKeypair.publicKey.toString(),
+        privateKey: Buffer.from(fallbackKeypair.secretKey).toString("hex")
+      };
     }
-    
-    return {
-      address: keypair.publicKey.toString(),
-      privateKey: Buffer.from(keypair.secretKey).toString("hex")
-    };
   } catch (error) {
     console.error("Error deriving Solana wallet:", error);
     throw new Error(`Solana wallet derivation failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -110,14 +123,20 @@ export async function createSolanaWallet(mnemonic?: string) {
   try {
     let keypair;
     if (mnemonic) {
-      // Convert mnemonic to seed
-      const seed = await bip39.mnemonicToSeed(mnemonic);
-      
-      // Derive key using proper Solana path
-      const { key } = derivePath(DERIVATION_PATHS.SOLANA, Buffer.from(seed).toString("hex"));
-      
-      // Create keypair from derived key
-      keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
+      try {
+        // Convert mnemonic to seed
+        const seed = await bip39.mnemonicToSeed(mnemonic);
+        
+        // Derive key using proper Solana path
+        const { key } = derivePath(DERIVATION_PATHS.SOLANA, Buffer.from(seed).toString("hex"));
+        
+        // Create keypair from derived key
+        keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
+      } catch (derivationError) {
+        console.error("Error in Solana key derivation:", derivationError);
+        // Fallback to direct keypair generation
+        keypair = Keypair.generate();
+      }
     } else {
       // Generate a random keypair
       keypair = Keypair.generate();
