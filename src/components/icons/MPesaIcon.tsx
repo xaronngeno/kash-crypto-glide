@@ -14,8 +14,9 @@ const MPesaIcon = ({ size = 20, className = '' }: MPesaIconProps) => (
     height={size} 
     className={cn('text-gray-500', className)}
   >
-    <path 
-      d="M12 3L1 21h22L12 3z" 
+    {/* Two triangles with a twisted combination */}
+    <path
+      d="M6 4L12 12L6 20L6 4Z M18 4L12 12L18 20L18 4Z"
       fill="currentColor"
     />
   </svg>
