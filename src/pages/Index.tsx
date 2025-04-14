@@ -1,16 +1,31 @@
 
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Wallet } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, loading } = useAuth();
+  const fromNavigation = useRef(false);
+
+  // Check if there's state from navigation indicating it's from bottom nav
+  useEffect(() => {
+    if (location.state && location.state.fromBottomNav) {
+      fromNavigation.current = true;
+    }
+  }, [location]);
 
   useEffect(() => {
     // If already loading auth state, wait for it
     if (loading) return;
+    
+    // If coming from bottom nav and authenticated, redirect immediately
+    if (fromNavigation.current && isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
     
     // Always redirect to auth page by default
     const timer = setTimeout(() => {
