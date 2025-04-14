@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { Asset } from '@/types/assets';
 import Image from '@/components/ui/Image';
 import { ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface AssetsListProps {
   assets: Asset[];
@@ -10,6 +11,8 @@ interface AssetsListProps {
 }
 
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
+  const navigate = useNavigate();
+  
   // Sort assets by value (highest first)
   const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
   
@@ -24,12 +27,17 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
     return '';
   };
   
+  const handleAssetClick = (asset: Asset) => {
+    navigate(`/coin/${asset.symbol.toLowerCase()}`);
+  };
+  
   return (
     <div className="space-y-2">
       {sortedAssets.map((asset) => (
         <div 
           key={asset.id}
-          className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0"
+          className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0 cursor-pointer"
+          onClick={() => handleAssetClick(asset)}
         >
           <div className="flex items-center">
             <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden mr-3">
