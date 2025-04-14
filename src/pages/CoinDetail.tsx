@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
@@ -178,6 +177,10 @@ const CoinDetail = () => {
   const changeColor = coinData.change_24h >= 0 ? 'text-green-500' : 'text-red-500';
   const changeBackground = coinData.change_24h >= 0 ? 'bg-green-500/10' : 'bg-red-500/10';
 
+  const hasUsdtBuyButton = coinSymbol.toUpperCase() === 'USDT';
+  const numberOfButtons = hasUsdtBuyButton ? 3 : 2;
+  const buttonGridClass = `grid grid-cols-${numberOfButtons} gap-2 mb-4`;
+
   return (
     <MainLayout title={coinData.name || coinSymbol} showBack>
       <div className="flex flex-col gap-4">
@@ -219,7 +222,7 @@ const CoinDetail = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 mb-4">
+        <div className={`grid ${buttonGridClass}`}>
           <KashButton 
             variant="outline"
             className="flex flex-col items-center justify-center py-3 h-auto"
@@ -250,7 +253,7 @@ const CoinDetail = () => {
             <span className="text-xs">Swap</span>
           </KashButton>
           
-          {coinSymbol.toUpperCase() === 'USDT' && (
+          {hasUsdtBuyButton && (
             <KashButton 
               variant="outline"
               className="flex flex-col items-center justify-center py-3 h-auto"
@@ -262,20 +265,6 @@ const CoinDetail = () => {
               <span className="text-xs">Buy</span>
             </KashButton>
           )}
-          
-          <KashButton 
-            variant="outline"
-            className="flex flex-col items-center justify-center py-3 h-auto"
-          >
-            <div className="text-indigo-500 mb-1">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="2" fill="currentColor"/>
-                <circle cx="6" cy="12" r="2" fill="currentColor"/>
-                <circle cx="18" cy="12" r="2" fill="currentColor"/>
-              </svg>
-            </div>
-            <span className="text-xs">More</span>
-          </KashButton>
         </div>
 
         <div className="mb-4">
