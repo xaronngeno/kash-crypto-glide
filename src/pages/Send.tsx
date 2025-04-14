@@ -207,8 +207,14 @@ const Send = () => {
   
   const handleTokenSelect = (token: Token) => {
     setSelectedToken(token);
-    setSelectedNetwork(null);
-    setCurrentStep(SendStep.SELECT_NETWORK);
+    
+    if (token.networks && token.networks.length === 1) {
+      setSelectedNetwork(token.networks[0]);
+      setCurrentStep(SendStep.ENTER_DETAILS);
+    } else {
+      setSelectedNetwork(null);
+      setCurrentStep(SendStep.SELECT_NETWORK);
+    }
   };
   
   const handleNetworkSelect = (network: string) => {
@@ -295,8 +301,8 @@ const Send = () => {
           {currentStep === SendStep.SELECT_COIN && (
             <p className="text-gray-600">Select a cryptocurrency to send</p>
           )}
-          {currentStep === SendStep.SELECT_NETWORK && (
-            <p className="text-gray-600">Select network for {selectedToken?.symbol}</p>
+          {currentStep === SendStep.SELECT_NETWORK && selectedToken && (
+            <p className="text-gray-600">Select network for {selectedToken.symbol}</p>
           )}
           {currentStep === SendStep.ENTER_DETAILS && (
             <p className="text-gray-600">
