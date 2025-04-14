@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 /**
- * Force refresh wallet balances and addresses
+ * Fetch wallet balances and addresses
  */
 export const fetchWalletBalances = async ({ 
   userId, 

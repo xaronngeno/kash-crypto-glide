@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import { useWallets } from '@/hooks/useWallets';
-import { refreshWalletBalances } from '@/hooks/useWalletBalance';
+import { refreshWalletBalances } from '@/hooks/wallet';
 import { KashButton } from '@/components/ui/KashButton';
 
 const isDashboardInitialized = {

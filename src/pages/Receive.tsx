@@ -11,7 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
 import TokenSelector from '@/components/swap/TokenSelector';
-import { refreshWalletBalances } from '@/hooks/wallet/fetchWalletBalances';
+import { refreshWalletBalances } from '@/hooks/wallet';
 import { 
   Select,
   SelectContent,
