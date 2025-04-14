@@ -1,4 +1,3 @@
-
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Buffer } from './globalPolyfills';
@@ -20,7 +19,7 @@ const NETWORK_ENDPOINTS = {
 };
 
 // Network environment setting - change to 'MAINNET' for production use
-export const NETWORK_ENV = 'TESTNET'; // Default to testnet for safety
+export const NETWORK_ENV = 'MAINNET'; // Switched from TESTNET to MAINNET
 
 // Initialize blockchain connections
 export const initializeBlockchainConnections = () => {

@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -26,7 +25,7 @@ const NETWORK_ENDPOINTS = {
 };
 
 // Choose which network environment to use
-const NETWORK_ENV = 'TESTNET'; // Default to testnet for safety
+const NETWORK_ENV = 'MAINNET'; // Switched from TESTNET to MAINNET
 
 serve(async (req: Request) => {
   // Handle CORS for browser requests
