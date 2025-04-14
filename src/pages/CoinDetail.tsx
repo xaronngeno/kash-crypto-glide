@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
@@ -17,7 +18,8 @@ import {
   MessageSquare, 
   CheckCircle, 
   X as XIcon, 
-  ArrowUpRight 
+  ArrowUpRight,
+  Send
 } from 'lucide-react';
 import PriceChart from '@/components/crypto/PriceChart';
 import { useWallets } from '@/hooks/useWallets';
@@ -179,8 +181,8 @@ const CoinDetail = () => {
 
   const hasUsdtBuyButton = coinSymbol.toUpperCase() === 'USDT';
   const buttonLayoutClass = hasUsdtBuyButton 
-    ? "flex flex-row space-x-2 mb-4" 
-    : "grid grid-cols-2 gap-2 mb-4";
+    ? "grid grid-cols-4 gap-2 mb-4" 
+    : "grid grid-cols-3 gap-2 mb-4";
 
   return (
     <MainLayout title={coinData.name || coinSymbol} showBack>
@@ -238,6 +240,17 @@ const CoinDetail = () => {
               </svg>
             </div>
             <span className="text-xs">Receive</span>
+          </KashButton>
+          
+          <KashButton 
+            variant="outline"
+            className="flex flex-col items-center justify-center py-3 h-auto flex-1"
+            onClick={() => navigate('/send')}
+          >
+            <div className="text-indigo-500 mb-1">
+              <Send size={20} />
+            </div>
+            <span className="text-xs">Send</span>
           </KashButton>
           
           <KashButton 
