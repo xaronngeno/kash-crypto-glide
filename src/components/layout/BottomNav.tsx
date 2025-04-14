@@ -1,6 +1,6 @@
 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, DollarSign, Clock, Settings } from 'lucide-react';
+import { Home, Search, CreditCard, Clock, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BottomNav = () => {
@@ -10,7 +10,7 @@ const BottomNav = () => {
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
     { icon: Search, label: "Search", path: "/search" },
-    { icon: DollarSign, label: "Sell USDT", path: "/sell-usdt" },
+    { icon: CreditCard, label: "M-PESA", path: "/mpesa" },
     { icon: Clock, label: "History", path: "/history" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
