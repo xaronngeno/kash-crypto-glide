@@ -8,7 +8,7 @@ export * from './useWalletValidator';
 export * from './useWalletGenerator';
 export * from './createUserWallets';
 
-// Import and re-export fetchWalletBalances functions
+// Export the fetchWalletBalances functions directly
 export { 
   fetchWalletBalances,
   refreshWalletBalances 
