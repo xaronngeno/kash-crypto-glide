@@ -178,8 +178,9 @@ const CoinDetail = () => {
   const changeBackground = coinData.change_24h >= 0 ? 'bg-green-500/10' : 'bg-red-500/10';
 
   const hasUsdtBuyButton = coinSymbol.toUpperCase() === 'USDT';
-  const numberOfButtons = hasUsdtBuyButton ? 3 : 2;
-  const buttonGridClass = `grid grid-cols-${numberOfButtons} gap-2 mb-4`;
+  const buttonLayoutClass = hasUsdtBuyButton 
+    ? "flex flex-row space-x-2 mb-4" 
+    : "grid grid-cols-2 gap-2 mb-4";
 
   return (
     <MainLayout title={coinData.name || coinSymbol} showBack>
@@ -222,10 +223,10 @@ const CoinDetail = () => {
           </div>
         </div>
 
-        <div className={`grid ${buttonGridClass}`}>
+        <div className={buttonLayoutClass}>
           <KashButton 
             variant="outline"
-            className="flex flex-col items-center justify-center py-3 h-auto"
+            className="flex flex-col items-center justify-center py-3 h-auto flex-1"
             onClick={() => navigate('/receive')}
           >
             <div className="text-indigo-500 mb-1">
@@ -241,7 +242,7 @@ const CoinDetail = () => {
           
           <KashButton 
             variant="outline"
-            className="flex flex-col items-center justify-center py-3 h-auto"
+            className="flex flex-col items-center justify-center py-3 h-auto flex-1"
             onClick={() => navigate(`/swap?token=${coinId}`)}
           >
             <div className="text-indigo-500 mb-1">
@@ -256,7 +257,7 @@ const CoinDetail = () => {
           {hasUsdtBuyButton && (
             <KashButton 
               variant="outline"
-              className="flex flex-col items-center justify-center py-3 h-auto"
+              className="flex flex-col items-center justify-center py-3 h-auto flex-1"
               onClick={() => navigate('/sell-usdt')}
             >
               <div className="text-indigo-500 mb-1">
