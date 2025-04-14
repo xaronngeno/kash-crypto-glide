@@ -1,4 +1,3 @@
-
 import { memo } from 'react';
 import { KashCard } from '@/components/ui/KashCard';
 import { Asset } from '@/types/assets';
@@ -11,6 +10,12 @@ interface AssetsListProps {
 }
 
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
+  const formatAddress = (address: string): string => {
+    if (!address || address === 'Address Not Available') return 'Address Not Available';
+    
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+
   return (
     <div className="space-y-3">
       {assets.map((asset) => (
@@ -26,7 +31,6 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
                     onError={(e: any) => {
                       e.target.onerror = null;
                       e.target.src = `/coins/${asset.symbol.toLowerCase()}.png`;
-                      // If that fails too, show the text fallback
                       e.target.onerror = () => {
                         e.target.onerror = null;
                         e.target.style.display = "none";
@@ -41,13 +45,15 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
               <div className="ml-3">
                 <div className="flex items-center gap-1">
                   <h3 className="font-medium">{asset.name}</h3>
-                  {/* Removed platform badge */}
                 </div>
-                <p className="text-sm text-gray-500">
-                  {asset.amount.toLocaleString('en-US', { 
-                    maximumFractionDigits: asset.symbol === 'BTC' ? 8 : 6,
-                    minimumFractionDigits: 0
-                  })} {asset.symbol}
+                <p className="text-sm text-gray-500 flex flex-col">
+                  <span>
+                    {asset.amount.toLocaleString('en-US', { 
+                      maximumFractionDigits: asset.symbol === 'BTC' ? 8 : 6,
+                      minimumFractionDigits: 0
+                    })} {asset.symbol}
+                  </span>
+                  <span className="text-xs text-gray-400">{formatAddress(asset.address)}</span>
                 </p>
               </div>
             </div>
