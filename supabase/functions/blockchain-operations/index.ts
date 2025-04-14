@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -59,48 +58,39 @@ serve(async (req: Request) => {
       );
     }
 
+    console.log(`Processing ${operation} for ${blockchain} address ${address}`);
+
     // Handle different blockchain operations
     switch (operation) {
       case 'getBalance': {
         let balance = 0;
         
         if (blockchain === 'Solana') {
-          // Get Solana balance
-          try {
-            const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV]);
-            const publicKey = new PublicKey(address);
-            const rawBalance = await connection.getBalance(publicKey);
-            balance = rawBalance / 1_000_000_000; // Convert from lamports to SOL
-          } catch (error) {
-            console.error(`Error fetching Solana balance: ${error}`);
-          }
+          const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV]);
+          const publicKey = new PublicKey(address);
+          const rawBalance = await connection.getBalance(publicKey);
+          balance = rawBalance / 1_000_000_000; // Convert from lamports to SOL
         } 
         else if (blockchain === 'Ethereum') {
-          // Get Ethereum balance
-          try {
-            const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
-            const rawBalance = await provider.getBalance(address);
-            balance = parseFloat(ethers.formatEther(rawBalance));
-          } catch (error) {
-            console.error(`Error fetching Ethereum balance: ${error}`);
-          }
+          const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
+          const rawBalance = await provider.getBalance(address);
+          balance = parseFloat(ethers.formatEther(rawBalance));
         }
         else if (blockchain === 'Bitcoin') {
-          // Get Bitcoin balance using a public API
-          try {
-            const response = await fetch(`${NETWORK_ENDPOINTS.BITCOIN[NETWORK_ENV]}/address/${address}`);
-            if (response.ok) {
-              const data = await response.json();
-              const satoshis = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
-              balance = satoshis / 100_000_000; // Convert satoshis to BTC
-            }
-          } catch (error) {
-            console.error(`Error fetching Bitcoin balance: ${error}`);
+          const response = await fetch(`${NETWORK_ENDPOINTS.BITCOIN[NETWORK_ENV]}/address/${address}`);
+          if (response.ok) {
+            const data = await response.json();
+            const satoshis = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
+            balance = satoshis / 100_000_000; // Convert satoshis to BTC
           }
         }
         
         return new Response(
-          JSON.stringify({ success: true, balance }),
+          JSON.stringify({ 
+            success: true, 
+            balance,
+            network: NETWORK_ENV 
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

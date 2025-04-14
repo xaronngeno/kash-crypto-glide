@@ -1,29 +1,25 @@
-
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Buffer } from './globalPolyfills';
 
 // Constants for network endpoints
 const NETWORK_ENDPOINTS = {
-  // Use provider endpoints for production
   ETHEREUM: {
-    // For development, use public RPC endpoints
-    MAINNET: 'https://ethereum.publicnode.com',
-    TESTNET: 'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161', // Public Infura endpoint
+    MAINNET: 'https://eth-mainnet.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p',
+    TESTNET: 'https://eth-goerli.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p', // Goerli testnet
   },
   SOLANA: {
-    MAINNET: clusterApiUrl('mainnet-beta'),
-    TESTNET: clusterApiUrl('devnet'),
+    MAINNET: 'https://solana-mainnet.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p',
+    TESTNET: clusterApiUrl('devnet'), // Solana devnet for testing
   },
   BITCOIN: {
-    // For Bitcoin we use public block explorers as they're more accessible for read-only operations
-    MAINNET: 'https://blockstream.info/api',
-    TESTNET: 'https://blockstream.info/testnet/api',
+    MAINNET: 'https://bitcoin-mainnet.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p',
+    TESTNET: 'https://bitcoin-testnet.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p',
   }
 };
 
 // Network environment setting - change to 'MAINNET' for production use
-export const NETWORK_ENV = 'TESTNET'; // Default to testnet for development
+export const NETWORK_ENV = 'TESTNET'; // Default to testnet for safety
 
 // Initialize blockchain connections
 export const initializeBlockchainConnections = () => {
@@ -42,7 +38,6 @@ export const initializeBlockchainConnections = () => {
     return {
       solana: solanaConnection,
       ethereum: ethereumProvider,
-      // Bitcoin doesn't require a direct connection for basic operations
     };
   } catch (error) {
     console.error('Error initializing blockchain connections:', error);
@@ -103,6 +98,8 @@ export const getBlockchainBalance = async (
   blockchain: 'Ethereum' | 'Solana' | 'Bitcoin'
 ): Promise<number> => {
   try {
+    console.log(`Fetching ${blockchain} balance for ${address} on ${NETWORK_ENV}`);
+    
     switch (blockchain) {
       case 'Ethereum':
         return await fetchEthereumBalance(address);
