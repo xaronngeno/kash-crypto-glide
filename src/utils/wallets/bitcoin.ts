@@ -6,7 +6,7 @@ import { getECPairFactory } from '../ecpairWrapper';
 import * as ecc from 'tiny-secp256k1';
 import { WalletData } from '../types/wallet';
 import * as bip39 from 'bip39';
-import { BITCOIN_PATHS } from '../constants/derivationPaths';
+import { DERIVATION_PATHS } from '../constants/derivationPaths';
 
 // Generate a Bitcoin wallet
 export const generateBitcoinWallet = async (seedPhrase?: string): Promise<WalletData> => {
@@ -24,13 +24,12 @@ export const generateBitcoinWallet = async (seedPhrase?: string): Promise<Wallet
       // Generate seed from mnemonic
       const seed = bip39.mnemonicToSeedSync(seedPhrase);
       
-      // Derive key using proper BIP84 path for Native SegWit addresses (bc1 prefix)
-      // This is what most modern wallets use by default
+      // Derive key using proper BIP44 path for Bitcoin
       const bip32 = await getBip32();
       
-      // Derive the node from seed using BIP84 Native SegWit path
+      // Derive the node from seed using BIP44 path for Bitcoin
       const root = bip32.fromSeed(seed);
-      const node = root.derivePath(BITCOIN_PATHS.NATIVE_SEGWIT);
+      const node = root.derivePath(DERIVATION_PATHS.BITCOIN);
       
       // Get key pair from derived node
       keyPair = ECPair.fromPrivateKey(node.privateKey);
