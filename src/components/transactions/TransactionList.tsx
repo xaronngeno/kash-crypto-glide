@@ -53,7 +53,7 @@ export const TransactionList = ({ transactions, loading, error }: TransactionLis
       {Object.entries(groupedTransactions).map(([date, dateTransactions]) => (
         <div key={date} className="space-y-3">
           <h3 className="text-lg text-gray-500 font-medium">{date}</h3>
-          {dateTransactions.map((tx) => (
+          {(dateTransactions as Transaction[]).map((tx) => (
             <TransactionCard key={tx.id} transaction={tx} />
           ))}
         </div>

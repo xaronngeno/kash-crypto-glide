@@ -8,7 +8,7 @@ export const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-export const groupTransactionsByDate = (transactions: any[]) => {
+export const groupTransactionsByDate = <T extends { created_at: string }>(transactions: T[]): Record<string, T[]> => {
   const grouped = transactions.reduce((acc, transaction) => {
     const date = formatDate(transaction.created_at);
     if (!acc[date]) {
@@ -16,7 +16,7 @@ export const groupTransactionsByDate = (transactions: any[]) => {
     }
     acc[date].push(transaction);
     return acc;
-  }, {} as Record<string, any[]>);
+  }, {} as Record<string, T[]>);
   
   return grouped;
 };
