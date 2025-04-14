@@ -10,7 +10,10 @@ export const isBitcoinAddress = (address: string): boolean => {
   // BIP44 legacy address format (starts with 1)
   const legacyBitcoinRegex = /^1[1-9A-HJ-NP-Za-km-z]{25,34}$/;
   
-  return legacyBitcoinRegex.test(address);
+  // Native SegWit address format (starts with bc1)
+  const segWitBitcoinRegex = /^bc1[a-zA-Z0-9]{25,90}$/;
+  
+  return legacyBitcoinRegex.test(address) || segWitBitcoinRegex.test(address);
 };
 
 // Ethereum address validation (0x followed by 40 hex chars)
