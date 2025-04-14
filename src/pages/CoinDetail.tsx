@@ -19,12 +19,6 @@ import {
   X as XIcon, 
   ArrowUpRight 
 } from 'lucide-react';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import PriceChart from '@/components/crypto/PriceChart';
 import { useWallets } from '@/hooks/useWallets';
 import { Asset } from '@/types/assets';
@@ -186,8 +180,6 @@ const CoinDetail = () => {
   return (
     <MainLayout title={coinData.name || coinSymbol} showBack>
       <div className="flex flex-col gap-4">
-        
-
         <div className="flex flex-col">
           <h1 className="text-3xl font-bold mb-1">{coinData.name}</h1>
           <div className="flex items-end gap-2 mb-1">
@@ -256,17 +248,6 @@ const CoinDetail = () => {
               </svg>
             </div>
             <span className="text-xs">Swap</span>
-          </KashButton>
-          
-          <KashButton 
-            variant="outline"
-            className="flex flex-col items-center justify-center py-3 h-auto"
-            onClick={() => navigate('/buy')}
-          >
-            <div className="text-indigo-500 mb-1">
-              <DollarSign size={20} />
-            </div>
-            <span className="text-xs">Cash Buy</span>
           </KashButton>
           
           <KashButton 
