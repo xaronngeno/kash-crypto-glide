@@ -23,27 +23,14 @@ export const generateSolanaWallet = (seedPhrase?: string): WalletData => {
       // This is crucial for compatibility with Phantom wallet and other Solana wallets
       const { key } = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
       
-      if (!key || key.length === 0) {
-        throw new Error("Failed to derive key from seed phrase");
-      }
-      
       // Create keypair from the derived seed, using only the first 32 bytes as required by fromSeed
       keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
-      
-      console.log("Successfully created Solana wallet from seed phrase with ed25519 derivation");
-      console.log("Solana address:", keypair.publicKey.toString());
     } else {
       // Generate a random keypair
       keypair = Keypair.generate();
-      console.log("Generated random Solana wallet");
-      console.log("Solana address:", keypair.publicKey.toString());
     }
     
-    // Final validation to ensure we have a valid address
     const address = keypair.publicKey.toString();
-    if (!address || address.trim() === '') {
-      throw new Error("Generated Solana address is empty or invalid");
-    }
     
     return {
       blockchain: 'Solana',

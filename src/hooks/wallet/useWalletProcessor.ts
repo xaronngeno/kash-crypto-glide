@@ -25,12 +25,20 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           balance: wallet.balance
         });
         
-        // Enhanced logging for address detection
-        if (!wallet.address) {
-          console.warn(`WARNING: No address found for ${symbol} wallet`, {
-            wallet: JSON.stringify(wallet),
-            priceData: JSON.stringify(priceData)
-          });
+        // Validate address format based on blockchain type
+        let validAddress = wallet.address || 'Address Not Available';
+        
+        // Format validation for popular blockchains
+        if (wallet.blockchain === 'Bitcoin' && !validAddress.startsWith('bc1') && !validAddress.startsWith('1') && !validAddress.startsWith('3')) {
+          console.warn(`Warning: Bitcoin address doesn't match expected format: ${validAddress}`);
+        }
+        
+        if (wallet.blockchain === 'Ethereum' && !validAddress.startsWith('0x')) {
+          console.warn(`Warning: Ethereum address doesn't match expected format: ${validAddress}`);
+        }
+        
+        if (wallet.blockchain === 'Solana' && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(validAddress)) {
+          console.warn(`Warning: Solana address doesn't match expected format: ${validAddress}`);
         }
         
         const asset: Asset = {
@@ -39,7 +47,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           symbol: symbol,
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
-          address: wallet.address || 'Address Not Available',
+          address: validAddress,
           amount: parseFloat(wallet.balance as any) || 0,
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,

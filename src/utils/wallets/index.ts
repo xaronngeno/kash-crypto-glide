@@ -52,7 +52,9 @@ export const generateWallet = {
         console.log("Generating Solana wallet with ed25519 derivation");
         const seed = bip39.mnemonicToSeedSync(seedPhrase);
         const { key } = derivePath(DERIVATION_PATHS.SOLANA, seed.toString('hex'));
-        keypair = Keypair.fromSeed(Uint8Array.from(key));
+        
+        // Create keypair from the derived seed using only the first 32 bytes
+        keypair = Keypair.fromSeed(Uint8Array.from(key.slice(0, 32)));
       } else {
         // Generate a random keypair
         keypair = Keypair.generate();
