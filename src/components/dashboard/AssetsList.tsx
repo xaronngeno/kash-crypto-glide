@@ -1,8 +1,8 @@
+
 import { memo } from 'react';
 import { KashCard } from '@/components/ui/KashCard';
 import { Asset } from '@/types/assets';
 import Image from '@/components/ui/Image';
-import { ExternalLink } from 'lucide-react';
 
 interface AssetsListProps {
   assets: Asset[];
@@ -10,12 +10,6 @@ interface AssetsListProps {
 }
 
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
-  const formatAddress = (address: string): string => {
-    if (!address || address === 'Address Not Available') return 'Address Not Available';
-    
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-  };
-
   return (
     <div className="space-y-3">
       {assets.map((asset) => (
@@ -46,14 +40,11 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
                 <div className="flex items-center gap-1">
                   <h3 className="font-medium">{asset.name}</h3>
                 </div>
-                <p className="text-sm text-gray-500 flex flex-col">
-                  <span>
-                    {asset.amount.toLocaleString('en-US', { 
-                      maximumFractionDigits: asset.symbol === 'BTC' ? 8 : 6,
-                      minimumFractionDigits: 0
-                    })} {asset.symbol}
-                  </span>
-                  <span className="text-xs text-gray-400">{formatAddress(asset.address)}</span>
+                <p className="text-sm text-gray-500">
+                  {asset.amount.toLocaleString('en-US', { 
+                    maximumFractionDigits: asset.symbol === 'BTC' ? 8 : 6,
+                    minimumFractionDigits: 0
+                  })} {asset.symbol}
                 </p>
               </div>
             </div>
