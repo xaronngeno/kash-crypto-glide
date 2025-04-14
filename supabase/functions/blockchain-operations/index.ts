@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -24,10 +23,10 @@ const NETWORK_ENDPOINTS = {
 // Set to mainnet for production use
 const NETWORK_ENV = 'MAINNET';
 
-// Application commission wallets
+// Application commission wallets - updated with your addresses
 const APPLICATION_WALLETS = {
-  ETHEREUM: '0x1234567890123456789012345678901234567890', // Replace with your actual ETH commission wallet
-  SOLANA: 'YourSolanaCommissionWalletAddress', // Replace with your actual SOL commission wallet
+  ETHEREUM: '0x5D2bEE609F1E302B19329d0B9FC4F68b446F2F68', // Your ETH wallet
+  SOLANA: '4c15FP5MGt1sUR8Xd9AJdL84C1EMXhXVwuqCcxfgCgDu', // Your Solana address
 };
 
 // Commission settings (can be moved to database later)
