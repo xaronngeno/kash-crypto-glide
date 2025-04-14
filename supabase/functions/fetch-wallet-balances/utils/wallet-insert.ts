@@ -1,4 +1,6 @@
 
+import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
+
 /**
  * Helper function to safely insert wallet into database
  */
@@ -26,10 +28,12 @@ export async function insertWalletIntoDb(
       
     if (error) {
       console.error(`Error inserting ${blockchain} ${currency} wallet:`, error);
+      throw error;
     } else {
       console.log(`Successfully inserted ${blockchain} ${currency} wallet`);
     }
   } catch (err) {
     console.error(`Error in insertWalletIntoDb for ${blockchain} ${currency}:`, err);
+    throw err;
   }
 }

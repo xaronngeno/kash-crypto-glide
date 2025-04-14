@@ -1,4 +1,5 @@
 
+import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
 import { getOrCreateSeedPhrase } from '../../_shared/wallet-helpers.ts';
 import { generateHDWallets } from '../../_shared/hd-wallet-core.ts';
 import { Keypair } from 'https://esm.sh/@solana/web3.js@1.91.1';

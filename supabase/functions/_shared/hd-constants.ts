@@ -1,9 +1,20 @@
 
 // HD wallet-specific constants
-import { DERIVATION_PATHS } from "./constants.ts";
 
-// Re-export the derivation paths for backward compatibility
-export { DERIVATION_PATHS };
+// Define standard derivation paths for HD wallets
+export const DERIVATION_PATHS = {
+  // Bitcoin path (BIP44) using secp256k1
+  BITCOIN: "m/44'/0'/0'/0/0",
+  
+  // Ethereum path (BIP44) using secp256k1
+  ETHEREUM: "m/44'/60'/0'/0/0", 
+  
+  // Solana path - using BIP44 standard for Solana with ed25519
+  SOLANA: "m/44'/501'/0'/0'",
+  
+  // Bitcoin SegWit path (BIP84)
+  BITCOIN_SEGWIT: "m/84'/0'/0'/0/0"
+};
 
 // Define standard BIP44 derivation index values
 export const BIP44_PURPOSE = 44;
@@ -23,7 +34,3 @@ export function getDerivationPath(purpose: number, coinType: number, account = 0
   
   return `m/${purpose}'/${coinType}'/${account}'/${change}/${addressIndex}`;
 }
-
-// Added specific path constants for Bitcoin variants
-export const BITCOIN_LEGACY_PATH = DERIVATION_PATHS.BITCOIN; // BIP44
-export const BITCOIN_SEGWIT_PATH = DERIVATION_PATHS.BITCOIN_SEGWIT; // BIP84

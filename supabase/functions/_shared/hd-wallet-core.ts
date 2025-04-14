@@ -1,4 +1,5 @@
 
+import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
 import * as bip39 from "https://esm.sh/bip39@3.1.0";
 import { deriveEthereumWallet, deriveSolanaWallet, deriveBitcoinWallet } from "./key-derivation.ts";
 import { DERIVATION_PATHS } from "./constants.ts";
