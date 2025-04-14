@@ -33,12 +33,6 @@ export async function createSolanaWallet(userId: string) {
   }
 }
 
-// Create Base wallet (same as Ethereum)
-export async function createBaseWallet(userId: string) {
-  // Base uses the same wallet format as Ethereum
-  return createEthereumWallet(userId);
-}
-
 // Create Bitcoin SegWit wallet
 export async function createBitcoinSegWitWallet(userId: string) {
   const privateKey = await generatePrivateKey();

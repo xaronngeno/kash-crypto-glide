@@ -55,10 +55,6 @@ const getNetworkLogo = (blockchain: string) => {
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
     case 'solana':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png';
-    case 'binance smart chain':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png';
-    case 'polygon':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png';
     default:
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
   }
@@ -74,10 +70,6 @@ const getCurrencyLogo = (symbol: string) => {
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png';
     case 'USDT':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/825.png';
-    case 'BNB':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png';
-    case 'MATIC':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png';
     default:
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
   }
@@ -101,12 +93,8 @@ const NetworkBadge = ({ network, className }: NetworkBadgeProps) => {
     case 'solana':
       color = "bg-purple-100 text-purple-600";
       break;
-    case 'binance smart chain':
-      color = "bg-yellow-100 text-yellow-700";
-      break;
-    case 'polygon':
-      color = "bg-blue-100 text-blue-600";
-      break;
+    default:
+      color = "bg-gray-100 text-gray-500";
   }
   
   return (
@@ -145,9 +133,7 @@ const Receive = () => {
   const supportedNetworks = [
     'Bitcoin', 
     'Ethereum', 
-    'Solana', 
-    'Binance Smart Chain', 
-    'Polygon'
+    'Solana'
   ];
   
   const solanaCompatibleTokens = ['SOL', 'USDT', 'USDC'];

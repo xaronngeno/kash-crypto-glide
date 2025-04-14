@@ -60,12 +60,6 @@ const getNetworkLogo = (blockchain: string) => {
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png';
     case 'solana':
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png';
-    case 'tron':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png';
-    case 'binance smart chain':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png';
-    case 'polygon':
-      return 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png';
     default:
       return 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png';
   }
@@ -84,15 +78,8 @@ const NetworkBadge = ({ network }: { network: string }) => {
     case 'solana':
       color = "bg-purple-100 text-purple-600";
       break;
-    case 'tron':
-      color = "bg-red-100 text-red-600";
-      break;
-    case 'binance smart chain':
-      color = "bg-yellow-100 text-yellow-700";
-      break;
-    case 'polygon':
-      color = "bg-blue-100 text-blue-600";
-      break;
+    default:
+      color = "bg-gray-100 text-gray-600";
   }
   
   return (
@@ -109,15 +96,9 @@ const getNetworksForCurrency = (symbol: string): string[] => {
     case 'ETH':
       return ['Ethereum'];
     case 'USDT':
-      return ['Ethereum', 'Tron', 'Binance Smart Chain', 'Solana', 'Polygon'];
+      return ['Ethereum', 'Solana'];
     case 'SOL':
       return ['Solana'];
-    case 'TRX':
-      return ['Tron'];
-    case 'BNB':
-      return ['Binance Smart Chain'];
-    case 'MATIC':
-      return ['Polygon'];
     default:
       return ['Ethereum'];
   }
