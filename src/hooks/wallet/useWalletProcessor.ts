@@ -25,18 +25,25 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           balance: wallet.balance
         });
         
+        // Enhanced logging for address detection
+        if (!wallet.address) {
+          console.warn(`WARNING: No address found for ${symbol} wallet`, {
+            wallet: JSON.stringify(wallet),
+            priceData: JSON.stringify(priceData)
+          });
+        }
+        
         const asset: Asset = {
           id: `${wallet.blockchain}-${wallet.currency}`,
           name: priceData?.name || wallet.currency || 'Unknown',
           symbol: symbol,
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
-          address: wallet.address,
+          address: wallet.address || 'Address Not Available',
           amount: parseFloat(wallet.balance as any) || 0,
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
           value: (parseFloat(wallet.balance as any) || 0) * (priceData?.price || 0),
-          // Add the icon property derived from the symbol
           icon: symbol.slice(0, 1),
           platform: priceData?.platform || { name: wallet.blockchain, logo: `/placeholder.svg` },
           walletType: wallet.wallet_type,
