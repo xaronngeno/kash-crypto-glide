@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { KashCard } from '@/components/ui/KashCard';
-import { ArrowUpRight, ArrowDownRight, Repeat, CreditCard, Loader2, History as HistoryIcon } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Repeat, CreditCard, Loader2, Clock, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Table,
@@ -32,9 +32,27 @@ const formatDate = (dateString: string) => {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: 'numeric'
   }).format(date);
+};
+
+const groupTransactionsByDate = (transactions: Transaction[]) => {
+  const grouped = transactions.reduce((acc, transaction) => {
+    const date = formatDate(transaction.created_at);
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(transaction);
+    return acc;
+  }, {} as Record<string, Transaction[]>);
+  
+  return grouped;
+};
+
+const formatAddress = (address: string | undefined) => {
+  if (!address) return '';
+  if (address.length <= 10) return address;
+  return `${address.substring(0, 8)}...${address.substring(address.length - 4)}`;
 };
 
 const TransactionHistory = () => {
@@ -73,7 +91,7 @@ const TransactionHistory = () => {
 
   if (loading) {
     return (
-      <MainLayout title="Transaction History">
+      <MainLayout title="Recent Activity">
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-kash-green" />
         </div>
@@ -83,7 +101,7 @@ const TransactionHistory = () => {
 
   if (error) {
     return (
-      <MainLayout title="Transaction History">
+      <MainLayout title="Recent Activity">
         <div className="text-center p-4 text-kash-error">
           <p>{error}</p>
           <p className="mt-2 text-sm">Please try again later</p>
@@ -92,14 +110,52 @@ const TransactionHistory = () => {
     );
   }
 
-  return (
-    <MainLayout title="Transaction History">
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <HistoryIcon size={24} className="text-gray-600" />
-            <h2 className="text-xl font-semibold">All Transactions</h2>
+  const groupedTransactions = groupTransactionsByDate(transactions);
+
+  const getTransactionIcon = (transaction: Transaction) => {
+    if (transaction.status === 'Failed') {
+      return <XCircle size={32} className="text-kash-error" />;
+    }
+    
+    switch (transaction.transaction_type) {
+      case 'send':
+        return (
+          <div className="h-8 w-8 rounded-full bg-black flex items-center justify-center">
+            <ArrowUpRight size={20} className="text-white" />
           </div>
+        );
+      case 'receive':
+        return (
+          <div className="h-8 w-8 rounded-full bg-black flex items-center justify-center">
+            <ArrowDownRight size={20} className="text-white" />
+          </div>
+        );
+      case 'swap':
+        return (
+          <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+            <Repeat size={20} className="text-white" />
+          </div>
+        );
+      case 'buy':
+        return (
+          <div className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center">
+            <CreditCard size={20} className="text-white" />
+          </div>
+        );
+      default:
+        return (
+          <div className="h-8 w-8 rounded-full bg-gray-500 flex items-center justify-center">
+            <Clock size={20} className="text-white" />
+          </div>
+        );
+    }
+  };
+
+  return (
+    <MainLayout title="Recent Activity">
+      <div className="space-y-4 pb-20">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">Recent Activity</h2>
           <div className="flex space-x-2">
             <button 
               onClick={() => setViewType('card')}
@@ -123,49 +179,40 @@ const TransactionHistory = () => {
         ) : (
           <>
             {viewType === 'card' ? (
-              <div className="space-y-3">
-                {transactions.map((tx) => (
-                  <KashCard key={tx.id} className="hover:bg-kash-lightGray cursor-pointer">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center mr-3">
-                        {tx.transaction_type === 'send' && <ArrowUpRight size={20} className="text-kash-error" />}
-                        {tx.transaction_type === 'receive' && <ArrowDownRight size={20} className="text-kash-green" />}
-                        {tx.transaction_type === 'swap' && <Repeat size={20} className="text-blue-500" />}
-                        {tx.transaction_type === 'buy' && <CreditCard size={20} className="text-purple-500" />}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <h3 className="font-medium capitalize">{tx.transaction_type}</h3>
-                          <span className={`font-medium ${tx.transaction_type === 'send' ? 'text-kash-error' : 'text-kash-green'}`}>
-                            {tx.transaction_type === 'send' ? '-' : 
-                             tx.transaction_type === 'receive' ? '+' : 
-                             tx.transaction_type === 'swap' ? '' : '+'}
-                            {tx.amount} {tx.currency}
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between text-sm text-gray-500 mt-0.5">
-                          <span>{formatDate(tx.created_at)}</span>
-                          <span className={`${tx.status === 'Failed' ? 'text-kash-error' : ''}`}>
-                            {tx.status}
-                          </span>
-                        </div>
-                        
-                        {tx.transaction_type === 'swap' && tx.target_currency && tx.swap_amount && (
-                          <div className="text-sm text-gray-600 mt-1">
-                            Swapped to {tx.swap_amount} {tx.target_currency}
+              <div className="space-y-6">
+                {Object.entries(groupedTransactions).map(([date, dateTransactions]) => (
+                  <div key={date} className="space-y-3">
+                    <h3 className="text-lg text-gray-500 font-medium">{date}</h3>
+                    {dateTransactions.map((tx) => (
+                      <KashCard key={tx.id} className="hover:bg-kash-lightGray cursor-pointer">
+                        <div className="flex items-center">
+                          {getTransactionIcon(tx)}
+                          
+                          <div className="flex-1 ml-4">
+                            <div className="flex justify-between">
+                              <h3 className="font-medium capitalize">
+                                {tx.status === 'Failed' ? 'Failed app interaction' : tx.transaction_type}
+                              </h3>
+                              <span className={`font-medium ${tx.transaction_type === 'send' ? 'text-kash-error' : 'text-kash-green'}`}>
+                                {tx.transaction_type === 'send' ? '-' : 
+                                tx.transaction_type === 'receive' ? '+' : ''}
+                                {tx.status !== 'Failed' && `${tx.amount} ${tx.currency}`}
+                              </span>
+                            </div>
+                            
+                            <div className="text-sm text-gray-500 mt-0.5">
+                              {tx.status === 'Failed' ? 'Unknown' : (
+                                tx.transaction_type === 'send' && tx.to_address ? 
+                                  `To ${formatAddress(tx.to_address)}` : 
+                                tx.transaction_type === 'receive' && tx.from_address ? 
+                                  `From ${formatAddress(tx.from_address)}` : ''
+                              )}
+                            </div>
                           </div>
-                        )}
-                        
-                        {tx.transaction_type === 'buy' && tx.payment_method && (
-                          <div className="text-sm text-gray-600 mt-1">
-                            Paid with {tx.payment_method}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </KashCard>
+                        </div>
+                      </KashCard>
+                    ))}
+                  </div>
                 ))}
               </div>
             ) : (

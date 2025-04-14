@@ -1,6 +1,6 @@
 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Wallet, BarChart3, Settings, Search, DollarSign } from 'lucide-react';
+import { Wallet, Clock, Settings, Search, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BottomNav = () => {
@@ -11,7 +11,7 @@ const BottomNav = () => {
     { icon: Wallet, label: "Wallet", path: "/dashboard" },
     { icon: Search, label: "Search", path: "/search" },
     { icon: DollarSign, label: "Sell USDT", path: "/sell-usdt" },
-    { icon: BarChart3, label: "History", path: "/history" }, // Updated label to "History"
+    { icon: Clock, label: "History", path: "/history" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
@@ -37,4 +37,3 @@ const BottomNav = () => {
 };
 
 export default BottomNav;
-
