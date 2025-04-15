@@ -38,7 +38,8 @@ export const useWalletInitializer = ({
             description: "Failed to load wallet data",
             variant: "destructive"
           });
-        }
+        },
+        forceRefresh: true // Force refresh to get the latest balances
       });
       
       if (!wallets || wallets.length === 0) {
@@ -68,6 +69,11 @@ export const useWalletInitializer = ({
       console.log("Processing wallets into assets...");
       const processedAssets = processWallets(wallets);
       console.log("Processed assets:", processedAssets);
+      
+      // Log asset amounts for debugging
+      processedAssets.forEach(asset => {
+        console.log(`Asset ${asset.symbol} balance: ${asset.amount}, value: ${asset.value}`);
+      });
       
       setAssets(processedAssets);
       cacheAssets(processedAssets);

@@ -16,6 +16,7 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
   const solWallets = wallets.filter(w => w.blockchain === 'Solana');
   
   console.log(`Refreshing wallets - ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
+  console.log("Wallet addresses to refresh:", wallets.map(w => `${w.blockchain}: ${w.address}`));
   
   // Track successful updates
   let successCount = 0;
@@ -60,7 +61,7 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
               console.log(`Updated ${wallet.blockchain} balance: ${balance}`);
             
               // Update the balance in the database
-              await supabase
+              const { error } = await supabase
                 .from('wallets')
                 .update({ 
                   balance: balance,
@@ -68,8 +69,13 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
                 })
                 .eq('id', wallet.id);
                 
-              console.log(`Updated ${wallet.blockchain} balance: ${balance}`);
-              successCount++;
+              if (error) {
+                console.error(`Error updating ${wallet.blockchain} balance in database:`, error);
+                failureCount++;
+              } else {
+                console.log(`Successfully updated ${wallet.blockchain} balance in database: ${balance}`);
+                successCount++;
+              }
             }
           }
         }

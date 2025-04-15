@@ -70,6 +70,11 @@ export { createUserWallets } from './createUserWallets';
  */
 export const refreshWalletBalances = async (userId: string): Promise<boolean> => {
   try {
+    toast({
+      title: "Refreshing wallet balances",
+      description: "Fetching latest data from blockchain...",
+    });
+    
     // First get the wallets from the database
     const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
       method: 'POST',
@@ -88,12 +93,17 @@ export const refreshWalletBalances = async (userId: string): Promise<boolean> =>
     
     // If we have wallets, update their balances from the blockchain
     if (data?.wallets && data.wallets.length > 0) {
-      toast({
-        title: "Checking blockchain balances",
-        description: "Fetching latest data from mainnet networks...",
-      });
+      console.log("Got wallets for blockchain update:", data.wallets);
       
       const refreshResult = await refreshWalletBalancesFromBlockchain(userId, data.wallets);
+      
+      if (refreshResult) {
+        toast({
+          title: "Balance update successful",
+          description: "Your wallet balances have been updated from blockchain data",
+        });
+      }
+      
       return refreshResult;
     } else {
       toast({

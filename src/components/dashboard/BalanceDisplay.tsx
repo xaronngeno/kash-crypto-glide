@@ -19,18 +19,26 @@ export const BalanceDisplay = ({
   onRefresh 
 }: BalanceDisplayProps) => {
   const [hideBalance, setHideBalance] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useAuth();
 
   const handleRefresh = async () => {
-    if (!user?.id || refreshing) return;
+    if (!user?.id || refreshing || isRefreshing) return;
     
     try {
+      setIsRefreshing(true);
       console.log("Starting wallet refresh");
-      await refreshWalletBalances(user.id);
-      console.log("Wallet balances refreshed, reloading data");
-      onRefresh();
+      const success = await refreshWalletBalances(user.id);
+      console.log("Wallet balances refreshed:", success);
+      
+      if (success) {
+        console.log("Wallet balances refreshed, reloading data");
+        onRefresh();
+      }
     } catch (error) {
       console.error("Error refreshing wallet balances:", error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -43,9 +51,9 @@ export const BalanceDisplay = ({
           size="sm"
           onClick={handleRefresh}
           className="ml-2 h-6 w-6"
-          disabled={refreshing}
+          disabled={refreshing || isRefreshing}
         >
-          <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+          <RefreshCw size={14} className={(refreshing || isRefreshing) ? "animate-spin" : ""} />
         </KashButton>
       </div>
       <div className="flex items-center">

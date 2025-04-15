@@ -10,13 +10,13 @@ const NETWORK_ENDPOINTS = {
     TESTNET: 'https://eth-goerli.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p', // Goerli testnet
   },
   SOLANA: {
-    MAINNET: 'https://solana-mainnet.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p',
+    MAINNET: 'https://api.mainnet-beta.solana.com', // Use more reliable endpoint
     TESTNET: clusterApiUrl('devnet'), // Solana devnet for testing
   }
 };
 
-// Network environment setting - mainnet configuration
-export const NETWORK_ENV = 'MAINNET';
+// Set to testnet for development purposes to see balances more easily
+export const NETWORK_ENV = 'TESTNET';
 
 // Cache connections to avoid recreating them for every request
 let solanaConnectionCache: Connection | null = null;
@@ -53,11 +53,14 @@ export const initializeBlockchainConnections = () => {
 // Fetch balance from Solana blockchain with improved error handling
 export const fetchSolanaBalance = async (address: string): Promise<number> => {
   try {
+    console.log(`Fetching Solana balance for ${address} on ${NETWORK_ENV}`);
     const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV], 'confirmed');
     const publicKey = new PublicKey(address);
     const balance = await connection.getBalance(publicKey);
     // Convert from lamports to SOL
-    return balance / 1_000_000_000;
+    const solBalance = balance / 1_000_000_000;
+    console.log(`Solana balance for ${address}: ${solBalance} SOL`);
+    return solBalance;
   } catch (error) {
     console.error(`Error fetching Solana balance for ${address}:`, error);
     return 0;
@@ -67,10 +70,13 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
 // Fetch balance from Ethereum blockchain with improved error handling
 export const fetchEthereumBalance = async (address: string): Promise<number> => {
   try {
+    console.log(`Fetching Ethereum balance for ${address} on ${NETWORK_ENV}`);
     const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
     const balance = await provider.getBalance(address);
     // Convert from wei to ETH
-    return parseFloat(ethers.formatEther(balance));
+    const ethBalance = parseFloat(ethers.formatEther(balance));
+    console.log(`Ethereum balance for ${address}: ${ethBalance} ETH`);
+    return ethBalance;
   } catch (error) {
     console.error(`Error fetching Ethereum balance for ${address}:`, error);
     return 0;
