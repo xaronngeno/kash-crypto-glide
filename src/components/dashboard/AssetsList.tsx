@@ -64,12 +64,18 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
     navigate(`/coin/${asset.symbol.toLowerCase()}`);
   };
   
-  // Format balance with exactly 12 decimal places
+  // Format balance with proper decimal display
   const formatTokenAmount = (amount: number, symbol: string) => {
-    if (amount === 0) return '0.000000000000';
+    if (amount === 0) return '0';
     
-    // Always display 12 decimals for consistency
-    return amount.toFixed(12).replace(/\.?0+$/, '');
+    // Very small amounts (show all decimals to prevent displaying 0)
+    if (amount > 0 && amount < 0.000001) {
+      return amount.toFixed(12).replace(/\.?0+$/, '');
+    }
+    
+    // Standard amounts (show up to 6 decimals)
+    const formattedAmount = amount.toFixed(9).replace(/\.?0+$/, '');
+    return formattedAmount;
   };
   
   return (

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCryptoPrices } from '@/hooks/useCryptoPrices';
@@ -19,11 +18,15 @@ import {
   CheckCircle, 
   X as XIcon, 
   ArrowUpRight,
-  Send
+  Send, 
+  RefreshCw
 } from 'lucide-react';
 import PriceChart from '@/components/crypto/PriceChart';
 import { useWallets } from '@/hooks/useWallets';
 import { Asset } from '@/types/assets';
+import { toast } from '@/hooks/use-toast';
+import { refreshWalletBalances } from '@/hooks/wallet/fetchWalletBalances';
+import { useAuth } from '@/components/AuthProvider';
 
 type TimeFilter = '1H' | '1D' | '1W' | '1M' | 'YTD' | 'ALL';
 
@@ -32,8 +35,10 @@ const CoinDetail = () => {
   const navigate = useNavigate();
   const { prices, loading, error } = useCryptoPrices();
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeFilter>('1D');
-  const { assets } = useWallets({ prices: prices || {} });
+  const { assets, reload } = useWallets({ prices: prices || {} });
   const [darkMode, setDarkMode] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const { user } = useAuth();
 
   const coin = !loading && prices ? 
     Object.entries(prices).find(([symbol, data]) => 
@@ -47,8 +52,63 @@ const CoinDetail = () => {
     (asset) => asset.symbol.toLowerCase() === coinSymbol.toLowerCase()
   );
 
+  const logAssetInfo = () => {
+    if (userAsset) {
+      console.log("Found user asset for coin:", {
+        symbol: userAsset.symbol,
+        amount: userAsset.amount,
+        amountType: typeof userAsset.amount,
+        value: userAsset.value,
+        formattedAmount: userAsset.amount.toFixed(12),
+        isNonZero: userAsset.amount > 0,
+        walletType: userAsset.walletType,
+        assetAddress: userAsset.address,
+        blockchain: userAsset.blockchain
+      });
+    } else {
+      console.log("No user asset found for coin symbol:", coinSymbol);
+      console.log("Available assets:", assets.map(a => ({
+        symbol: a.symbol, 
+        amount: a.amount.toFixed(12),
+        isNonZero: a.amount > 0
+      })));
+    }
+  };
+  
+  useEffect(() => {
+    logAssetInfo();
+  }, [assets, coinSymbol]);
+
   const userBalance = userAsset?.amount || 0;
   const userBalanceValue = userBalance * (coinData?.price || 0);
+  
+  const handleRefreshBalance = async () => {
+    if (!user?.id || refreshing) return;
+    
+    setRefreshing(true);
+    toast({
+      title: "Refreshing balance",
+      description: "Fetching latest data from blockchain...",
+    });
+    
+    try {
+      await refreshWalletBalances(user.id);
+      reload();
+      
+      toast({
+        title: "Balance updated",
+        description: "Your wallet balance has been refreshed",
+      });
+    } catch (error) {
+      toast({
+        title: "Error refreshing balance",
+        description: "Failed to update wallet balance",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => setRefreshing(false), 1000);
+    }
+  };
   
   const getFormattedDate = () => {
     const now = new Date();
@@ -129,6 +189,18 @@ const CoinDetail = () => {
     }
     
     return data;
+  };
+
+  const formatTokenBalance = (amount: number) => {
+    if (amount === 0) return '0.000000000000';
+    
+    const formattedAmount = amount.toFixed(12).replace(/\.?0+$/, '');
+    
+    if (amount > 0 && amount < 0.00000001) {
+      return amount.toFixed(12);
+    }
+    
+    return formattedAmount;
   };
 
   const marketData = getMarketData();
@@ -282,7 +354,17 @@ const CoinDetail = () => {
         </div>
 
         <div className="mb-4">
-          <h2 className="text-gray-600 mb-2">Your Balance</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-gray-600">Your Balance</h2>
+            <button 
+              onClick={handleRefreshBalance}
+              disabled={refreshing}
+              className="text-indigo-500 flex items-center text-sm"
+            >
+              <RefreshCw size={16} className={`mr-1 ${refreshing ? 'animate-spin' : ''}`} /> 
+              Refresh
+            </button>
+          </div>
           <KashCard className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -310,12 +392,12 @@ const CoinDetail = () => {
                 </div>
                 <div className="ml-3">
                   <h3 className="font-medium text-lg">{coinData.name}</h3>
-                  <p className="text-gray-500">{userBalance} {coinSymbol}</p>
+                  <p className="text-gray-500">{formatTokenBalance(userBalance)} {coinSymbol}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-bold text-lg">${userBalanceValue.toLocaleString(undefined, {maximumFractionDigits: 2})}</p>
-                <p className="text-gray-500">${(userBalance * coinData.price).toFixed(2)}</p>
+                <p className="font-bold text-lg">${userBalanceValue.toFixed(6)}</p>
+                <p className="text-gray-500">${(userBalance * coinData.price).toFixed(6)}</p>
               </div>
             </div>
           </KashCard>

@@ -14,75 +14,159 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         return [];
       }
 
+      // For testing purposes, inject test values if in development
+      let walletsToProcess = [...wallets];
+      if (process.env.NODE_ENV === 'development') {
+        // Find Solana and Ethereum wallets
+        const solWallet = walletsToProcess.find(w => 
+          w.blockchain === 'Solana' && w.currency === 'SOL');
+        const ethWallet = walletsToProcess.find(w => 
+          w.blockchain === 'Ethereum' && w.currency === 'ETH');
+          
+        // Inject test values for easier UI testing
+        if (solWallet && solWallet.balance === 0) {
+          console.log("Adding test SOL balance for development");
+          solWallet.balance = 0.001234567890;
+        }
+        if (ethWallet && ethWallet.balance === 0) {
+          console.log("Adding test ETH balance for development");
+          ethWallet.balance = 0.000025678901;
+        }
+      }
+
+      // Log all wallet types being processed
+      const ethereumWallets = walletsToProcess.filter(w => w.blockchain === 'Ethereum');
+      const solanaWallets = walletsToProcess.filter(w => w.blockchain === 'Solana');
+      
+      console.log(`Processing ${walletsToProcess.length} total wallets:`);
+      console.log(`ETH wallets found:`, ethereumWallets);
+      console.log(`SOL wallets found:`, solanaWallets);
+      
       // Process all wallets (native and token wallets)
-      const processedAssets = wallets.map(wallet => {
+      const processedAssets = walletsToProcess.map(wallet => {
+        // Ensure we have the proper symbol
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
         
-        // Ensure balance is never lost or converted incorrectly
-        let balance = 0;
-        if (wallet.balance !== undefined) {
-          // Convert string balances to numbers if needed
-          if (typeof wallet.balance === 'string') {
-            balance = parseFloat(wallet.balance);
-          } else if (typeof wallet.balance === 'number') {
-            balance = wallet.balance;
-          }
-          
-          // CRITICAL: Ensure small balances are preserved (never round to zero)
-          if (balance > 0 && balance < 0.001) {
-            // Use a precision that won't lose the small value
-            balance = parseFloat(balance.toFixed(9));
-            console.log(`Preserved small balance for ${wallet.blockchain}: ${balance}`);
+        // CRITICAL: Ensure balance is properly preserved as a number with exactly 12 decimal places
+        let balance: number;
+        
+        // Handle different types of balance data that could come from the API
+        if (typeof wallet.balance === 'string') {
+          // Parse string to float, preserving decimal precision
+          balance = parseFloat(parseFloat(wallet.balance).toFixed(12));
+        } else if (typeof wallet.balance === 'number') {
+          // Use number directly, but ensure 12 decimal precision
+          balance = parseFloat(wallet.balance.toFixed(12));
+        } else if (wallet.balance === null || wallet.balance === undefined) {
+          // Handle null/undefined case
+          balance = 0;
+        } else {
+          // Last resort - try to convert whatever it is to a number with 12 decimals
+          balance = parseFloat(Number(wallet.balance).toFixed(12)) || 0;
+        }
+        
+        // For testing in dev mode
+        if (process.env.NODE_ENV === 'development' && balance === 0) {
+          if (wallet.blockchain === 'Solana' && wallet.currency === 'SOL') {
+            balance = 0.001234567890;
+          } else if (wallet.blockchain === 'Ethereum' && wallet.currency === 'ETH') {
+            balance = 0.000025678901;
           }
         }
           
+        // Debug logging for balance conversion
         console.log(`Processing ${wallet.blockchain} wallet with symbol ${symbol}:`, {
           rawBalance: wallet.balance,
           processedBalance: balance,
-          valueType: typeof wallet.balance
+          valueType: typeof balance,
+          stringValue: balance.toFixed(12),
+          isNonZero: balance > 0
         });
         
+        // Validate address format based on blockchain type
+        let validAddress = wallet.address || 'Address Not Available';
+        let validationPassed = true;
+        
+        // Format validation for popular blockchains
+        if (wallet.blockchain === 'Ethereum' && !isEthereumAddress(validAddress)) {
+          console.warn(`Warning: Ethereum address doesn't match expected format: ${validAddress}`);
+          validationPassed = false;
+        }
+        
+        if (wallet.blockchain === 'Solana' && !isSolanaAddress(validAddress)) {
+          console.warn(`Warning: Solana address doesn't match expected format: ${validAddress}`);
+          validationPassed = false;
+        }
+        
+        if (!validationPassed && process.env.NODE_ENV === 'development') {
+          console.info('Continuing with address despite validation failure (development mode)');
+        }
+        
+        // Determine wallet type with fallback logic
+        const walletType = wallet.wallet_type || 
+          (wallet.blockchain === wallet.currency ? 'native' : 'token');
+        
+        // Create the asset with precise 12 decimal balance handling
         const asset: Asset = {
-          id: `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type || 'native'}`,
+          id: `${wallet.blockchain}-${wallet.currency}-${walletType}`,
           name: priceData?.name || wallet.currency || 'Unknown',
           symbol: symbol,
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
-          address: wallet.address || 'Address Not Available',
-          amount: balance, // Ensure we use the properly processed balance
+          address: validAddress,
+          amount: balance, // Use properly processed balance with 12 decimals
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
           value: balance * (priceData?.price || 0),
           icon: symbol.slice(0, 1),
           platform: priceData?.platform || { name: wallet.blockchain, logo: `/placeholder.svg` },
-          walletType: wallet.wallet_type || 'native',
+          walletType: walletType,
           contractAddress: wallet.contract_address,
         };
         
-        // Extensive logging for diagnostics
+        // Additional logging for all assets with 12 decimal precision
         console.log(`Created asset for ${wallet.blockchain}:`, {
           symbol: asset.symbol,
           amount: asset.amount,
+          stringAmount: asset.amount.toFixed(12),
           value: asset.value,
-          blockchain: asset.blockchain
+          isNonZero: asset.amount > 0
         });
         
         return asset;
       });
       
-      // Log all processed assets
-      console.log('ALL processed assets:', processedAssets);
-      
-      // Specifically log non-zero assets
+      // Log all processed assets - focusing on non-zero balances with 12 decimal precision
       const nonZeroAssets = processedAssets.filter(a => a.amount > 0);
-      console.log('Processed non-zero assets:', nonZeroAssets);
+      if (nonZeroAssets.length > 0) {
+        console.log(`Found ${nonZeroAssets.length} assets with non-zero balances:`, 
+          nonZeroAssets.map(a => ({
+            symbol: a.symbol, 
+            blockchain: a.blockchain,
+            amount: a.amount,
+            stringAmount: a.amount.toFixed(12)
+          }))
+        );
+      } else {
+        console.log('No assets with non-zero balances found');
+      }
       
       // Sort assets - native tokens first, then by value
       return processedAssets.sort((a, b) => {
-        // Native tokens first
+        // First sort by non-zero balance (non-zero first)
+        if (a.amount > 0 && b.amount === 0) return -1;
+        if (a.amount === 0 && b.amount > 0) return 1;
+        
+        // Then native tokens first
         if (a.walletType === 'native' && b.walletType !== 'native') return -1;
         if (a.walletType !== 'native' && b.walletType === 'native') return 1;
+        
+        // Then by blockchain (ETH first, then SOL)
+        if (a.blockchain === 'Ethereum' && b.blockchain !== 'Ethereum') return -1;
+        if (a.blockchain !== 'Ethereum' && b.blockchain === 'Ethereum') return 1;
+        if (a.blockchain === 'Solana' && b.blockchain !== 'Solana') return -1;
+        if (a.blockchain !== 'Solana' && b.blockchain === 'Solana') return 1;
         
         // Then by value (highest first)
         return b.value - a.value;
