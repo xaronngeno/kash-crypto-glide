@@ -21,7 +21,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [refreshing, setRefreshing] = useState(false);
   const [pullToRefreshActive, setPullToRefreshActive] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   
   const { prices, error: pricesError } = useCryptoPrices();
@@ -73,14 +72,14 @@ const Dashboard = () => {
     
     setRefreshing(true);
     try {
-      console.log("Starting wallet refresh");
+      console.log("Starting wallet refresh from pull-to-refresh");
       reload();
     } catch (error) {
       console.error("Error refreshing wallet balances:", error);
     } finally {
       setTimeout(() => {
         setRefreshing(false);
-      }, 500);
+      }, 1000); // Give more time for the refresh animation
     }
   };
 
@@ -90,14 +89,14 @@ const Dashboard = () => {
 
   return (
     <MainLayout title="Portfolio">
-      <div className="space-y-6" ref={contentRef}>
-        <PullToRefresh 
-          onRefresh={handleRefresh}
-          pullToRefreshActive={pullToRefreshActive}
-          setPullToRefreshActive={setPullToRefreshActive}
-          refreshing={refreshing}
-        />
-        
+      <PullToRefresh 
+        onRefresh={handleRefresh}
+        pullToRefreshActive={pullToRefreshActive}
+        setPullToRefreshActive={setPullToRefreshActive}
+        refreshing={refreshing}
+      />
+      
+      <div className="space-y-6">
         <DashboardError error={error} />
 
         <BalanceDisplay 

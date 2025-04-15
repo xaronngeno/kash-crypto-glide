@@ -18,9 +18,8 @@ export const PullToRefresh = ({
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
-
+    const content = document.documentElement;
+    
     const handleTouchStart = (e: TouchEvent) => {
       if (window.scrollY === 0) {
         pullStartY.current = e.touches[0].clientY;
@@ -57,7 +56,7 @@ export const PullToRefresh = ({
   if (!pullToRefreshActive) return null;
 
   return (
-    <div className="flex justify-center py-4 text-kash-green">
+    <div className="fixed top-0 left-0 right-0 flex justify-center py-4 text-kash-green bg-white/80 z-50">
       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-kash-green"></div>
       <span className="ml-2">Release to refresh</span>
     </div>

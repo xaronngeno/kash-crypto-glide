@@ -27,7 +27,7 @@ export const BalanceDisplay = ({
     
     try {
       setIsRefreshing(true);
-      console.log("Starting wallet refresh");
+      console.log("Starting wallet refresh from button");
       const success = await refreshWalletBalances(user.id);
       console.log("Wallet balances refreshed:", success);
       
@@ -38,7 +38,9 @@ export const BalanceDisplay = ({
     } catch (error) {
       console.error("Error refreshing wallet balances:", error);
     } finally {
-      setIsRefreshing(false);
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 1000);
     }
   };
 
