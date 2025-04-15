@@ -108,7 +108,7 @@ const SwapCrypto = () => {
 
   return (
     <MainLayout title="Swap" showBack>
-      <div className="max-w-md mx-auto">
+      <div className="h-[calc(100vh-120px)] md:h-auto"> {/* Adjust height for full mobile page coverage */}
         <SwapForm 
           assets={assets} 
           balances={balances} 

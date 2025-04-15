@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowDownUp, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -128,7 +127,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ assets, balances, onSwapComplete })
   };
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 h-full min-h-screen md:min-h-0">
       {/* From Token Section */}
       <div className="mb-4">
         <div className="text-gray-500 mb-2 text-sm font-medium">You Pay</div>
@@ -247,10 +246,10 @@ const SwapForm: React.FC<SwapFormProps> = ({ assets, balances, onSwapComplete })
         whileTap={{ scale: 0.99 }}
         disabled={swapping || !fromAmount || Number(fromAmount) <= 0 || isInsufficientBalance()}
         onClick={openConfirmation}
-        className={`mt-6 w-full py-3 px-4 rounded-xl font-medium text-white transition-all
+        className={`mt-6 w-full py-3 px-4 rounded-xl font-medium text-white transition-all bg-kash-green 
           ${swapping || !fromAmount || Number(fromAmount) <= 0 || isInsufficientBalance() 
-            ? 'bg-gray-300 cursor-not-allowed' 
-            : 'bg-kash-green hover:bg-kash-green/90 shadow-md hover:shadow-lg'}`}
+            ? 'cursor-not-allowed opacity-50' 
+            : 'hover:bg-kash-green/90 shadow-md hover:shadow-lg'}`}
       >
         {swapping ? 'Swapping...' : isInsufficientBalance() ? 'Insufficient Balance' : 'Swap'}
       </motion.button>
