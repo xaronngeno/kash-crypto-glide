@@ -59,7 +59,10 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
     const balance = await connection.getBalance(publicKey);
     // Convert from lamports to SOL
     const solBalance = balance / 1_000_000_000;
-    console.log(`Solana balance for ${address}: ${solBalance} SOL`);
+    console.log(`Solana balance for ${address}: ${solBalance} SOL`, {
+      lamports: balance,
+      sol: solBalance
+    });
     return solBalance;
   } catch (error) {
     console.error(`Error fetching Solana balance for ${address}:`, error);
@@ -75,7 +78,10 @@ export const fetchEthereumBalance = async (address: string): Promise<number> => 
     const balance = await provider.getBalance(address);
     // Convert from wei to ETH
     const ethBalance = parseFloat(ethers.formatEther(balance));
-    console.log(`Ethereum balance for ${address}: ${ethBalance} ETH`);
+    console.log(`Ethereum balance for ${address}: ${ethBalance} ETH`, {
+      wei: balance.toString(),
+      eth: ethBalance
+    });
     return ethBalance;
   } catch (error) {
     console.error(`Error fetching Ethereum balance for ${address}:`, error);
@@ -101,7 +107,7 @@ export const getBlockchainBalance = async (
     // Execute balance fetch with timeout (15 seconds)
     const fetchWithTimeout = async (): Promise<number> => {
       try {
-        const result = Promise.race([
+        const result = await Promise.race([
           (async () => {
             switch (blockchain) {
               case 'Ethereum':
@@ -116,16 +122,19 @@ export const getBlockchainBalance = async (
           timeout(15000) // 15 second timeout
         ]);
         
-        return await result as number;
+        console.log(`${blockchain} balance result:`, result);
+        return result;
       } catch (error) {
-        if (error.message?.includes('timed out')) {
+        if ((error as Error).message?.includes('timed out')) {
           console.error(`Timeout fetching ${blockchain} balance for ${address}`);
         }
         throw error;
       }
     };
     
-    return await fetchWithTimeout();
+    const balance = await fetchWithTimeout();
+    console.log(`Final ${blockchain} balance for ${address}:`, balance);
+    return balance;
   } catch (error) {
     console.error(`Error fetching balance for ${blockchain} address ${address}:`, error);
     return 0;

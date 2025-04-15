@@ -40,6 +40,13 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
         // Update the cache
         balanceCache.set(cacheKey, { balance, timestamp: now });
         console.log(`Retrieved ${wallet.blockchain} balance: ${balance}`);
+        
+        // Log the raw and processed balance values
+        console.log(`Balance details for ${wallet.blockchain}:`, {
+          rawBalance: balance,
+          formattedBalance: balance.toString(),
+          type: typeof balance
+        });
       
         // Update the balance in the database
         const { error } = await supabase
@@ -72,15 +79,15 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
       title: "Wallet balances updated",
       description: `Successfully refreshed ${successCount} wallets.`,
     });
+    return true;
   } else {
     toast({
       title: "No balances updated",
       description: "Unable to refresh wallet balances at this time.",
       variant: "destructive"
     });
+    return false;
   }
-  
-  return successCount > 0;
 };
 
 /**
@@ -92,7 +99,10 @@ export const fetchBalanceFromBlockchain = async (
   blockchain: 'Ethereum' | 'Solana'
 ): Promise<number> => {
   try {
-    return await getBlockchainBalance(address, blockchain);
+    console.log(`Direct blockchain balance request for ${blockchain} address ${address}`);
+    const balance = await getBlockchainBalance(address, blockchain);
+    console.log(`Retrieved ${blockchain} balance: ${balance}`);
+    return balance;
   } catch (error) {
     console.error(`Error fetching ${blockchain} balance for ${address}:`, error);
     return 0;

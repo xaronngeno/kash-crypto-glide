@@ -22,9 +22,17 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
       console.log(`ETH wallets found:`, ethereumWallets);
       console.log(`SOL wallets found:`, solanaWallets);
       
-      // Log wallet balances for each wallet
+      // Log wallet balances for each wallet with more detail
       wallets.forEach(wallet => {
-        console.log(`Wallet ${wallet.blockchain} ${wallet.address} balance:`, wallet.balance);
+        const balanceValue = typeof wallet.balance === 'string' 
+          ? parseFloat(wallet.balance) 
+          : (typeof wallet.balance === 'number' ? wallet.balance : 0);
+          
+        console.log(`Wallet ${wallet.blockchain} ${wallet.address} balance:`, {
+          rawBalance: wallet.balance,
+          parsedBalance: balanceValue,
+          type: typeof wallet.balance
+        });
       });
 
       // Process all wallets (native and token wallets)
@@ -37,7 +45,11 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           ? parseFloat(wallet.balance) 
           : (typeof wallet.balance === 'number' ? wallet.balance : 0);
           
-        console.log(`Processing wallet ${wallet.blockchain} with symbol ${symbol}, balance: ${balance}`);
+        console.log(`Processing ${wallet.blockchain} wallet with symbol ${symbol}:`, {
+          rawBalance: wallet.balance,
+          processedBalance: balance,
+          valueType: typeof wallet.balance
+        });
         
         // Validate address format based on blockchain type
         let validAddress = wallet.address || 'Address Not Available';
@@ -79,7 +91,15 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           contractAddress: wallet.contract_address,
         };
         
-        console.log("Created asset:", asset);
+        // Additional logging for assets with non-zero balances
+        if (asset.amount > 0) {
+          console.log(`Created asset with non-zero balance:`, {
+            symbol: asset.symbol,
+            amount: asset.amount,
+            value: asset.value
+          });
+        }
+        
         return asset;
       });
       

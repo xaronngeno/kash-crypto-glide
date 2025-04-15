@@ -28,6 +28,16 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
     // Log Ethereum assets
     const ethereumAssets = assets.filter(asset => asset.blockchain === 'Ethereum');
     console.log("Ethereum assets:", ethereumAssets);
+    
+    // Log individual asset amounts for debugging
+    assets.forEach(asset => {
+      console.log(`Asset ${asset.symbol} details:`, {
+        amount: asset.amount,
+        type: typeof asset.amount,
+        value: asset.value,
+        isNonZero: asset.amount > 0
+      });
+    });
   }, [assets]);
   
   const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
@@ -45,6 +55,21 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   
   const handleAssetClick = (asset: Asset) => {
     navigate(`/coin/${asset.symbol.toLowerCase()}`);
+  };
+  
+  // Format balance with appropriate decimal places based on the value
+  const formatTokenAmount = (amount: number, symbol: string) => {
+    if (amount === 0) return '0';
+    
+    // Show more decimals for smaller values
+    if (amount < 0.0001) return amount.toExponential(2);
+    if (amount < 0.01) return amount.toFixed(6);
+    if (amount < 1) return amount.toFixed(4);
+    
+    return amount.toLocaleString('en-US', { 
+      maximumFractionDigits: 6,
+      minimumFractionDigits: 0
+    });
   };
   
   return (
@@ -86,10 +111,7 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
                 )}
               </div>
               <p className="text-sm text-gray-500">
-                {asset.amount.toLocaleString('en-US', { 
-                  maximumFractionDigits: 6,
-                  minimumFractionDigits: 0
-                })} {asset.symbol}
+                {formatTokenAmount(asset.amount, asset.symbol)} {asset.symbol}
               </p>
             </div>
           </div>
