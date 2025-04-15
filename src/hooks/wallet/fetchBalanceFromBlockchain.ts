@@ -48,12 +48,11 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
           type: typeof balance
         });
       
-        // Update the balance in the database - Convert to number but store full precision as number
-        // Balance is already a number, so we don't need to convert it
+        // Update the balance in the database
         const { error } = await supabase
           .from('wallets')
           .update({ 
-            balance: balance, // Keep as a number (which matches the database schema)
+            balance: balance, // Store as a number
             updated_at: new Date().toISOString()
           })
           .eq('address', wallet.address)

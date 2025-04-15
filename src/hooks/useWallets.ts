@@ -58,6 +58,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
       return asset;
     });
     
+    console.log("Updated assets with new prices:", updatedAssets);
     setAssets(updatedAssets);
     cacheAssets(updatedAssets);
   }, [prices, assets, cacheAssets]);

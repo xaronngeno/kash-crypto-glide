@@ -22,20 +22,6 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
       console.log(`ETH wallets found:`, ethereumWallets);
       console.log(`SOL wallets found:`, solanaWallets);
       
-      // Log wallet balances for each wallet with more detail
-      wallets.forEach(wallet => {
-        // Ensure balance is a number - database might return as string or number
-        const balanceValue = typeof wallet.balance === 'string' 
-          ? parseFloat(wallet.balance) 
-          : (typeof wallet.balance === 'number' ? wallet.balance : 0);
-          
-        console.log(`Wallet ${wallet.blockchain} ${wallet.address} balance:`, {
-          rawBalance: wallet.balance,
-          parsedBalance: balanceValue,
-          type: typeof wallet.balance
-        });
-      });
-
       // Process all wallets (native and token wallets)
       const processedAssets = wallets.map(wallet => {
         const symbol = wallet.currency || 'Unknown';
