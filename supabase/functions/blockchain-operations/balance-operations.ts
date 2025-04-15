@@ -66,7 +66,10 @@ export async function getBlockchainBalance(
           timeout(15000) // 15 second timeout
         ]);
         
-        return result;
+        // Force result to be a number
+        const numericResult = typeof result === 'string' ? parseFloat(result) : result;
+        console.log(`${blockchain} balance result:`, numericResult);
+        return numericResult;
       } catch (error) {
         if ((error as Error).message?.includes('timed out')) {
           console.error(`Timeout fetching ${blockchain} balance for ${address}`);

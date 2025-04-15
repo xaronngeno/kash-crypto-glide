@@ -47,6 +47,11 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
           formattedBalance: balance.toString(),
           type: typeof balance
         });
+        
+        // Additional logging for non-zero balances
+        if (balance > 0) {
+          console.log(`Updated ${wallet.blockchain} balance: ${balance}`);
+        }
       
         // Update the balance in the database
         const { error } = await supabase

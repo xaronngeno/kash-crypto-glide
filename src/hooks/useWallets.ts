@@ -45,11 +45,15 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
     const updatedAssets = assets.map(asset => {
       const priceData = prices[asset.symbol];
       if (priceData) {
+        // Ensure numeric value for amount
+        const amount = typeof asset.amount === 'string' ? parseFloat(asset.amount) : asset.amount;
+        
         return {
           ...asset,
+          amount: amount,
           price: priceData.price,
           change: priceData.change_24h,
-          value: asset.amount * priceData.price,
+          value: amount * priceData.price,
           logo: priceData.logo || asset.logo,
           name: priceData.name || asset.name,
           platform: priceData.platform || asset.platform
@@ -57,6 +61,12 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
       }
       return asset;
     });
+    
+    // Log assets with non-zero balances
+    const nonZeroAssets = updatedAssets.filter(a => a.amount > 0);
+    if (nonZeroAssets.length > 0) {
+      console.log("Assets with non-zero balances:", nonZeroAssets);
+    }
     
     console.log("Updated assets with new prices:", updatedAssets);
     setAssets(updatedAssets);

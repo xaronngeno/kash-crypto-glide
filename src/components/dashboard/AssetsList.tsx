@@ -40,7 +40,13 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
     });
   }, [assets]);
   
-  const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
+  const sortedAssets = [...assets].sort((a, b) => {
+    // Sort by non-zero amount first
+    if (a.amount > 0 && b.amount === 0) return -1;
+    if (a.amount === 0 && b.amount > 0) return 1;
+    // Then by value
+    return b.value - a.value;
+  });
   
   const getTokenLabel = (asset: Asset) => {
     if (asset.walletType === 'native') {
