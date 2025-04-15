@@ -10,9 +10,10 @@ interface SwapRateInfoProps {
   };
   rate: number;
   fee: number;
+  spillage?: number;
 }
 
-const SwapRateInfo = ({ fromToken, toToken, rate, fee }: SwapRateInfoProps) => {
+const SwapRateInfo = ({ fromToken, toToken, rate, fee, spillage = 0.5 }: SwapRateInfoProps) => {
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-200">
       <div className="flex flex-col gap-3">
@@ -27,6 +28,13 @@ const SwapRateInfo = ({ fromToken, toToken, rate, fee }: SwapRateInfoProps) => {
           <span className="text-sm text-gray-600">Network Fee</span>
           <span className="text-sm">
             {fee} {fromToken.symbol}
+          </span>
+        </div>
+
+        <div className="flex justify-between">
+          <span className="text-sm text-gray-600">Max Spillage</span>
+          <span className="text-sm text-green-600">
+            {spillage}%
           </span>
         </div>
 

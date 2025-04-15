@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import TokenSelector from './TokenSelector';
 import SwapRateInfo from './SwapRateInfo';
 import { SwapTransaction } from './types';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface SwapFormProps {
   assets: any[];
@@ -24,6 +25,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ assets, balances, onSwapComplete })
   const [transactionSuccess, setTransactionSuccess] = useState(false);
   const [transaction, setTransaction] = useState<SwapTransaction | null>(null);
   const [networkFee] = useState(0.001);
+  const [spillage, setSpillage] = useState<number>(0.5);
   
   useEffect(() => {
     // Initial token selection
@@ -90,7 +92,8 @@ const SwapForm: React.FC<SwapFormProps> = ({ assets, balances, onSwapComplete })
           fromAmount: Number(fromAmount),
           toAmount: Number(toAmount),
           timestamp: new Date(),
-          status: 'completed' as const
+          status: 'completed' as const,
+          spillage: spillage
         };
         
         setTransaction(newTransaction);
@@ -316,6 +319,34 @@ const SwapForm: React.FC<SwapFormProps> = ({ assets, balances, onSwapComplete })
               </div>
             </div>
 
+            {/* Spillage Selector */}
+            <div className="mt-6 bg-gray-50 p-4 rounded-xl">
+              <div className="text-sm font-medium text-gray-700 mb-3">Choose Spillage Percentage</div>
+              <RadioGroup 
+                className="flex gap-4" 
+                defaultValue="0.5" 
+                value={String(spillage)}
+                onValueChange={(value) => setSpillage(Number(value))}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="0.1" id="r1" />
+                  <label htmlFor="r1" className="text-sm cursor-pointer">0.1%</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="0.5" id="r2" />
+                  <label htmlFor="r2" className="text-sm cursor-pointer">0.5%</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="1" id="r3" />
+                  <label htmlFor="r3" className="text-sm cursor-pointer">1.0%</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="3" id="r4" />
+                  <label htmlFor="r4" className="text-sm cursor-pointer">3.0%</label>
+                </div>
+              </RadioGroup>
+            </div>
+
             {/* Rate Info Toggle */}
             <div className="mt-4">
               <button 
@@ -346,6 +377,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ assets, balances, onSwapComplete })
                         toToken={toToken} 
                         rate={getExchangeRate(fromToken.symbol, toToken.symbol)} 
                         fee={networkFee}
+                        spillage={spillage}
                       />
                     </div>
                   </motion.div>

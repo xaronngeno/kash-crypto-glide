@@ -26,6 +26,7 @@ export interface SwapTransaction {
   toAmount: number;
   timestamp: Date;
   status: 'completed' | 'pending' | 'failed';
+  spillage?: number;
 }
 
 export interface SwapFormValues {
