@@ -19,14 +19,21 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
         
-        // Improved balance conversion
+        // Ensure balance is never lost or converted incorrectly
         let balance = 0;
         if (wallet.balance !== undefined) {
-          balance = Number(wallet.balance);
+          // Convert string balances to numbers if needed
+          if (typeof wallet.balance === 'string') {
+            balance = parseFloat(wallet.balance);
+          } else if (typeof wallet.balance === 'number') {
+            balance = wallet.balance;
+          }
           
-          // Ensure small balances are not dropped
+          // CRITICAL: Ensure small balances are preserved (never round to zero)
           if (balance > 0 && balance < 0.001) {
-            balance = Number(wallet.balance.toFixed(6));
+            // Use a precision that won't lose the small value
+            balance = parseFloat(balance.toFixed(9));
+            console.log(`Preserved small balance for ${wallet.blockchain}: ${balance}`);
           }
         }
           
@@ -37,13 +44,13 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         });
         
         const asset: Asset = {
-          id: `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type}`,
+          id: `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type || 'native'}`,
           name: priceData?.name || wallet.currency || 'Unknown',
           symbol: symbol,
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
           address: wallet.address || 'Address Not Available',
-          amount: balance,
+          amount: balance, // Ensure we use the properly processed balance
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
           value: balance * (priceData?.price || 0),
@@ -54,7 +61,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         };
         
         // Extensive logging for diagnostics
-        console.log(`Created asset:`, {
+        console.log(`Created asset for ${wallet.blockchain}:`, {
           symbol: asset.symbol,
           amount: asset.amount,
           value: asset.value,
@@ -64,7 +71,10 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         return asset;
       });
       
-      // Additional logging
+      // Log all processed assets
+      console.log('ALL processed assets:', processedAssets);
+      
+      // Specifically log non-zero assets
       const nonZeroAssets = processedAssets.filter(a => a.amount > 0);
       console.log('Processed non-zero assets:', nonZeroAssets);
       

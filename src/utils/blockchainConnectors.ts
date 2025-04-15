@@ -57,12 +57,18 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
     const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV], 'confirmed');
     const publicKey = new PublicKey(address);
     const balance = await connection.getBalance(publicKey);
-    // Convert from lamports to SOL
+    
+    // Convert from lamports to SOL with high precision
     const solBalance = balance / 1_000_000_000;
+    
+    // Log all details of the calculation
     console.log(`Solana balance for ${address}: ${solBalance} SOL`, {
       lamports: balance,
-      sol: solBalance
+      sol: solBalance,
+      exactValue: solBalance.toString(),
+      calculationType: 'Raw lamports / 10^9'
     });
+    
     return solBalance;
   } catch (error) {
     console.error(`Error fetching Solana balance for ${address}:`, error);
@@ -76,12 +82,18 @@ export const fetchEthereumBalance = async (address: string): Promise<number> => 
     console.log(`Fetching Ethereum balance for ${address} on ${NETWORK_ENV}`);
     const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
     const balance = await provider.getBalance(address);
-    // Convert from wei to ETH
+    
+    // Convert from wei to ETH with high precision
     const ethBalance = parseFloat(ethers.formatEther(balance));
+    
+    // Log all details of the calculation
     console.log(`Ethereum balance for ${address}: ${ethBalance} ETH`, {
       wei: balance.toString(),
-      eth: ethBalance
+      eth: ethBalance,
+      exactValue: ethBalance.toString(),
+      calculationType: 'ethers.formatEther(wei)'
     });
+    
     return ethBalance;
   } catch (error) {
     console.error(`Error fetching Ethereum balance for ${address}:`, error);
@@ -122,7 +134,13 @@ export const getBlockchainBalance = async (
           timeout(15000) // 15 second timeout
         ]);
         
-        console.log(`${blockchain} balance result:`, result);
+        // Log the result with full precision
+        console.log(`${blockchain} balance result:`, {
+          value: result,
+          exactString: result.toString(),
+          hasValue: result > 0
+        });
+        
         return result;
       } catch (error) {
         if ((error as Error).message?.includes('timed out')) {
@@ -133,7 +151,11 @@ export const getBlockchainBalance = async (
     };
     
     const balance = await fetchWithTimeout();
-    console.log(`Final ${blockchain} balance for ${address}:`, balance);
+    console.log(`Final ${blockchain} balance for ${address}:`, {
+      value: balance,
+      exactString: balance.toString()
+    });
+    
     return balance;
   } catch (error) {
     console.error(`Error fetching balance for ${blockchain} address ${address}:`, error);

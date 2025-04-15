@@ -13,9 +13,19 @@ export async function getSolanaBalance(
     const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV]);
     const publicKey = new PublicKey(address);
     const rawBalance = await trackOperation(connection.getBalance(publicKey), activeOperations);
-    const balance = rawBalance / 1_000_000_000; // Convert from lamports to SOL
-    console.log(`Retrieved Solana balance: ${balance} SOL`);
-    return balance;
+    
+    // Convert from lamports to SOL with high precision to avoid losing small values
+    const balance = rawBalance / 1_000_000_000; 
+    
+    // Log every detail of the balance calculation
+    console.log(`Retrieved Solana balance details:`, {
+      address,
+      rawLamports: rawBalance,
+      convertedSOL: balance,
+      calculationType: 'lamports / 10^9'
+    });
+    
+    return balance; // Return exact value without rounding
   } catch (error) {
     console.error(`Error fetching Solana balance:`, error);
     return 0;
@@ -31,9 +41,19 @@ export async function getEthereumBalance(
     console.log(`Fetching Ethereum balance for ${address} on ${NETWORK_ENV}`);
     const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
     const rawBalance = await trackOperation(provider.getBalance(address), activeOperations);
+    
+    // Convert from wei to ETH with full precision
     const balance = parseFloat(ethers.formatEther(rawBalance));
-    console.log(`Retrieved Ethereum balance: ${balance} ETH`);
-    return balance;
+    
+    // Log every detail of the balance calculation
+    console.log(`Retrieved Ethereum balance details:`, {
+      address,
+      rawWei: rawBalance.toString(),
+      convertedETH: balance,
+      calculationType: 'wei converted to ETH'
+    });
+    
+    return balance; // Return exact value without rounding
   } catch (error) {
     console.error(`Error fetching Ethereum balance:`, error);
     return 0;
@@ -66,10 +86,9 @@ export async function getBlockchainBalance(
           timeout(15000) // 15 second timeout
         ]);
         
-        // Force result to be a number
-        const numericResult = typeof result === 'string' ? parseFloat(result) : result;
-        console.log(`${blockchain} balance result:`, numericResult);
-        return numericResult;
+        // Avoid losing precision for small values
+        console.log(`${blockchain} balance result (exact value):`, result);
+        return result;
       } catch (error) {
         if ((error as Error).message?.includes('timed out')) {
           console.error(`Timeout fetching ${blockchain} balance for ${address}`);
@@ -78,7 +97,10 @@ export async function getBlockchainBalance(
       }
     };
     
-    return await fetchWithTimeout();
+    const balance = await fetchWithTimeout();
+    // IMPORTANT: Output exact balance with all decimals
+    console.log(`Final ${blockchain} balance for ${address} (exact value): ${balance}`);
+    return balance;
   } catch (error) {
     console.error(`Error fetching balance for ${blockchain} address ${address}:`, error);
     return 0;

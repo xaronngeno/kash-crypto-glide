@@ -41,11 +41,12 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
         balanceCache.set(cacheKey, { balance, timestamp: now });
         console.log(`Retrieved ${wallet.blockchain} balance: ${balance}`);
         
-        // Log the raw and processed balance values
+        // Log the raw and processed balance values with full precision
         console.log(`Balance details for ${wallet.blockchain}:`, {
           rawBalance: balance,
           formattedBalance: balance.toString(),
-          type: typeof balance
+          type: typeof balance,
+          valueIsNonZero: balance > 0
         });
         
         // Additional logging for non-zero balances
@@ -53,11 +54,11 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
           console.log(`Updated ${wallet.blockchain} balance: ${balance}`);
         }
       
-        // Update the balance in the database
+        // Update the balance in the database - STORE EXACT VALUE
         const { error } = await supabase
           .from('wallets')
           .update({ 
-            balance: balance, // Store as a number
+            balance: balance, // Store without rounding
             updated_at: new Date().toISOString()
           })
           .eq('address', wallet.address)
@@ -82,7 +83,7 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
   if (successCount > 0) {
     toast({
       title: "Wallet balances updated",
-      description: `Successfully refreshed ${successCount} wallets.`,
+      description: `Successfully refreshed ${successCount} wallets from blockchain.`,
     });
     return true;
   } else {
@@ -106,7 +107,15 @@ export const fetchBalanceFromBlockchain = async (
   try {
     console.log(`Direct blockchain balance request for ${blockchain} address ${address}`);
     const balance = await getBlockchainBalance(address, blockchain);
-    console.log(`Retrieved ${blockchain} balance: ${balance}`);
+    
+    // Log with full details to trace any precision issues
+    console.log(`Retrieved ${blockchain} balance details:`, {
+      balance,
+      exactValue: balance.toString(),
+      isNonZero: balance > 0,
+      smallValueCheck: balance > 0 && balance < 0.001 ? 'Very small balance' : 'Normal balance'
+    });
+    
     return balance;
   } catch (error) {
     console.error(`Error fetching ${blockchain} balance for ${address}:`, error);

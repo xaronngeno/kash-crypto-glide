@@ -35,6 +35,7 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
         amount: asset.amount,
         type: typeof asset.amount,
         value: asset.value,
+        exactAmount: asset.amount.toString(),
         isNonZero: asset.amount > 0
       });
     });
@@ -67,8 +68,8 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   const formatTokenAmount = (amount: number, symbol: string) => {
     if (amount === 0) return '0';
     
-    // Show more decimals for smaller values
-    if (amount < 0.0001) return amount.toExponential(2);
+    // Show more decimals for smaller values to ensure visibility
+    if (amount < 0.0001) return amount.toFixed(9); // Show tiny balances with high precision
     if (amount < 0.01) return amount.toFixed(6);
     if (amount < 1) return amount.toFixed(4);
     

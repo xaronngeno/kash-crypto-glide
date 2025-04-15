@@ -66,13 +66,31 @@ export const useWalletInitializer = ({
         return;
       }
       
+      // Ensure wallet balances are properly logged before processing
+      console.log("Raw wallets before processing:", wallets.map(w => ({
+        blockchain: w.blockchain,
+        address: w.address,
+        balance: w.balance,
+        balanceType: typeof w.balance,
+        nonZero: w.balance > 0
+      })));
+      
       console.log("Processing wallets into assets...");
       const processedAssets = processWallets(wallets);
+      
+      // Log detailed information about processed assets
       console.log("Processed assets:", processedAssets);
+      console.log("Assets with non-zero balances:", 
+        processedAssets.filter(a => a.amount > 0));
       
       // Log asset amounts for debugging
       processedAssets.forEach(asset => {
-        console.log(`Asset ${asset.symbol} balance: ${asset.amount}, value: ${asset.value}`);
+        console.log(`Asset ${asset.symbol} balance details:`, {
+          amount: asset.amount,
+          exactAmount: asset.amount.toString(),
+          value: asset.value,
+          isNonZero: asset.amount > 0
+        });
       });
       
       setAssets(processedAssets);
