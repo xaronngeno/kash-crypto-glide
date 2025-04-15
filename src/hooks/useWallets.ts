@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Asset } from '@/types/assets';
 import { useAuth } from '@/components/AuthProvider';
@@ -44,6 +45,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
     setRefreshCounter(prev => prev + 1);
   }, []);
 
+  // Update asset prices when prices change
   useEffect(() => {
     if (!prices || Object.keys(prices).length === 0 || assets.length === 0) {
       return;
@@ -69,8 +71,9 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
     
     globalAssetCache.assets = updatedAssets;
     globalAssetCache.timestamp = Date.now();
-  }, [prices]); 
+  }, [prices, assets]); 
 
+  // Fetch wallets when user changes or on refresh
   useEffect(() => {
     if (!user || !session?.access_token) {
       console.log("No user or session available");
@@ -98,6 +101,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
       }
       
       try {
+        console.log(`Fetching wallets for user ${user.id}`);
         const wallets = await fetchWalletBalances({
           userId: user.id,
           onError: (err) => {
@@ -110,6 +114,8 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
           }
         });
         
+        console.log("Fetched wallets:", wallets);
+        
         if (!wallets || wallets.length === 0) {
           console.log("No wallets found, creating initial wallets");
           
@@ -118,9 +124,13 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
             
             try {
               const newWallets = await createUserWallets(user.id);
+              console.log("Created new wallets:", newWallets);
+              
               if (newWallets && newWallets.length > 0) {
                 markWalletsAsCreated();
                 const processedAssets = processWallets(newWallets);
+                console.log("Processed new wallet assets:", processedAssets);
+                
                 setAssets(processedAssets);
                 
                 globalAssetCache.assets = processedAssets;
@@ -134,7 +144,10 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
           return;
         }
         
+        console.log("Processing wallets into assets...");
         const processedAssets = processWallets(wallets);
+        console.log("Processed assets:", processedAssets);
+        
         setAssets(processedAssets);
         initialLoadDone.current = true;
         

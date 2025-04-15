@@ -34,15 +34,27 @@ export const fetchWalletBalances = async ({
       return [];
     }
     
-    // Log wallet types received
-    if (data?.wallets) {
-      const ethWallets = data.wallets.filter(w => w.blockchain === 'Ethereum');
-      const solWallets = data.wallets.filter(w => w.blockchain === 'Solana');
-      
-      console.log(`Received wallets - ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
+    if (!data?.wallets || data.wallets.length === 0) {
+      console.log("No wallets returned from the API");
+      return [];
     }
     
-    return data?.wallets || [];
+    // Ensure we have numeric balance values (fix potential string values)
+    const processedWallets = data.wallets.map(wallet => ({
+      ...wallet,
+      balance: typeof wallet.balance === 'string' 
+        ? parseFloat(wallet.balance) || 0
+        : (typeof wallet.balance === 'number' ? wallet.balance : 0)
+    }));
+    
+    // Log wallet types received
+    const ethWallets = processedWallets.filter(w => w.blockchain === 'Ethereum');
+    const solWallets = processedWallets.filter(w => w.blockchain === 'Solana');
+    
+    console.log(`Received wallets - ETH: ${ethWallets.length}, SOL: ${solWallets.length}`);
+    console.log("Processed wallet data:", processedWallets);
+    
+    return processedWallets;
   } catch (err) {
     console.error("Error in fetchWalletBalances:", err);
     const error = err instanceof Error ? err : new Error("Unknown error fetching wallet balances");

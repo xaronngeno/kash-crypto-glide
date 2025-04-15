@@ -32,7 +32,11 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
         
-        const balance = parseFloat(wallet.balance as any) || 0;
+        // Convert balance to number and handle possible string values
+        const balance = typeof wallet.balance === 'string' 
+          ? parseFloat(wallet.balance) 
+          : (typeof wallet.balance === 'number' ? wallet.balance : 0);
+          
         console.log(`Processing wallet ${wallet.blockchain} with symbol ${symbol}, balance: ${balance}`);
         
         // Validate address format based on blockchain type
@@ -54,20 +58,24 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           console.info('Continuing with address despite validation failure (development mode)');
         }
         
+        // Determine wallet type with fallback logic
+        const walletType = wallet.wallet_type || 
+          (wallet.blockchain === wallet.currency ? 'native' : 'token');
+        
         const asset: Asset = {
-          id: `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type || 'default'}`,
+          id: `${wallet.blockchain}-${wallet.currency}-${walletType}`,
           name: priceData?.name || wallet.currency || 'Unknown',
           symbol: symbol,
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
           address: validAddress,
-          amount: balance,  // Ensure we're setting the amount correctly
+          amount: balance,
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
           value: balance * (priceData?.price || 0),
           icon: symbol.slice(0, 1),
           platform: priceData?.platform || { name: wallet.blockchain, logo: `/placeholder.svg` },
-          walletType: wallet.wallet_type || (wallet.blockchain === wallet.currency ? 'native' : 'token'),
+          walletType: walletType,
           contractAddress: wallet.contract_address,
         };
         
