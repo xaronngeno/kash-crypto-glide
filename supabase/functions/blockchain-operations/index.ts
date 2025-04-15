@@ -1,97 +1,21 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { corsHeaders } from '../_shared/cors.ts';
-
-// For Solana operations
-import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } from "https://esm.sh/@solana/web3.js@1.91.1";
-
-// For Ethereum operations
-import * as ethers from "https://esm.sh/ethers@6.13.5";
-
-// Network endpoints - optimized for production mainnet use
-const NETWORK_ENDPOINTS = {
-  ETHEREUM: {
-    MAINNET: 'https://ethereum.publicnode.com',
-    TESTNET: 'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-  },
-  SOLANA: {
-    MAINNET: 'https://api.mainnet-beta.solana.com',
-    TESTNET: 'https://api.devnet.solana.com',
-  }
-};
-
-// Set to mainnet for production use
-const NETWORK_ENV = 'MAINNET';
-
-// Application commission wallets - updated with your addresses
-const APPLICATION_WALLETS = {
-  ETHEREUM: '0x5D2bEE609F1E302B19329d0B9FC4F68b446F2F68', // Your ETH wallet
-  SOLANA: '4c15FP5MGt1sUR8Xd9AJdL84C1EMXhXVwuqCcxfgCgDu', // Your Solana address
-};
-
-// Commission settings (can be moved to database later)
-const COMMISSION_SETTINGS = {
-  PERCENTAGE: 0.005, // 0.5% commission (updated from 1%)
-  MIN_COMMISSION: {
-    ETHEREUM: 0.0002, // Minimum 0.0002 ETH (reduced to match percentage)
-    SOLANA: 0.005, // Minimum 0.005 SOL (reduced to match percentage)
-  },
-  MAX_COMMISSION: {
-    ETHEREUM: 0.025, // Maximum 0.025 ETH (reduced to match percentage)
-    SOLANA: 0.5, // Maximum 0.5 SOL (reduced to match percentage)
-  }
-};
+import { getBlockchainBalance } from './balance-operations.ts';
+import { processEthereumTransaction, processSolanaTransaction } from './transaction-operations.ts';
+import { APPLICATION_WALLETS } from './utils.ts';
 
 // Track active operations for proper shutdown handling
-let activeOperations = 0;
+const activeOperations = { count: 0 };
 let isShuttingDown = false;
 
 addEventListener('beforeunload', (ev) => {
   const reason = ev.detail?.reason || 'unknown reason';
   console.log(`Function shutdown initiated due to: ${reason}`);
   isShuttingDown = true;
-  console.log(`Shutdown with ${activeOperations} active operations`);
+  console.log(`Shutdown with ${activeOperations.count} active operations`);
 });
-
-// Helper to track operations for clean shutdown
-function trackOperation<T>(operation: Promise<T>): Promise<T> {
-  activeOperations++;
-  return operation.finally(() => {
-    activeOperations--;
-    if (activeOperations < 0) activeOperations = 0;
-  });
-}
-
-// Calculate commission for a transaction
-function calculateCommission(amount: number, blockchain: string): {
-  commissionAmount: number;
-  finalAmount: number;
-} {
-  const percentage = COMMISSION_SETTINGS.PERCENTAGE;
-  const commissionAmount = amount * percentage;
-  
-  // Apply min/max commission constraints
-  let finalCommission = commissionAmount;
-  
-  if (blockchain === 'Ethereum') {
-    finalCommission = Math.max(finalCommission, COMMISSION_SETTINGS.MIN_COMMISSION.ETHEREUM);
-    finalCommission = Math.min(finalCommission, COMMISSION_SETTINGS.MAX_COMMISSION.ETHEREUM);
-  } else if (blockchain === 'Solana') {
-    finalCommission = Math.max(finalCommission, COMMISSION_SETTINGS.MIN_COMMISSION.SOLANA);
-    finalCommission = Math.min(finalCommission, COMMISSION_SETTINGS.MAX_COMMISSION.SOLANA);
-  }
-  
-  // Make sure commission isn't larger than the amount
-  finalCommission = Math.min(finalCommission, amount * 0.5); // Never take more than 50%
-  
-  // Calculate final amount after commission
-  const finalAmount = amount - finalCommission;
-  
-  return {
-    commissionAmount: finalCommission,
-    finalAmount
-  };
-}
 
 serve(async (req: Request) => {
   // Handle CORS for browser requests
@@ -124,7 +48,7 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log(`Processing ${operation} for ${blockchain} address ${address} on ${NETWORK_ENV}`);
+    console.log(`Processing ${operation} for ${blockchain} address ${address}`);
     
     // Handle shutdown gracefully
     if (isShuttingDown) {
@@ -141,33 +65,17 @@ serve(async (req: Request) => {
     // Handle different blockchain operations
     switch (operation) {
       case 'getBalance': {
-        let balance = 0;
-        
-        try {
-          if (blockchain === 'Solana') {
-            const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV]);
-            const publicKey = new PublicKey(address);
-            const rawBalance = await trackOperation(connection.getBalance(publicKey));
-            balance = rawBalance / 1_000_000_000; // Convert from lamports to SOL
-          } 
-          else if (blockchain === 'Ethereum') {
-            const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
-            const rawBalance = await trackOperation(provider.getBalance(address));
-            balance = parseFloat(ethers.formatEther(rawBalance));
-          }
-          else {
-            throw new Error(`Unsupported blockchain: ${blockchain}`);
-          }
-        } catch (blockchainError) {
-          console.error(`Error fetching ${blockchain} balance:`, blockchainError);
-          // Continue with zero balance rather than failing completely
-        }
+        const balance = await getBlockchainBalance(
+          address, 
+          blockchain as 'Ethereum' | 'Solana',
+          activeOperations
+        );
         
         return new Response(
           JSON.stringify({ 
             success: true, 
             balance,
-            network: NETWORK_ENV 
+            network: 'MAINNET' 
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -185,57 +93,31 @@ serve(async (req: Request) => {
           );
         }
         
-        // Calculate commission
-        const { commissionAmount, finalAmount } = calculateCommission(amount, blockchain);
-        
-        // Get application commission wallet address
-        const appWalletAddress = blockchain === 'Ethereum' 
-          ? APPLICATION_WALLETS.ETHEREUM 
-          : APPLICATION_WALLETS.SOLANA;
-        
         try {
-          let txHash;
+          let txResult;
           
           if (blockchain === 'Ethereum') {
-            const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
-            const wallet = new ethers.Wallet(privateKey, provider);
-            
-            // Send to application wallet first (commission)
-            const commissionTx = await wallet.sendTransaction({
-              to: appWalletAddress,
-              value: ethers.parseEther(commissionAmount.toString())
-            });
-            await commissionTx.wait();
-            
-            // Send remaining amount to the final recipient
-            const recipientTx = await wallet.sendTransaction({
-              to: recipient,
-              value: ethers.parseEther(finalAmount.toString())
-            });
-            await recipientTx.wait();
-            
-            txHash = recipientTx.hash;
+            txResult = await processEthereumTransaction(privateKey, recipient, amount);
           } 
           else if (blockchain === 'Solana') {
-            const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV]);
-            const senderKeypair = /* implementation for Solana transaction would go here */
-              { publicKey: new PublicKey(address) }; // Placeholder
-              
-            // For Solana we would need to properly implement the transaction
-            // This is a simplified placeholder
-            txHash = "solana-transaction-hash-placeholder";
+            txResult = await processSolanaTransaction(privateKey, recipient, amount, address);
           } 
           else {
             throw new Error(`Unsupported blockchain: ${blockchain}`);
           }
           
+          // Get application commission wallet address
+          const appWalletAddress = blockchain === 'Ethereum' 
+            ? APPLICATION_WALLETS.ETHEREUM 
+            : APPLICATION_WALLETS.SOLANA;
+          
           return new Response(
             JSON.stringify({
               success: true,
-              txHash,
+              txHash: txResult.txHash,
               originalAmount: amount,
-              commissionAmount,
-              finalAmount,
+              commissionAmount: txResult.commissionAmount,
+              finalAmount: txResult.finalAmount,
               recipient,
               applicationWallet: appWalletAddress
             }),
@@ -246,7 +128,7 @@ serve(async (req: Request) => {
           return new Response(
             JSON.stringify({ 
               success: false, 
-              error: `Transaction failed: ${txError.message || 'Unknown error'}` 
+              error: `Transaction failed: ${txError instanceof Error ? txError.message : 'Unknown error'}` 
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
           );
@@ -262,7 +144,7 @@ serve(async (req: Request) => {
         try {
           // This would fetch transaction history from blockchain explorers
           // Implementation depends on which explorer APIs you want to use
-          console.log(`Would fetch transaction history from: ${explorerUrls[blockchain]}`);
+          console.log(`Would fetch transaction history from: ${explorerUrls[blockchain as keyof typeof explorerUrls]}`);
         } catch (historyError) {
           console.error(`Error fetching transaction history:`, historyError);
         }
@@ -287,7 +169,7 @@ serve(async (req: Request) => {
     console.error('Unexpected error:', error);
     
     return new Response(
-      JSON.stringify({ success: false, error: error.message || 'Unknown error' }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
