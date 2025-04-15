@@ -58,7 +58,7 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
     const publicKey = new PublicKey(address);
     const balance = await connection.getBalance(publicKey);
     
-    // Convert from lamports to SOL with high precision - DO NOT ROUND
+    // Convert from lamports to SOL with 12 decimal precision - DO NOT ROUND
     const solBalance = parseFloat((balance / 1_000_000_000).toFixed(12));
     
     // Log all details of the calculation
@@ -66,6 +66,7 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
       lamports: balance,
       sol: solBalance,
       exactValue: solBalance.toString(),
+      stringWith12Decimals: solBalance.toFixed(12),
       calculationType: 'Raw lamports / 10^9',
       isNonZero: solBalance > 0
     });
@@ -86,13 +87,14 @@ export const fetchEthereumBalance = async (address: string): Promise<number> => 
     
     // Convert from wei to ETH with high precision
     const ethString = ethers.formatEther(balance);
-    const ethBalance = parseFloat(ethString);
+    const ethBalance = parseFloat(parseFloat(ethString).toFixed(12));
     
     // Log all details of the calculation
     console.log(`Ethereum balance for ${address}: ${ethBalance} ETH`, {
       wei: balance.toString(),
       eth: ethBalance,
       exactValue: ethBalance.toString(),
+      stringWith12Decimals: ethBalance.toFixed(12),
       calculationType: 'ethers.formatEther(wei)',
       isNonZero: ethBalance > 0
     });
@@ -129,14 +131,18 @@ export const getBlockchainBalance = async (
           timeout(15000) // 15 second timeout
         ]);
         
+        // Ensure result has 12 decimal precision
+        const resultWith12Decimals = parseFloat(result.toFixed(12));
+        
         // Log the result with full precision - NEVER ROUND SMALL VALUES
-        console.log(`${blockchain} balance result:`, {
-          value: result,
-          exactString: result.toString(),
-          hasValue: result > 0
+        console.log(`${blockchain} balance result with 12 decimals:`, {
+          originalValue: result,
+          value12Decimals: resultWith12Decimals,
+          stringValue: resultWith12Decimals.toFixed(12),
+          hasValue: resultWith12Decimals > 0
         });
         
-        return result;
+        return resultWith12Decimals;
       } catch (error) {
         if ((error as Error).message?.includes('timed out')) {
           console.error(`Timeout fetching ${blockchain} balance for ${address}`);
@@ -148,7 +154,7 @@ export const getBlockchainBalance = async (
     const balance = await fetchWithTimeout();
     console.log(`Final ${blockchain} balance for ${address}:`, {
       value: balance,
-      exactString: balance.toString(),
+      exactString: balance.toFixed(12),
       hasValue: balance > 0
     });
     

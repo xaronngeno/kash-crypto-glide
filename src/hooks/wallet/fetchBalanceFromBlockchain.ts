@@ -33,25 +33,28 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
           wallet.blockchain as 'Ethereum' | 'Solana'
         );
         
+        // Ensure balance has exactly 12 decimals precision
+        const preciseBalance = parseFloat(balance.toFixed(12));
+        
         // Update the cache
         const cacheKey = `${wallet.blockchain}-${wallet.address}`;
-        balanceCache.set(cacheKey, { balance, timestamp: Date.now() });
+        balanceCache.set(cacheKey, { balance: preciseBalance, timestamp: Date.now() });
         
-        // Log the raw and processed balance values with full precision
-        console.log(`Retrieved ${wallet.blockchain} balance: ${balance}`);
+        // Log the raw and processed balance values with 12 decimals precision
+        console.log(`Retrieved ${wallet.blockchain} balance: ${preciseBalance}`);
         console.log(`Balance details for ${wallet.blockchain}:`, {
           rawBalance: balance,
-          formattedBalance: String(balance),
-          type: typeof balance,
-          valueIsNonZero: balance > 0,
-          valueAsString: balance.toString()
+          formattedBalance: preciseBalance.toFixed(12),
+          type: typeof preciseBalance,
+          valueIsNonZero: preciseBalance > 0,
+          valueAsString: preciseBalance.toFixed(12)
         });
       
-        // Update the balance in the database - STORE EXACT VALUE without any processing
+        // Update the balance in the database - STORE EXACT VALUE with 12 decimal precision
         const { error } = await supabase
           .from('wallets')
           .update({ 
-            balance: balance, // Store as is - database should handle numeric values correctly
+            balance: preciseBalance, // Store with 12 decimals precision
             updated_at: new Date().toISOString()
           })
           .eq('address', wallet.address)
@@ -61,7 +64,7 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
           console.error(`Error updating ${wallet.blockchain} balance in database:`, error);
           failureCount++;
         } else {
-          console.log(`Successfully updated ${wallet.blockchain} balance in database: ${balance}`);
+          console.log(`Successfully updated ${wallet.blockchain} balance in database: ${preciseBalance.toFixed(12)}`);
           successCount++;
         }
       }
@@ -101,15 +104,18 @@ export const fetchBalanceFromBlockchain = async (
     console.log(`Direct blockchain balance request for ${blockchain} address ${address}`);
     const balance = await getBlockchainBalance(address, blockchain);
     
+    // Ensure exact 12 decimal precision
+    const preciseBalance = parseFloat(balance.toFixed(12));
+    
     // Log with full details to trace any precision issues
     console.log(`Retrieved ${blockchain} balance details:`, {
       balance,
-      exactValue: balance.toString(),
-      isNonZero: balance > 0,
-      smallValueCheck: balance > 0 && balance < 0.001 ? 'Very small balance' : 'Normal balance'
+      exactValue: preciseBalance.toFixed(12),
+      isNonZero: preciseBalance > 0,
+      smallValueCheck: preciseBalance > 0 && preciseBalance < 0.001 ? 'Very small balance' : 'Normal balance'
     });
     
-    return balance;
+    return preciseBalance;
   } catch (error) {
     console.error(`Error fetching ${blockchain} balance for ${address}:`, error);
     return 0;

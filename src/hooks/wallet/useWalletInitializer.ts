@@ -52,8 +52,18 @@ export const useWalletInitializer = ({
             
             if (newWallets && newWallets.length > 0) {
               markWalletsAsCreated();
-              const processedAssets = processWallets(newWallets);
-              console.log("Processed new wallet assets:", processedAssets);
+              
+              // Ensure wallet balances have 12 decimal places
+              const walletsWithPreciseBalances = newWallets.map(wallet => ({
+                ...wallet,
+                balance: typeof wallet.balance === 'number' ? 
+                  parseFloat(wallet.balance.toFixed(12)) : 
+                  typeof wallet.balance === 'string' ? 
+                    parseFloat(parseFloat(wallet.balance).toFixed(12)) : 0
+              }));
+              
+              const processedAssets = processWallets(walletsWithPreciseBalances);
+              console.log("Processed new wallet assets with 12 decimals:", processedAssets);
               
               setAssets(processedAssets);
               cacheAssets(processedAssets);
@@ -66,20 +76,36 @@ export const useWalletInitializer = ({
         return;
       }
       
-      // Ensure wallet balances are properly logged before processing
-      console.log("Raw wallets before processing:", wallets.map(w => ({
-        blockchain: w.blockchain,
-        address: w.address,
-        balance: w.balance,
-        balanceType: typeof w.balance,
-        balanceString: String(w.balance),
-        nonZero: Number(w.balance) > 0
-      })));
+      // Ensure wallet balances are properly logged with 12 decimals before processing
+      console.log("Raw wallets before processing:", wallets.map(w => {
+        const balanceAsNumber = typeof w.balance === 'string' ? 
+          parseFloat(w.balance) : 
+          typeof w.balance === 'number' ? 
+            w.balance : 0;
+            
+        return {
+          blockchain: w.blockchain,
+          address: w.address,
+          balance: balanceAsNumber,
+          balanceType: typeof balanceAsNumber,
+          balanceString: balanceAsNumber.toFixed(12),
+          nonZero: balanceAsNumber > 0
+        };
+      }));
+      
+      // Ensure all wallets have balances with 12 decimal places
+      const walletsWithPreciseBalances = wallets.map(wallet => ({
+        ...wallet,
+        balance: typeof wallet.balance === 'number' ? 
+          parseFloat(wallet.balance.toFixed(12)) : 
+          typeof wallet.balance === 'string' ? 
+            parseFloat(parseFloat(wallet.balance).toFixed(12)) : 0
+      }));
       
       console.log("Processing wallets into assets...");
-      const processedAssets = processWallets(wallets);
+      const processedAssets = processWallets(walletsWithPreciseBalances);
       
-      // Log detailed information about processed assets
+      // Log detailed information about processed assets with 12 decimals
       console.log("Processed assets:", processedAssets);
       console.log("Assets with non-zero balances:", 
         processedAssets.filter(a => a.amount > 0));
@@ -88,7 +114,7 @@ export const useWalletInitializer = ({
       processedAssets.forEach(asset => {
         console.log(`Asset ${asset.symbol} balance details:`, {
           amount: asset.amount,
-          exactAmount: String(asset.amount),
+          exactAmount: asset.amount.toFixed(12),
           value: asset.value,
           isNonZero: asset.amount > 0,
           amountType: typeof asset.amount

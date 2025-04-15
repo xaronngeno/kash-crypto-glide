@@ -16,7 +16,7 @@ export async function getSolanaBalance(
     // Fetch raw balance from blockchain
     const rawBalance = await trackOperation(connection.getBalance(publicKey), activeOperations);
     
-    // Convert from lamports to SOL with high precision - DO NOT ROUND OR LOSE PRECISION
+    // Convert from lamports to SOL with exactly 12 decimals precision
     const balance = parseFloat((rawBalance / 1_000_000_000).toFixed(12)); 
     
     // Log every detail of the balance calculation
@@ -24,7 +24,7 @@ export async function getSolanaBalance(
       address,
       rawLamports: rawBalance,
       convertedSOL: balance,
-      stringBalance: balance.toString(),
+      stringBalance: balance.toFixed(12),
       calculationType: 'lamports / 10^9',
       isZero: balance === 0,
       isNonZero: balance > 0
@@ -49,9 +49,9 @@ export async function getEthereumBalance(
     // Fetch raw balance from blockchain
     const rawBalance = await trackOperation(provider.getBalance(address), activeOperations);
     
-    // Convert from wei to ETH with high precision - DO NOT LOSE PRECISION
+    // Convert from wei to ETH with exactly 12 decimals precision
     const ethString = ethers.formatEther(rawBalance);
-    const balance = parseFloat(ethString);
+    const balance = parseFloat(parseFloat(ethString).toFixed(12));
     
     // Log every detail of the balance calculation
     console.log(`Retrieved Ethereum balance details:`, {
@@ -59,13 +59,13 @@ export async function getEthereumBalance(
       rawWei: rawBalance.toString(),
       ethString: ethString,
       convertedETH: balance,
-      stringBalance: balance.toString(),
+      stringBalance: balance.toFixed(12),
       calculationType: 'wei converted to ETH',
       isZero: balance === 0,
       isNonZero: balance > 0
     });
     
-    return balance; // Return exact value without rounding
+    return balance; // Return exact value with 12 decimals
   } catch (error) {
     console.error(`Error fetching Ethereum balance:`, error);
     return 0;
@@ -98,14 +98,17 @@ export async function getBlockchainBalance(
           timeout(15000) // 15 second timeout
         ]);
         
-        // Preserve small balances - don't round or lose precision
-        console.log(`${blockchain} balance result (exact value):`, {
-          amount: result,
-          stringAmount: result.toString(),
-          isNonZero: result > 0
+        // Ensure result has 12 decimals precision
+        const resultWith12Decimals = parseFloat(result.toFixed(12));
+        
+        // Log results with 12 decimals
+        console.log(`${blockchain} balance result (exact value with 12 decimals):`, {
+          amount: resultWith12Decimals,
+          stringAmount: resultWith12Decimals.toFixed(12),
+          isNonZero: resultWith12Decimals > 0
         });
         
-        return result;
+        return resultWith12Decimals;
       } catch (error) {
         if ((error as Error).message?.includes('timed out')) {
           console.error(`Timeout fetching ${blockchain} balance for ${address}`);
@@ -116,10 +119,10 @@ export async function getBlockchainBalance(
     
     const balance = await fetchWithTimeout();
     
-    // Output exact balance with all decimals
+    // Output exact balance with 12 decimals
     console.log(`Final ${blockchain} balance for ${address}:`, {
       value: balance,
-      stringValue: balance.toString(),
+      stringValue: balance.toFixed(12),
       isNonZero: balance > 0
     });
     

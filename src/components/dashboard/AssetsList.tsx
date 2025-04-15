@@ -29,13 +29,13 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
     const ethereumAssets = assets.filter(asset => asset.blockchain === 'Ethereum');
     console.log("Ethereum assets:", ethereumAssets);
     
-    // Log individual asset amounts for debugging
+    // Log individual asset amounts for debugging with 12 decimals
     assets.forEach(asset => {
       console.log(`Asset ${asset.symbol} details:`, {
         amount: asset.amount,
         type: typeof asset.amount,
         value: asset.value,
-        exactAmount: String(asset.amount),
+        exactAmount: asset.amount.toFixed(12),
         isNonZero: asset.amount > 0
       });
     });
@@ -64,19 +64,12 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
     navigate(`/coin/${asset.symbol.toLowerCase()}`);
   };
   
-  // Format balance with appropriate decimal places based on the value
+  // Format balance with exactly 12 decimal places
   const formatTokenAmount = (amount: number, symbol: string) => {
-    if (amount === 0) return '0';
+    if (amount === 0) return '0.000000000000';
     
-    // Show more decimals for smaller values to ensure visibility
-    if (amount < 0.0001) return amount.toFixed(9); // Show tiny balances with high precision
-    if (amount < 0.01) return amount.toFixed(6);
-    if (amount < 1) return amount.toFixed(4);
-    
-    return amount.toLocaleString('en-US', { 
-      maximumFractionDigits: 6,
-      minimumFractionDigits: 0
-    });
+    // Always display 12 decimals for consistency
+    return amount.toFixed(12).replace(/\.?0+$/, '');
   };
   
   return (

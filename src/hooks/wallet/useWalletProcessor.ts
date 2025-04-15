@@ -28,22 +28,22 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
         
-        // CRITICAL: Ensure balance is properly preserved as a number
+        // CRITICAL: Ensure balance is properly preserved as a number with exactly 12 decimal places
         let balance: number;
         
         // Handle different types of balance data that could come from the API
         if (typeof wallet.balance === 'string') {
           // Parse string to float, preserving decimal precision
-          balance = parseFloat(wallet.balance);
+          balance = parseFloat(parseFloat(wallet.balance).toFixed(12));
         } else if (typeof wallet.balance === 'number') {
-          // Use number directly
-          balance = wallet.balance;
+          // Use number directly, but ensure 12 decimal precision
+          balance = parseFloat(wallet.balance.toFixed(12));
         } else if (wallet.balance === null || wallet.balance === undefined) {
           // Handle null/undefined case
           balance = 0;
         } else {
-          // Last resort - try to convert whatever it is to a number
-          balance = Number(wallet.balance) || 0;
+          // Last resort - try to convert whatever it is to a number with 12 decimals
+          balance = parseFloat(Number(wallet.balance).toFixed(12)) || 0;
         }
           
         // Debug logging for balance conversion
@@ -51,7 +51,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           rawBalance: wallet.balance,
           processedBalance: balance,
           valueType: typeof balance,
-          stringValue: String(balance),
+          stringValue: balance.toFixed(12),
           isNonZero: balance > 0
         });
         
@@ -78,7 +78,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         const walletType = wallet.wallet_type || 
           (wallet.blockchain === wallet.currency ? 'native' : 'token');
         
-        // Create the asset with precise balance handling
+        // Create the asset with precise 12 decimal balance handling
         const asset: Asset = {
           id: `${wallet.blockchain}-${wallet.currency}-${walletType}`,
           name: priceData?.name || wallet.currency || 'Unknown',
@@ -86,7 +86,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
           address: validAddress,
-          amount: balance, // Use properly processed balance
+          amount: balance, // Use properly processed balance with 12 decimals
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
           value: balance * (priceData?.price || 0),
@@ -96,11 +96,11 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           contractAddress: wallet.contract_address,
         };
         
-        // Additional logging for all assets
+        // Additional logging for all assets with 12 decimal precision
         console.log(`Created asset for ${wallet.blockchain}:`, {
           symbol: asset.symbol,
           amount: asset.amount,
-          stringAmount: String(asset.amount),
+          stringAmount: asset.amount.toFixed(12),
           value: asset.value,
           isNonZero: asset.amount > 0
         });
@@ -108,7 +108,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         return asset;
       });
       
-      // Log all processed assets - focusing on non-zero balances
+      // Log all processed assets - focusing on non-zero balances with 12 decimal precision
       const nonZeroAssets = processedAssets.filter(a => a.amount > 0);
       if (nonZeroAssets.length > 0) {
         console.log(`Found ${nonZeroAssets.length} assets with non-zero balances:`, 
@@ -116,7 +116,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
             symbol: a.symbol, 
             blockchain: a.blockchain,
             amount: a.amount,
-            stringAmount: String(a.amount)
+            stringAmount: a.amount.toFixed(12)
           }))
         );
       } else {
