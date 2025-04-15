@@ -17,3 +17,18 @@ export interface RateInfo {
   maxUsdtLimit: number;
   minKesAmount: number;
 }
+
+export interface SwapTransaction {
+  id: string;
+  fromAsset: string;
+  toAsset: string;
+  fromAmount: number;
+  toAmount: number;
+  timestamp: Date;
+  status: 'completed' | 'pending' | 'failed';
+}
+
+export interface SwapFormValues {
+  fromAmount: string;
+  toAmount: string;
+}
