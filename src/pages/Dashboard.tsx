@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/components/AuthProvider';
@@ -89,22 +89,23 @@ const Dashboard = () => {
 
   return (
     <MainLayout title="Portfolio">
-      <PullToRefresh 
-        onRefresh={handleRefresh}
-        pullToRefreshActive={pullToRefreshActive}
-        setPullToRefreshActive={setPullToRefreshActive}
-        refreshing={refreshing}
-      />
-      
       <div className="space-y-6">
         <DashboardError error={error} />
 
-        <BalanceDisplay 
-          totalBalance={totalBalance}
-          currency="USD"
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-        />
+        <div>
+          <PullToRefresh 
+            onRefresh={handleRefresh}
+            pullToRefreshActive={pullToRefreshActive}
+            setPullToRefreshActive={setPullToRefreshActive}
+            refreshing={refreshing}
+          />
+          <BalanceDisplay 
+            totalBalance={totalBalance}
+            currency="USD"
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+          />
+        </div>
           
         <div className="mt-4">
           <ActionButtons />

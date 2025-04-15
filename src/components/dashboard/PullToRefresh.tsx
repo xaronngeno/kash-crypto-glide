@@ -15,7 +15,6 @@ export const PullToRefresh = ({
   refreshing
 }: PullToRefreshProps) => {
   const pullStartY = useRef(0);
-  const contentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const content = document.documentElement;
@@ -56,7 +55,7 @@ export const PullToRefresh = ({
   if (!pullToRefreshActive) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 flex justify-center py-4 text-kash-green bg-white/80 z-50">
+    <div className="flex justify-center py-2 text-kash-green">
       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-kash-green"></div>
       <span className="ml-2">Release to refresh</span>
     </div>
