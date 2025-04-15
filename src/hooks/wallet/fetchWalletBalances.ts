@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { fetchBalanceFromBlockchain } from '@/hooks/wallet/fetchBalanceFromBlockchain';
+import { refreshWalletBalancesFromBlockchain } from '@/hooks/wallet/fetchBalanceFromBlockchain';
 
 /**
  * Fetch wallet balances and addresses with caching

@@ -115,3 +115,19 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
   
   return successCount > 0;
 };
+
+/**
+ * Helper function to fetch a wallet's balance directly from the blockchain
+ * This is exported for direct use by other components
+ */
+export const fetchBalanceFromBlockchain = async (
+  address: string, 
+  blockchain: 'Ethereum' | 'Solana'
+): Promise<number> => {
+  try {
+    return await getBlockchainBalance(address, blockchain);
+  } catch (error) {
+    console.error(`Error fetching ${blockchain} balance for ${address}:`, error);
+    return 0;
+  }
+};
