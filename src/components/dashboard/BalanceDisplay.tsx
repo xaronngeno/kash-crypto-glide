@@ -44,6 +44,12 @@ export const BalanceDisplay = ({
     }
   };
 
+  // Format balance with two decimal places
+  const formattedBalance = totalBalance.toLocaleString('en-US', { 
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2 
+  });
+
   return (
     <div className="flex flex-col items-center justify-center pt-4">
       <div className="text-gray-500 text-sm mb-1 flex items-center">
@@ -61,7 +67,7 @@ export const BalanceDisplay = ({
       <div className="flex items-center">
         <h1 className="text-3xl font-bold">
           {currency === 'USD' ? '$' : 'KES '}
-          {hideBalance ? '•••••' : totalBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+          {hideBalance ? '•••••' : formattedBalance}
         </h1>
         <button 
           onClick={() => setHideBalance(!hideBalance)}
@@ -70,6 +76,9 @@ export const BalanceDisplay = ({
           {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
       </div>
+      {totalBalance === 0 && (
+        <p className="text-sm text-gray-500 mt-1">No funds detected. Try refreshing.</p>
+      )}
     </div>
   );
 };

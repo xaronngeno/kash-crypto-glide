@@ -1,12 +1,17 @@
 
-// Centralized exports for wallet-related hooks and functions
-export { useWalletProcessor } from './useWalletProcessor';
-export { useWalletCreationStatus } from './useWalletCreationStatus';
-export { fetchWalletBalances, refreshWalletBalances } from './fetchWalletBalances';
-export { createUserWallets } from './createUserWallets';
-export { useWalletCache } from './useWalletCache';
-export { useWalletRefresh } from './useWalletRefresh';
-export { useWalletInitializer } from './useWalletInitializer';
-export { fetchBalanceFromBlockchain, refreshWalletBalancesFromBlockchain } from './fetchBalanceFromBlockchain';
-
-// Re-export any other wallet-related hooks and functions
+// Re-export everything from the wallet directory
+export * from './createUserWallets';
+export * from './createWallets';
+export * from './fetchBalanceFromBlockchain';
+export * from './fetchWalletBalances';
+export * from './useSeedPhrase';
+export * from './useWalletCache';
+export * from './useWalletCleanup';
+export * from './useWalletCreationStatus';
+export * from './useWalletGenerator';
+export * from './useWalletInitializer';
+export * from './useWalletManager';
+export * from './useWalletProcessor';
+export * from './useWalletRefresh';
+export * from './useWalletValidator';
+export * from './utils/transformWallet';

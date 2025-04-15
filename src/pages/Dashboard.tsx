@@ -79,7 +79,7 @@ const Dashboard = () => {
     } finally {
       setTimeout(() => {
         setRefreshing(false);
-      }, 1000); // Give more time for the refresh animation
+      }, 1500); // Give more time for the refresh animation
     }
   };
 
