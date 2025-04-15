@@ -32,6 +32,8 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
   const initialLoadDone = useRef(false);
   
   const reload = useCallback(() => {
+    // Force a reload by incrementing the refresh counter
+    console.log("Reloading wallet data...");
     setLoading(true);
     setRefreshCounter(prev => prev + 1);
   }, []);
@@ -65,7 +67,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
     // Log assets with non-zero balances
     const nonZeroAssets = updatedAssets.filter(a => a.amount > 0);
     if (nonZeroAssets.length > 0) {
-      console.log("Assets with non-zero balances:", nonZeroAssets);
+      console.log("Assets with non-zero balances after price update:", nonZeroAssets);
     }
     
     console.log("Updated assets with new prices:", updatedAssets);
@@ -101,6 +103,7 @@ export const useWallets = ({ prices, skipInitialLoad = false }: UseWalletsProps)
       }
       
       try {
+        console.log(`Initializing wallets for user ${user.id}, refresh: ${refreshCounter}`);
         await initializeWallets(user.id);
         initialLoadDone.current = true;
       } finally {

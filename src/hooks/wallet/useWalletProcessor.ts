@@ -24,18 +24,35 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
       
       // Process all wallets (native and token wallets)
       const processedAssets = wallets.map(wallet => {
+        // Ensure we have the proper symbol
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
         
-        // Convert balance to number and handle possible string values
-        const balance = typeof wallet.balance === 'string' 
-          ? parseFloat(wallet.balance) 
-          : (typeof wallet.balance === 'number' ? wallet.balance : 0);
+        // CRITICAL: Ensure balance is properly preserved as a number
+        let balance: number;
+        
+        // Handle different types of balance data that could come from the API
+        if (typeof wallet.balance === 'string') {
+          // Parse string to float, preserving decimal precision
+          balance = parseFloat(wallet.balance);
+        } else if (typeof wallet.balance === 'number') {
+          // Use number directly
+          balance = wallet.balance;
+        } else if (wallet.balance === null || wallet.balance === undefined) {
+          // Handle null/undefined case
+          balance = 0;
+        } else {
+          // Last resort - try to convert whatever it is to a number
+          balance = Number(wallet.balance) || 0;
+        }
           
+        // Debug logging for balance conversion
         console.log(`Processing ${wallet.blockchain} wallet with symbol ${symbol}:`, {
           rawBalance: wallet.balance,
           processedBalance: balance,
-          valueType: typeof wallet.balance
+          valueType: typeof balance,
+          stringValue: String(balance),
+          isNonZero: balance > 0
         });
         
         // Validate address format based on blockchain type
@@ -61,6 +78,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         const walletType = wallet.wallet_type || 
           (wallet.blockchain === wallet.currency ? 'native' : 'token');
         
+        // Create the asset with precise balance handling
         const asset: Asset = {
           id: `${wallet.blockchain}-${wallet.currency}-${walletType}`,
           name: priceData?.name || wallet.currency || 'Unknown',
@@ -68,7 +86,7 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
           address: validAddress,
-          amount: balance,
+          amount: balance, // Use properly processed balance
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
           value: balance * (priceData?.price || 0),
@@ -78,21 +96,40 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           contractAddress: wallet.contract_address,
         };
         
-        // Additional logging for assets with non-zero balances
-        if (asset.amount > 0) {
-          console.log(`Created asset with non-zero balance:`, {
-            symbol: asset.symbol,
-            amount: asset.amount,
-            value: asset.value
-          });
-        }
+        // Additional logging for all assets
+        console.log(`Created asset for ${wallet.blockchain}:`, {
+          symbol: asset.symbol,
+          amount: asset.amount,
+          stringAmount: String(asset.amount),
+          value: asset.value,
+          isNonZero: asset.amount > 0
+        });
         
         return asset;
       });
       
+      // Log all processed assets - focusing on non-zero balances
+      const nonZeroAssets = processedAssets.filter(a => a.amount > 0);
+      if (nonZeroAssets.length > 0) {
+        console.log(`Found ${nonZeroAssets.length} assets with non-zero balances:`, 
+          nonZeroAssets.map(a => ({
+            symbol: a.symbol, 
+            blockchain: a.blockchain,
+            amount: a.amount,
+            stringAmount: String(a.amount)
+          }))
+        );
+      } else {
+        console.log('No assets with non-zero balances found');
+      }
+      
       // Sort assets - native tokens first, then by value
       return processedAssets.sort((a, b) => {
-        // Native tokens first
+        // First sort by non-zero balance (non-zero first)
+        if (a.amount > 0 && b.amount === 0) return -1;
+        if (a.amount === 0 && b.amount > 0) return 1;
+        
+        // Then native tokens first
         if (a.walletType === 'native' && b.walletType !== 'native') return -1;
         if (a.walletType !== 'native' && b.walletType === 'native') return 1;
         

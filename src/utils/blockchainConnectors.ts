@@ -58,15 +58,16 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
     const publicKey = new PublicKey(address);
     const balance = await connection.getBalance(publicKey);
     
-    // Convert from lamports to SOL with high precision
-    const solBalance = balance / 1_000_000_000;
+    // Convert from lamports to SOL with high precision - DO NOT ROUND
+    const solBalance = parseFloat((balance / 1_000_000_000).toFixed(12));
     
     // Log all details of the calculation
     console.log(`Solana balance for ${address}: ${solBalance} SOL`, {
       lamports: balance,
       sol: solBalance,
       exactValue: solBalance.toString(),
-      calculationType: 'Raw lamports / 10^9'
+      calculationType: 'Raw lamports / 10^9',
+      isNonZero: solBalance > 0
     });
     
     return solBalance;
@@ -84,14 +85,16 @@ export const fetchEthereumBalance = async (address: string): Promise<number> => 
     const balance = await provider.getBalance(address);
     
     // Convert from wei to ETH with high precision
-    const ethBalance = parseFloat(ethers.formatEther(balance));
+    const ethString = ethers.formatEther(balance);
+    const ethBalance = parseFloat(ethString);
     
     // Log all details of the calculation
     console.log(`Ethereum balance for ${address}: ${ethBalance} ETH`, {
       wei: balance.toString(),
       eth: ethBalance,
       exactValue: ethBalance.toString(),
-      calculationType: 'ethers.formatEther(wei)'
+      calculationType: 'ethers.formatEther(wei)',
+      isNonZero: ethBalance > 0
     });
     
     return ethBalance;
@@ -120,21 +123,13 @@ export const getBlockchainBalance = async (
     const fetchWithTimeout = async (): Promise<number> => {
       try {
         const result = await Promise.race([
-          (async () => {
-            switch (blockchain) {
-              case 'Ethereum':
-                return await fetchEthereumBalance(address);
-              case 'Solana':
-                return await fetchSolanaBalance(address);
-              default:
-                console.error(`Unsupported blockchain: ${blockchain}`);
-                return 0;
-            }
-          })(),
+          blockchain === 'Ethereum' 
+            ? fetchEthereumBalance(address) 
+            : fetchSolanaBalance(address),
           timeout(15000) // 15 second timeout
         ]);
         
-        // Log the result with full precision
+        // Log the result with full precision - NEVER ROUND SMALL VALUES
         console.log(`${blockchain} balance result:`, {
           value: result,
           exactString: result.toString(),
@@ -153,7 +148,8 @@ export const getBlockchainBalance = async (
     const balance = await fetchWithTimeout();
     console.log(`Final ${blockchain} balance for ${address}:`, {
       value: balance,
-      exactString: balance.toString()
+      exactString: balance.toString(),
+      hasValue: balance > 0
     });
     
     return balance;

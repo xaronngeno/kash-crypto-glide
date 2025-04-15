@@ -72,7 +72,8 @@ export const useWalletInitializer = ({
         address: w.address,
         balance: w.balance,
         balanceType: typeof w.balance,
-        nonZero: w.balance > 0
+        balanceString: String(w.balance),
+        nonZero: Number(w.balance) > 0
       })));
       
       console.log("Processing wallets into assets...");
@@ -87,9 +88,10 @@ export const useWalletInitializer = ({
       processedAssets.forEach(asset => {
         console.log(`Asset ${asset.symbol} balance details:`, {
           amount: asset.amount,
-          exactAmount: asset.amount.toString(),
+          exactAmount: String(asset.amount),
           value: asset.value,
-          isNonZero: asset.amount > 0
+          isNonZero: asset.amount > 0,
+          amountType: typeof asset.amount
         });
       });
       

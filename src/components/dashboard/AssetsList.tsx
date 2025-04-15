@@ -35,7 +35,7 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
         amount: asset.amount,
         type: typeof asset.amount,
         value: asset.value,
-        exactAmount: asset.amount.toString(),
+        exactAmount: String(asset.amount),
         isNonZero: asset.amount > 0
       });
     });

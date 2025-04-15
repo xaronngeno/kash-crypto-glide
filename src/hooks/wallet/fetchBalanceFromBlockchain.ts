@@ -26,10 +26,6 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
   for (const wallet of wallets) {
     try {
       if (wallet.blockchain && wallet.address) {
-        // Check cache first
-        const cacheKey = `${wallet.blockchain}-${wallet.address}`;
-        const now = Date.now();
-        
         // We're definitely fetching from blockchain here
         console.log(`Fetching ${wallet.blockchain} balance for address ${wallet.address}`);
         const balance = await getBlockchainBalance(
@@ -38,27 +34,24 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
         );
         
         // Update the cache
-        balanceCache.set(cacheKey, { balance, timestamp: now });
-        console.log(`Retrieved ${wallet.blockchain} balance: ${balance}`);
+        const cacheKey = `${wallet.blockchain}-${wallet.address}`;
+        balanceCache.set(cacheKey, { balance, timestamp: Date.now() });
         
         // Log the raw and processed balance values with full precision
+        console.log(`Retrieved ${wallet.blockchain} balance: ${balance}`);
         console.log(`Balance details for ${wallet.blockchain}:`, {
           rawBalance: balance,
-          formattedBalance: balance.toString(),
+          formattedBalance: String(balance),
           type: typeof balance,
-          valueIsNonZero: balance > 0
+          valueIsNonZero: balance > 0,
+          valueAsString: balance.toString()
         });
-        
-        // Additional logging for non-zero balances
-        if (balance > 0) {
-          console.log(`Updated ${wallet.blockchain} balance: ${balance}`);
-        }
       
-        // Update the balance in the database - STORE EXACT VALUE
+        // Update the balance in the database - STORE EXACT VALUE without any processing
         const { error } = await supabase
           .from('wallets')
           .update({ 
-            balance: balance, // Store without rounding
+            balance: balance, // Store as is - database should handle numeric values correctly
             updated_at: new Date().toISOString()
           })
           .eq('address', wallet.address)
