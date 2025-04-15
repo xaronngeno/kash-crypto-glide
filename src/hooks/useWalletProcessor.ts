@@ -14,27 +14,20 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
         return [];
       }
 
-      // Log all wallet types being processed
-      const ethereumWallets = wallets.filter(w => w.blockchain === 'Ethereum');
-      const solanaWallets = wallets.filter(w => w.blockchain === 'Solana');
-      
-      console.log(`Processing ${wallets.length} total wallets:`);
-      console.log(`ETH wallets found:`, ethereumWallets);
-      console.log(`SOL wallets found:`, solanaWallets);
-      
       // Process all wallets (native and token wallets)
       const processedAssets = wallets.map(wallet => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
         
-        // Ensure balance is properly converted to number
-        let balance: number;
-        if (typeof wallet.balance === 'string') {
-          balance = parseFloat(wallet.balance) || 0;
-        } else if (typeof wallet.balance === 'number') {
-          balance = wallet.balance;
-        } else {
-          balance = 0;
+        // Improved balance conversion
+        let balance = 0;
+        if (wallet.balance !== undefined) {
+          balance = Number(wallet.balance);
+          
+          // Ensure small balances are not dropped
+          if (balance > 0 && balance < 0.001) {
+            balance = Number(wallet.balance.toFixed(6));
+          }
         }
           
         console.log(`Processing ${wallet.blockchain} wallet with symbol ${symbol}:`, {
@@ -43,69 +36,43 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           valueType: typeof wallet.balance
         });
         
-        // Validate address format based on blockchain type
-        let validAddress = wallet.address || 'Address Not Available';
-        let validationPassed = true;
-        
-        // Format validation for popular blockchains
-        if (wallet.blockchain === 'Ethereum' && !isEthereumAddress(validAddress)) {
-          console.warn(`Warning: Ethereum address doesn't match expected format: ${validAddress}`);
-          validationPassed = false;
-        }
-        
-        if (wallet.blockchain === 'Solana' && !isSolanaAddress(validAddress)) {
-          console.warn(`Warning: Solana address doesn't match expected format: ${validAddress}`);
-          validationPassed = false;
-        }
-        
-        if (!validationPassed && process.env.NODE_ENV === 'development') {
-          console.info('Continuing with address despite validation failure (development mode)');
-        }
-        
-        // Determine wallet type with fallback logic
-        const walletType = wallet.wallet_type || 
-          (wallet.blockchain === wallet.currency ? 'native' : 'token');
-        
         const asset: Asset = {
-          id: `${wallet.blockchain}-${wallet.currency}-${walletType}`,
+          id: `${wallet.blockchain}-${wallet.currency}-${wallet.wallet_type}`,
           name: priceData?.name || wallet.currency || 'Unknown',
           symbol: symbol,
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
-          address: validAddress,
+          address: wallet.address || 'Address Not Available',
           amount: balance,
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
           value: balance * (priceData?.price || 0),
           icon: symbol.slice(0, 1),
           platform: priceData?.platform || { name: wallet.blockchain, logo: `/placeholder.svg` },
-          walletType: walletType,
+          walletType: wallet.wallet_type || 'native',
           contractAddress: wallet.contract_address,
         };
         
-        // Additional logging for assets with non-zero balances
-        if (asset.amount > 0) {
-          console.log(`Created asset with non-zero balance:`, {
-            symbol: asset.symbol,
-            amount: asset.amount,
-            value: asset.value
-          });
-        }
+        // Extensive logging for diagnostics
+        console.log(`Created asset:`, {
+          symbol: asset.symbol,
+          amount: asset.amount,
+          value: asset.value,
+          blockchain: asset.blockchain
+        });
         
         return asset;
       });
+      
+      // Additional logging
+      const nonZeroAssets = processedAssets.filter(a => a.amount > 0);
+      console.log('Processed non-zero assets:', nonZeroAssets);
       
       // Sort assets - native tokens first, then by value
       return processedAssets.sort((a, b) => {
         // Native tokens first
         if (a.walletType === 'native' && b.walletType !== 'native') return -1;
         if (a.walletType !== 'native' && b.walletType === 'native') return 1;
-        
-        // Then by blockchain (ETH first, then SOL)
-        if (a.blockchain === 'Ethereum' && b.blockchain !== 'Ethereum') return -1;
-        if (a.blockchain !== 'Ethereum' && b.blockchain === 'Ethereum') return 1;
-        if (a.blockchain === 'Solana' && b.blockchain !== 'Solana') return -1;
-        if (a.blockchain !== 'Solana' && b.blockchain === 'Solana') return 1;
         
         // Then by value (highest first)
         return b.value - a.value;
