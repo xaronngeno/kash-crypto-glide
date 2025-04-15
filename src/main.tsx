@@ -20,8 +20,10 @@ console.log("Buffer availability check in main.tsx:", {
   } : null
 });
 
-// Remove the Toaster from here as it's already included in App.tsx
-ReactDOM.createRoot(document.getElementById('root')!).render(
+// Create the root first, then render with React.StrictMode and BrowserRouter
+const root = ReactDOM.createRoot(document.getElementById('root')!);
+
+root.render(
   <React.StrictMode>
     <BrowserRouter>
       <App />
