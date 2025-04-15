@@ -33,3 +33,10 @@ export interface SwapFormValues {
   fromAmount: string;
   toAmount: string;
 }
+
+export interface FloatingButtonOption {
+  icon: React.ReactNode;
+  label: string;
+  action: () => void;
+  color?: string;
+}

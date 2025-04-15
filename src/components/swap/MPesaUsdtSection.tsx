@@ -8,6 +8,7 @@ import SellUsdtTab from './SellUsdtTab';
 import BuyUsdtTab from './BuyUsdtTab';
 import MpesaHowItWorks from './MpesaHowItWorks';
 import { AssetInfo } from './types';
+import FloatingTradeButton from './FloatingTradeButton';
 
 interface MPesaUsdtSectionProps {
   asset?: AssetInfo;
@@ -82,6 +83,9 @@ const MPesaUsdtSection = ({ asset, balance, onTransactionComplete }: MPesaUsdtSe
       </div>
       
       <MpesaHowItWorks />
+      
+      {/* Add the floating trade button */}
+      <FloatingTradeButton />
     </div>
   );
 };
