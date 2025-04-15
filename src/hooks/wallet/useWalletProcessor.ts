@@ -24,6 +24,8 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
       
       // Log wallet balances for each wallet with more detail
       wallets.forEach(wallet => {
+        // Ensure balance is a number - MOST IMPORTANT CHANGE
+        // First check if it's a string (database sometimes returns balances as strings)
         const balanceValue = typeof wallet.balance === 'string' 
           ? parseFloat(wallet.balance) 
           : (typeof wallet.balance === 'number' ? wallet.balance : 0);

@@ -48,11 +48,11 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
           type: typeof balance
         });
       
-        // Update the balance in the database
+        // Update the balance in the database - IMPORTANT: Store as a string to preserve precision
         const { error } = await supabase
           .from('wallets')
           .update({ 
-            balance: balance,
+            balance: balance.toString(), // Store as string to preserve precision
             updated_at: new Date().toISOString()
           })
           .eq('address', wallet.address)
