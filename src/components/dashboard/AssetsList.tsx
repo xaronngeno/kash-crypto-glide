@@ -1,9 +1,17 @@
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Asset } from '@/types/assets';
 import Image from '@/components/ui/Image';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useWalletBalance } from '@/hooks/useWalletBalance';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { KashButton } from '@/components/ui/KashButton';
 
 interface AssetsListProps {
   assets: Asset[];
@@ -12,6 +20,7 @@ interface AssetsListProps {
 
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   const navigate = useNavigate();
+  const [refreshingAsset, setRefreshingAsset] = useState<string | null>(null);
   
   // Sort assets by value (highest first)
   const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
@@ -29,6 +38,29 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   
   const handleAssetClick = (asset: Asset) => {
     navigate(`/coin/${asset.symbol.toLowerCase()}`);
+  };
+  
+  const handleRefreshAsset = async (e: React.MouseEvent, asset: Asset) => {
+    e.stopPropagation();
+    
+    if (asset.address && (asset.blockchain === 'Ethereum' || asset.blockchain === 'Solana')) {
+      setRefreshingAsset(asset.id);
+      
+      try {
+        const { refresh } = useWalletBalance({
+          address: asset.address,
+          blockchain: asset.blockchain as 'Ethereum' | 'Solana',
+          autoFetch: false
+        });
+        
+        const balance = await refresh();
+        console.log(`Updated balance for ${asset.name}: ${balance}`);
+      } catch (error) {
+        console.error(`Error refreshing ${asset.name} balance:`, error);
+      } finally {
+        setRefreshingAsset(null);
+      }
+    }
   };
   
   return (
@@ -87,6 +119,26 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
                 {asset.change >= 0 ? '+' : ''}{asset.change.toFixed(2)}%
               </p>
             </div>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <KashButton
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 mr-1"
+                    onClick={(e) => handleRefreshAsset(e, asset)}
+                    disabled={!!refreshingAsset}
+                  >
+                    <RefreshCw size={14} className={refreshingAsset === asset.id ? "animate-spin" : ""} />
+                  </KashButton>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh from blockchain</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
             <ChevronRight size={18} className="text-gray-400" />
           </div>
         </div>
