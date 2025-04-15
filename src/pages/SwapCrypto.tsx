@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
@@ -24,7 +23,6 @@ interface CryptoAsset {
 }
 
 const SwapCrypto = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const { prices, loading: pricesLoading } = useCryptoPrices();
@@ -87,11 +85,6 @@ const SwapCrypto = () => {
     
     // Add transaction to history
     setTransactions([newTransaction, ...transactions]);
-    
-    toast({
-      title: 'Swap Successful',
-      description: `You have successfully swapped ${newTransaction.fromAmount} ${newTransaction.fromAsset} for ${newTransaction.toAmount.toFixed(6)} ${newTransaction.toAsset}.`,
-    });
   };
 
   if (pricesLoading) {
