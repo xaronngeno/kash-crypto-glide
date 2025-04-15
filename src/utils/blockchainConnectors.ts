@@ -15,8 +15,8 @@ const NETWORK_ENDPOINTS = {
   }
 };
 
-// Set to testnet for development purposes to see balances more easily
-export const NETWORK_ENV = 'TESTNET';
+// Set to MAINNET for production use with real balances
+export const NETWORK_ENV = 'MAINNET';
 
 // Cache connections to avoid recreating them for every request
 let solanaConnectionCache: Connection | null = null;
