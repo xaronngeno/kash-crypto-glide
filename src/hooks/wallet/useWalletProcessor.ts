@@ -19,16 +19,21 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
       const solanaWallets = wallets.filter(w => w.blockchain === 'Solana');
       
       console.log(`Processing ${wallets.length} total wallets:`);
-      console.log(`ETH wallets found: ${ethereumWallets.length > 0 ? JSON.stringify(ethereumWallets) : 'None'}`);
-      console.log(`SOL wallets found: ${solanaWallets.length > 0 ? JSON.stringify(solanaWallets) : 'None'}`);
+      console.log(`ETH wallets found:`, ethereumWallets);
+      console.log(`SOL wallets found:`, solanaWallets);
       
-      if (ethereumWallets.length > 0) console.log("Has Ethereum ETH:", true);
-      if (solanaWallets.length > 0) console.log("Has Solana SOL:", true);
+      // Log wallet balances for each wallet
+      wallets.forEach(wallet => {
+        console.log(`Wallet ${wallet.blockchain} ${wallet.address} balance:`, wallet.balance);
+      });
 
       // Process all wallets (native and token wallets)
       const processedAssets = wallets.map(wallet => {
         const symbol = wallet.currency || 'Unknown';
         const priceData = prices[symbol];
+        
+        const balance = parseFloat(wallet.balance as any) || 0;
+        console.log(`Processing wallet ${wallet.blockchain} with symbol ${symbol}, balance: ${balance}`);
         
         // Validate address format based on blockchain type
         let validAddress = wallet.address || 'Address Not Available';
@@ -56,16 +61,17 @@ export const useWalletProcessor = (prices: CryptoPrices) => {
           logo: priceData?.logo || `/placeholder.svg`,
           blockchain: wallet.blockchain,
           address: validAddress,
-          amount: parseFloat(wallet.balance as any) || 0,
+          amount: balance,  // Ensure we're setting the amount correctly
           price: priceData?.price || 0,
           change: priceData?.change_24h || 0,
-          value: (parseFloat(wallet.balance as any) || 0) * (priceData?.price || 0),
+          value: balance * (priceData?.price || 0),
           icon: symbol.slice(0, 1),
           platform: priceData?.platform || { name: wallet.blockchain, logo: `/placeholder.svg` },
           walletType: wallet.wallet_type || (wallet.blockchain === wallet.currency ? 'native' : 'token'),
           contractAddress: wallet.contract_address,
         };
         
+        console.log("Created asset:", asset);
         return asset;
       });
       

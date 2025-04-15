@@ -1,5 +1,5 @@
 
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { Asset } from '@/types/assets';
 import Image from '@/components/ui/Image';
 import { ChevronRight } from 'lucide-react';
@@ -12,6 +12,23 @@ interface AssetsListProps {
 
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   const navigate = useNavigate();
+  
+  // Debug log when assets change
+  useEffect(() => {
+    console.log("Assets in AssetsList:", assets);
+    
+    // Check for any assets with non-zero amounts
+    const nonZeroAssets = assets.filter(asset => asset.amount > 0);
+    console.log("Assets with non-zero amounts:", nonZeroAssets);
+    
+    // Log Solana assets specifically 
+    const solanaAssets = assets.filter(asset => asset.blockchain === 'Solana');
+    console.log("Solana assets:", solanaAssets);
+    
+    // Log Ethereum assets
+    const ethereumAssets = assets.filter(asset => asset.blockchain === 'Ethereum');
+    console.log("Ethereum assets:", ethereumAssets);
+  }, [assets]);
   
   const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
   

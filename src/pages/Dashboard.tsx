@@ -36,6 +36,22 @@ const Dashboard = () => {
   
   const error = pricesError || walletsError;
 
+  // Add debug logging to see what's happening with assets
+  useEffect(() => {
+    console.log("Dashboard - prices:", prices);
+    console.log("Dashboard - assets:", assets);
+    
+    // Check if we have any Solana wallet with a balance
+    const solanaWallets = assets.filter(a => a.blockchain === 'Solana');
+    if (solanaWallets.length > 0) {
+      console.log("Solana wallets:", solanaWallets);
+    }
+    
+    // Check if we have any assets with amount > 0
+    const nonZeroAssets = assets.filter(a => a.amount > 0);
+    console.log("Non-zero assets:", nonZeroAssets);
+  }, [assets, prices]);
+
   useEffect(() => {
     if (assets.length > 0 && !isDashboardInitialized.value) {
       console.log("Setting dashboard as initialized");
@@ -97,12 +113,16 @@ const Dashboard = () => {
     
     setRefreshing(true);
     try {
+      console.log("Starting wallet refresh");
       await refreshWalletBalances(user.id);
+      console.log("Wallet balances refreshed, reloading data");
       reload();
     } catch (error) {
       console.error("Error refreshing wallet balances:", error);
     } finally {
-      setRefreshing(false);
+      setTimeout(() => {
+        setRefreshing(false);
+      }, 500);
     }
   };
 
