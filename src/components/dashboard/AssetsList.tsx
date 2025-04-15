@@ -1,4 +1,3 @@
-
 import { memo, useState } from 'react';
 import { Asset } from '@/types/assets';
 import Image from '@/components/ui/Image';
@@ -22,7 +21,6 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   const navigate = useNavigate();
   const [refreshingAsset, setRefreshingAsset] = useState<string | null>(null);
   
-  // Sort assets by value (highest first)
   const sortedAssets = [...assets].sort((a, b) => b.value - a.value);
   
   const getTokenLabel = (asset: Asset) => {
@@ -125,7 +123,7 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
                 <TooltipTrigger asChild>
                   <KashButton
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     className="h-7 w-7 mr-1"
                     onClick={(e) => handleRefreshAsset(e, asset)}
                     disabled={!!refreshingAsset}
