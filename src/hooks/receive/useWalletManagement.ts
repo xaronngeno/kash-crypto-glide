@@ -1,152 +1,30 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { WalletAddress } from '@/types/wallet';
+import { toast } from '@/hooks/use-toast';
 import { refreshWalletBalances } from '@/hooks/wallet';
-import { WalletAddress, WalletResponse } from '@/types/wallet';
-import { getCurrencyLogo } from '@/utils/currencyUtils';
 
 interface UseWalletManagementProps {
-  userId: string | undefined;
+  userId?: string | null;
   skipInitialLoad?: boolean;
 }
 
-interface UseWalletManagementReturn {
-  walletAddresses: WalletAddress[];
-  loading: boolean;
-  creatingWallets: boolean;
-  noWalletsFound: boolean;
-  createWallets: () => Promise<void>;
-  handleTryAgain: () => Promise<void>;
-  refreshWalletBalancesOnly: (userId: string) => Promise<void>;
-}
-
-// Caching for wallet addresses to optimize performance
-const cachedWallets: {
-  addresses: WalletAddress[];
-  timestamp: number;
-  userId: string | null;
-} = {
-  addresses: [],
-  timestamp: 0,
-  userId: null
-};
-
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
-
-export const useWalletManagement = ({ 
-  userId, 
-  skipInitialLoad = false 
-}: UseWalletManagementProps): UseWalletManagementReturn => {
-  const { toast } = useToast();
+export const useWalletManagement = ({ userId, skipInitialLoad = false }: UseWalletManagementProps) => {
   const [walletAddresses, setWalletAddresses] = useState<WalletAddress[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [noWalletsFound, setNoWalletsFound] = useState(false);
+  const [loading, setLoading] = useState(!skipInitialLoad);
   const [creatingWallets, setCreatingWallets] = useState(false);
-
-  const createWallets = async () => {
-    if (!userId || creatingWallets) return;
-    
-    try {
-      setCreatingWallets(true);
-      console.log("Creating wallets for user:", userId);
-      
-      const { data, error } = await supabase.functions.invoke('create-wallets', {
-        method: 'POST',
-        body: { userId }
-      });
-      
-      if (error) {
-        throw new Error(`Wallet creation failed: ${error.message || "Unknown error"}`);
-      }
-      
-      console.log("Wallets created successfully:", data);
-      
-      const { data: wallets, error: fetchError } = await supabase.functions.invoke('fetch-wallet-balances', {
-        method: 'POST',
-        body: { userId }
-      });
-      
-      if (fetchError) {
-        throw fetchError;
-      }
-      
-      if (wallets && wallets.success && wallets.wallets && wallets.wallets.length > 0) {
-        const filteredWallets = wallets.wallets.filter(
-          (w: WalletResponse) => w.blockchain !== 'Bitcoin' && w.currency !== 'BTC'
-        );
-        
-        const addresses: WalletAddress[] = filteredWallets.map((wallet: WalletResponse) => ({
-          blockchain: wallet.blockchain,
-          symbol: wallet.currency,
-          address: wallet.address,
-          logo: getCurrencyLogo(wallet.currency)
-        }));
-        
-        setWalletAddresses(addresses);
-        setNoWalletsFound(false);
-        
-        // Update the cache
-        updateWalletCache(addresses, userId);
-        
-        toast({
-          title: "Wallets created",
-          description: "Your wallets have been created successfully.",
-        });
-      } else {
-        setNoWalletsFound(true);
-        throw new Error("No wallets were created");
-      }
-    } catch (error) {
-      console.error("Error creating wallets:", error);
-      toast({
-        title: "Error creating wallets",
-        description: "Failed to create wallets. Please try again later.",
-        variant: "destructive"
-      });
-      setNoWalletsFound(true);
-    } finally {
-      setCreatingWallets(false);
-    }
-  };
-
-  // Helper function to update the wallet cache
-  const updateWalletCache = (addresses: WalletAddress[], userId: string) => {
-    cachedWallets.addresses = addresses;
-    cachedWallets.timestamp = Date.now();
-    cachedWallets.userId = userId;
-  };
+  const [noWalletsFound, setNoWalletsFound] = useState(false);
   
-  // Function to refresh only wallet balances without fetching addresses again
-  const refreshWalletBalancesOnly = async (userId: string) => {
-    try {
-      await refreshWalletBalances(userId);
-      toast({
-        title: "Balance updated",
-        description: "Your wallet balances have been refreshed",
-      });
-    } catch (error) {
-      console.error("Error refreshing wallet balances:", error);
-      toast({
-        title: "Balance update failed",
-        description: "Could not refresh wallet balances at this time",
-        variant: "destructive"
-      });
+  const fetchWalletAddresses = useCallback(async () => {
+    if (!userId) {
+      console.log("No user ID available");
+      return;
     }
-  };
-
-  const handleTryAgain = async () => {
-    if (!userId) return;
-    
-    setLoading(true);
     
     try {
-      toast({
-        title: "Refreshing wallets",
-        description: "Attempting to regenerate wallet addresses...",
-      });
-      
-      await refreshWalletBalances(userId);
+      console.log(`Fetching wallet addresses for user: ${userId}`);
+      setLoading(true);
       
       const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
         method: 'POST',
@@ -154,127 +32,115 @@ export const useWalletManagement = ({
       });
       
       if (error) {
-        throw error;
+        console.error("Error fetching wallet addresses:", error);
+        setNoWalletsFound(true);
+        return;
       }
       
-      if (data && data.success && data.wallets && data.wallets.length > 0) {
-        const filteredWallets = data.wallets.filter(
-          (w: WalletResponse) => w.blockchain !== 'Bitcoin' && w.currency !== 'BTC'
-        );
-        
-        console.log("Refreshed wallet addresses:", filteredWallets);
-        
-        const addresses: WalletAddress[] = filteredWallets.map((wallet: WalletResponse) => ({
-          blockchain: wallet.blockchain,
-          symbol: wallet.currency,
-          address: wallet.address,
-          logo: getCurrencyLogo(wallet.currency)
-        }));
-        
-        setWalletAddresses(addresses);
-        updateWalletCache(addresses, userId);
-        
-        toast({
-          title: "Wallets refreshed",
-          description: "Your wallet addresses have been updated.",
-        });
-      } else {
-        throw new Error("No wallets found after refresh");
+      if (!data?.wallets || data.wallets.length === 0) {
+        console.log("No wallets found");
+        setNoWalletsFound(true);
+        return;
       }
+      
+      const processedWallets: WalletAddress[] = data.wallets.map(wallet => ({
+        blockchain: wallet.blockchain,
+        symbol: wallet.currency,
+        address: wallet.address,
+        logo: wallet.blockchain === 'Ethereum' ? 
+          'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png' :
+          wallet.blockchain === 'Solana' ? 
+            'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png' :
+            '/placeholder.svg',
+        balance: typeof wallet.balance === 'number' ? 
+          parseFloat(wallet.balance.toFixed(12)) : 
+          parseFloat(parseFloat(wallet.balance || '0').toFixed(12))
+      }));
+      
+      console.log("Fetched wallet addresses:", processedWallets);
+      setWalletAddresses(processedWallets);
+      setNoWalletsFound(false);
     } catch (error) {
-      console.error("Error refreshing wallets:", error);
-      toast({
-        title: "Refresh failed",
-        description: "Failed to refresh wallet addresses. Please try again later.",
-        variant: "destructive"
-      });
+      console.error("Error loading wallet addresses:", error);
+      setNoWalletsFound(true);
     } finally {
       setLoading(false);
     }
-  };
-
-  const fetchWalletAddresses = useCallback(async () => {
-    if (!userId) {
-      console.error("User not authenticated");
-      setLoading(false);
-      return;
-    }
+  }, [userId]);
+  
+  const createWallets = async () => {
+    if (!userId) return;
     
-    // Check if we have valid cached data for this user
-    const now = Date.now();
-    const cacheIsValid = 
-      cachedWallets.userId === userId && 
-      cachedWallets.addresses.length > 0 && 
-      (now - cachedWallets.timestamp < CACHE_DURATION);
-    
-    // Use cached data if available and skipInitialLoad is true
-    if (skipInitialLoad && cacheIsValid) {
-      console.log("Using cached wallet addresses");
-      setWalletAddresses(cachedWallets.addresses);
-      setNoWalletsFound(cachedWallets.addresses.length === 0);
-      setLoading(false);
-      return;
-    }
-
+    setCreatingWallets(true);
     try {
-      setLoading(true);
-      console.log("Fetching wallet addresses for user:", userId);
-      
-      const { data, error } = await supabase.functions.invoke('fetch-wallet-balances', {
+      await supabase.functions.invoke('create-wallets', {
         method: 'POST',
         body: { userId }
       });
       
-      if (error) {
-        throw error;
-      }
-
-      if (data && data.success && data.wallets && data.wallets.length > 0) {
-        const filteredWallets = data.wallets.filter(
-          (w: WalletResponse) => w.blockchain !== 'Bitcoin' && w.currency !== 'BTC'
-        );
-        
-        console.log("Fetched wallet addresses:", filteredWallets);
-        
-        const addresses: WalletAddress[] = filteredWallets.map((wallet: WalletResponse) => ({
-          blockchain: wallet.blockchain,
-          symbol: wallet.currency,
-          address: wallet.address,
-          logo: getCurrencyLogo(wallet.currency)
-        }));
-        
-        setWalletAddresses(addresses);
-        setNoWalletsFound(addresses.length === 0);
-        
-        // Update the cache
-        updateWalletCache(addresses, userId);
-        
-        if (addresses.length === 0) {
-          console.log("No supported wallets found for user, attempting to create wallets");
-          await createWallets();
-        }
-      } else {
-        console.log("No wallets found for user, attempting to create wallets");
-        await createWallets();
-      }
-    } catch (error) {
-      console.error("Error fetching wallet addresses:", error);
+      await fetchWalletAddresses();
       toast({
-        title: "Error fetching wallets",
-        description: "There was a problem loading your wallets. Please try again later.",
+        title: "Wallets created",
+        description: "Your crypto wallets have been created successfully.",
+      });
+    } catch (error) {
+      console.error("Error creating wallets:", error);
+      toast({
+        title: "Creation failed",
+        description: "Failed to create wallets. Please try again.",
         variant: "destructive"
       });
-      setNoWalletsFound(true);
-      setWalletAddresses([]);
     } finally {
-      setLoading(false);
+      setCreatingWallets(false);
     }
-  }, [userId, toast, skipInitialLoad]);
-
-  useEffect(() => {
+  };
+  
+  const handleTryAgain = () => {
     fetchWalletAddresses();
-  }, [fetchWalletAddresses]);
-
+  };
+  
+  const refreshWalletBalancesOnly = async (userId: string): Promise<boolean> => {
+    try {
+      toast({
+        title: "Refreshing balance",
+        description: "Fetching latest blockchain data...",
+      });
+      
+      const success = await refreshWalletBalances(userId);
+      
+      if (success) {
+        // Refresh wallet addresses after balance update
+        await fetchWalletAddresses();
+        toast({
+          title: "Balance updated",
+          description: "Your wallet balances have been updated.",
+        });
+      } else {
+        toast({
+          title: "Update incomplete",
+          description: "Could not fully update balances.",
+          variant: "destructive"
+        });
+      }
+      
+      return success;
+    } catch (error) {
+      console.error("Error refreshing balances:", error);
+      toast({
+        title: "Refresh failed",
+        description: "Failed to update wallet balances.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+  
+  useEffect(() => {
+    if (!skipInitialLoad && userId) {
+      fetchWalletAddresses();
+    }
+  }, [userId, skipInitialLoad, fetchWalletAddresses]);
+  
   return {
     walletAddresses,
     loading,

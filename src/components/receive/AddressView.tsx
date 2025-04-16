@@ -55,12 +55,34 @@ export const AddressView: React.FC<AddressViewProps> = ({
     }
   };
 
+  // Format balance with proper decimal display
+  const formatBalance = (amount: number | undefined, symbol: string) => {
+    if (amount === undefined || amount === 0) return `0.000000000000 ${symbol}`;
+    
+    // Very small amounts (show all decimals to prevent displaying 0)
+    if (amount > 0 && amount < 0.000001) {
+      return `${amount.toFixed(12).replace(/\.?0+$/, '')} ${symbol}`;
+    }
+    
+    // Standard amounts
+    return `${amount.toFixed(12).replace(/\.?0+$/, '')} ${symbol}`;
+  };
+
   return (
     <div>
       <div className="text-center">
         <div className="inline-block mb-3">
           <NetworkBadge network={selectedWallet.blockchain} />
         </div>
+        
+        {selectedWallet.balance !== undefined && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-500">Current Balance</p>
+            <p className="text-lg font-medium">
+              {formatBalance(selectedWallet.balance, selectedWallet.symbol)}
+            </p>
+          </div>
+        )}
         
         {!selectedWallet.address || selectedWallet.address.trim() === "" ? (
           <div className="bg-amber-50 p-4 rounded-lg mb-4">
