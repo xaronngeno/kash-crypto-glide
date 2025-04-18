@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { reportDetailedBlockchainBalances, forceRefreshBlockchainBalance } from '@/utils/blockchainConnectors';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +24,6 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [pullToRefreshActive, setPullToRefreshActive] = useState(false);
   const [forceRefreshTriggered, setForceRefreshTriggered] = useState(false);
-  const [currency, setCurrency] = useState('USD');
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   
   const { prices, error: pricesError } = useCryptoPrices();
@@ -35,6 +35,7 @@ const Dashboard = () => {
   
   const error = pricesError || walletsError;
 
+  // Add direct blockchain balance check
   const forceRefreshBalances = useCallback(async () => {
     try {
       setForceRefreshTriggered(true);
@@ -43,6 +44,7 @@ const Dashboard = () => {
         description: "Fetching latest balances directly from blockchain...",
       });
       
+      // Find Solana and Ethereum wallets
       const solWallet = assets.find(a => a.blockchain === 'Solana' && a.symbol === 'SOL');
       const ethWallet = assets.find(a => a.blockchain === 'Ethereum' && a.symbol === 'ETH');
       
@@ -84,6 +86,7 @@ const Dashboard = () => {
         console.log(`Force refreshed ETH balance: ${ethBalance}`);
       }
 
+      // Show results
       console.log("Force-refreshed blockchain balances:", updatedBalances);
       
       toast({
@@ -91,6 +94,7 @@ const Dashboard = () => {
         description: "Reloading your wallet data with latest balances...",
       });
       
+      // Now reload the wallet data to update UI
       reload();
       
     } catch (error) {
@@ -111,6 +115,7 @@ const Dashboard = () => {
         const balances = await reportDetailedBlockchainBalances();
         console.log('Detailed Blockchain Balances:', balances);
         
+        // If we detect non-zero balances in the blockchain but show zero in the app
         const solWallet = assets.find(a => a.blockchain === 'Solana' && a.symbol === 'SOL');
         if (balances.solana > 0 && solWallet?.amount === 0 && !forceRefreshTriggered) {
           console.log("Balance mismatch detected - blockchain shows balance but app shows zero");
@@ -137,6 +142,7 @@ const Dashboard = () => {
     }
   }, [assets, loading, forceRefreshBalances, forceRefreshTriggered]);
   
+  // Add detailed logging for asset balances
   useEffect(() => {
     if (assets.length > 0) {
       console.log("Dashboard - Assets with details:");
@@ -195,13 +201,14 @@ const Dashboard = () => {
     try {
       console.log("Starting wallet refresh from pull-to-refresh");
       reload();
+      // Add direct blockchain check on manual refresh
       forceRefreshBalances();
     } catch (error) {
       console.error("Error refreshing wallet balances:", error);
     } finally {
       setTimeout(() => {
         setRefreshing(false);
-      }, 1500);
+      }, 1500); // Give more time for the refresh animation
     }
   };
 
@@ -223,7 +230,7 @@ const Dashboard = () => {
           />
           <BalanceDisplay 
             totalBalance={totalBalance}
-            currency={currency}
+            currency="USD"
             refreshing={refreshing || forceRefreshTriggered}
             onRefresh={handleRefresh}
           />

@@ -45,14 +45,7 @@ export const BalanceDisplay = ({
   };
 
   // Format balance with two decimal places
-  const formattedUSDBalance = totalBalance.toLocaleString('en-US', { 
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2 
-  });
-  
-  // Calculate KES balance (conversion rate of 129)
-  const kesBalance = totalBalance * 129;
-  const formattedKESBalance = kesBalance.toLocaleString('en-US', { 
+  const formattedBalance = totalBalance.toLocaleString('en-US', { 
     minimumFractionDigits: 2,
     maximumFractionDigits: 2 
   });
@@ -71,20 +64,17 @@ export const BalanceDisplay = ({
           <RefreshCw size={14} className={(refreshing || isRefreshing) ? "animate-spin" : ""} />
         </KashButton>
       </div>
-      <div className="flex flex-col items-center">
-        <h1 className="text-3xl font-bold flex items-center">
-          <span className="mr-2">$</span>
-          {hideBalance ? '•••••' : formattedUSDBalance}
-          <button 
-            onClick={() => setHideBalance(!hideBalance)}
-            className="ml-2 text-gray-400 hover:text-gray-600"
-          >
-            {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
+      <div className="flex items-center">
+        <h1 className="text-3xl font-bold">
+          {currency === 'USD' ? '$' : 'KES '}
+          {hideBalance ? '•••••' : formattedBalance}
         </h1>
-        <p className="text-lg text-gray-600 mt-1">
-          KES {hideBalance ? '•••••' : formattedKESBalance}
-        </p>
+        <button 
+          onClick={() => setHideBalance(!hideBalance)}
+          className="ml-2 text-gray-400 hover:text-gray-600"
+        >
+          {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
       </div>
       {totalBalance === 0 && (
         <p className="text-sm text-gray-500 mt-1">No funds detected. Try refreshing.</p>
