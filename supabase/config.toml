@@ -3,3 +3,6 @@ project_id = "onojviswlkxuyfsksuhp"
 
 [functions.mpesa-webhook]
 verify_jwt = false
+
+[functions.mpesa-stk-push]
+verify_jwt = false
