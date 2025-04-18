@@ -1,6 +1,6 @@
-
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { ethers } from 'ethers';
+import { TronWeb } from '@tronweb3/tronweb';
 import { Buffer } from './globalPolyfills';
 
 // Constants for network endpoints
@@ -12,6 +12,10 @@ const NETWORK_ENDPOINTS = {
   SOLANA: {
     MAINNET: 'https://api.mainnet-beta.solana.com',
     TESTNET: clusterApiUrl('devnet'),
+  },
+  TRON: {
+    MAINNET: 'https://api.trongrid.io',
+    TESTNET: 'https://api.shasta.trongrid.io',
   }
 };
 
@@ -21,6 +25,7 @@ export const NETWORK_ENV = 'MAINNET';
 // Cache connections to avoid recreating them for every request
 let solanaConnectionCache: Connection | null = null;
 let ethereumProviderCache: ethers.JsonRpcProvider | null = null;
+let tronWebCache: TronWeb | null = null;
 
 // Initialize blockchain connections with caching
 export const initializeBlockchainConnections = () => {
@@ -40,9 +45,18 @@ export const initializeBlockchainConnections = () => {
       );
     }
     
+    // Tron connection - use cache if available
+    if (!tronWebCache) {
+      tronWebCache = new TronWeb({
+        fullHost: NETWORK_ENDPOINTS.TRON[NETWORK_ENV],
+        headers: { "TRON-PRO-API-KEY": "your-api-key-here" }
+      });
+    }
+    
     return {
       solana: solanaConnectionCache,
       ethereum: ethereumProviderCache,
+      tron: tronWebCache,
     };
   } catch (error) {
     console.error('Error initializing blockchain connections:', error);
@@ -124,10 +138,43 @@ export const fetchEthereumBalance = async (address: string): Promise<number> => 
   }
 };
 
+// Fetch balance from Tron blockchain with improved error handling
+export const fetchTronBalance = async (address: string): Promise<number> => {
+  try {
+    console.log(`Fetching Tron balance for ${address} on ${NETWORK_ENV}`);
+    const tronWeb = new TronWeb({
+      fullHost: NETWORK_ENDPOINTS.TRON[NETWORK_ENV],
+      headers: { "TRON-PRO-API-KEY": "your-api-key-here" }
+    });
+    
+    // Get actual balance from blockchain
+    const balanceInSun = await tronWeb.trx.getBalance(address);
+    console.log(`Raw Tron sun: ${balanceInSun}`);
+    
+    // Convert from sun to TRX with 12 decimal precision
+    const trxBalance = parseFloat((balanceInSun / 1_000_000).toFixed(12));
+    
+    // Log all details of the calculation
+    console.log(`Tron balance for ${address}: ${trxBalance} TRX`, {
+      sun: balanceInSun,
+      trx: trxBalance,
+      exactValue: trxBalance.toString(),
+      stringWith12Decimals: trxBalance.toFixed(12),
+      calculationType: 'Raw sun / 10^6',
+      isNonZero: trxBalance > 0
+    });
+    
+    return trxBalance;
+  } catch (error) {
+    console.error(`Error fetching Tron balance for ${address}:`, error);
+    return 0;
+  }
+};
+
 // Get balance for any supported blockchain address with improved timeout handling
 export const getBlockchainBalance = async (
   address: string, 
-  blockchain: 'Ethereum' | 'Solana'
+  blockchain: 'Ethereum' | 'Solana' | 'Tron'
 ): Promise<number> => {
   // Create a promise that rejects after timeout
   const timeout = (ms: number): Promise<never> => {
@@ -145,7 +192,9 @@ export const getBlockchainBalance = async (
         const result = await Promise.race([
           blockchain === 'Ethereum' 
             ? fetchEthereumBalance(address) 
-            : fetchSolanaBalance(address),
+            : blockchain === 'Solana'
+            ? fetchSolanaBalance(address)
+            : fetchTronBalance(address),
           timeout(15000) // 15 second timeout
         ]);
         
@@ -186,7 +235,7 @@ export const getBlockchainBalance = async (
 };
 
 // Add a direct balance check function that bypasses caching
-export const forceRefreshBlockchainBalance = async (address: string, blockchain: 'Ethereum' | 'Solana'): Promise<number> => {
+export const forceRefreshBlockchainBalance = async (address: string, blockchain: 'Ethereum' | 'Solana' | 'Tron'): Promise<number> => {
   try {
     console.log(`Force refreshing ${blockchain} balance for ${address}`);
     
@@ -199,7 +248,7 @@ export const forceRefreshBlockchainBalance = async (address: string, blockchain:
       
       console.log(`Force refreshed Solana balance: ${solBalance} SOL (${rawBalance} lamports)`);
       return solBalance;
-    } else {
+    } else if (blockchain === 'Ethereum') {
       const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
       const rawBalance = await provider.getBalance(address);
       const ethString = ethers.formatEther(rawBalance);
@@ -207,6 +256,16 @@ export const forceRefreshBlockchainBalance = async (address: string, blockchain:
       
       console.log(`Force refreshed Ethereum balance: ${ethBalance} ETH (${rawBalance.toString()} wei)`);
       return ethBalance;
+    } else {
+      const tronWeb = new TronWeb({
+        fullHost: NETWORK_ENDPOINTS.TRON[NETWORK_ENV],
+        headers: { "TRON-PRO-API-KEY": "your-api-key-here" }
+      });
+      const balanceInSun = await tronWeb.trx.getBalance(address);
+      const trxBalance = parseFloat((balanceInSun / 1_000_000).toFixed(12));
+      
+      console.log(`Force refreshed Tron balance: ${trxBalance} TRX (${balanceInSun} sun)`);
+      return trxBalance;
     }
   } catch (error) {
     console.error(`Error in force refresh of ${blockchain} balance:`, error);
