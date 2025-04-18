@@ -1,4 +1,3 @@
-
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Buffer } from './globalPolyfills';
@@ -170,5 +169,39 @@ export const getBlockchainBalance = async (
   } catch (error) {
     console.error(`Error fetching balance for ${blockchain} address ${address}:`, error);
     return 0;
+  }
+};
+
+// Add a detailed logging function for comprehensive balance reporting
+export const reportDetailedBlockchainBalances = async () => {
+  const ethereumAddress = '0x73B4B2Ba8C53CBc4aE8a97E4D46250089643adfF';
+  const solanaAddress = 'BLfVGCD1MXK4c34CXBexvW8SqRX26yaUikeqxEiffbV2';
+
+  try {
+    console.log("Fetching detailed blockchain balances for mainnet...");
+    
+    const ethereumBalance = await fetchEthereumBalance(ethereumAddress);
+    const solanaBalance = await fetchSolanaBalance(solanaAddress);
+
+    console.log("Detailed Blockchain Balances Report:", {
+      ethereum: {
+        address: ethereumAddress,
+        balance: ethereumBalance,
+        balanceFormatted: `${ethereumBalance.toFixed(6)} ETH`
+      },
+      solana: {
+        address: solanaAddress,
+        balance: solanaBalance,
+        balanceFormatted: `${solanaBalance.toFixed(6)} SOL`
+      }
+    });
+
+    return {
+      ethereum: ethereumBalance,
+      solana: solanaBalance
+    };
+  } catch (error) {
+    console.error("Error retrieving blockchain balances:", error);
+    return { ethereum: 0, solana: 0 };
   }
 };
