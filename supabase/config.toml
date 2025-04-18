@@ -1,20 +1,5 @@
 
 project_id = "onojviswlkxuyfsksuhp"
 
-[functions.assign-user-ids]
+[functions.mpesa-webhook]
 verify_jwt = false
-
-[functions.create-wallets]
-verify_jwt = true
-
-[functions.fetch-wallet-balances]
-verify_jwt = true
-
-[functions.cleanup-wallet-duplicates]
-verify_jwt = true
-
-[functions.get-seed-phrase]
-verify_jwt = true
-
-[functions.blockchain-operations]
-verify_jwt = true
