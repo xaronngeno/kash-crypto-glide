@@ -1,10 +1,8 @@
 import { memo, useEffect } from 'react';
 import { Asset } from '@/types/assets';
 import Image from '@/components/ui/Image';
-import { ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from '@/hooks/use-toast';
-import { forceRefreshBlockchainBalance } from '@/utils/blockchainConnectors';
 
 interface AssetsListProps {
   assets: Asset[];
@@ -56,80 +54,6 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   
   const handleAssetClick = (asset: Asset) => {
     navigate(`/coin/${asset.symbol.toLowerCase()}`);
-  };
-  
-  const refreshAssetBalance = async (asset: Asset, event: React.MouseEvent) => {
-    event.stopPropagation();
-    
-    if (!asset.address) {
-      toast({
-        title: "Cannot refresh",
-        description: "No valid address available for this asset",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    toast({
-      title: `Refreshing ${asset.symbol}`,
-      description: "Checking blockchain directly...",
-    });
-    
-    try {
-      const balance = await forceRefreshBlockchainBalance(
-        asset.address,
-        asset.blockchain as 'Ethereum' | 'Solana'
-      );
-      
-      console.log(`Directly checked ${asset.blockchain} balance:`, {
-        asset: asset.symbol,
-        address: asset.address,
-        fetchedBalance: balance,
-        currentBalance: asset.amount,
-        difference: balance - asset.amount,
-        hasBalanceChanged: balance !== asset.amount
-      });
-      
-      if (balance > 0 && asset.amount === 0) {
-        toast({
-          title: "Balance found!",
-          description: `Found ${balance} ${asset.symbol} on blockchain! Please reload the app to update.`,
-          action: (
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-kash-green text-white px-3 py-1 rounded-md text-xs"
-            >
-              Reload
-            </button>
-          )
-        });
-      } else if (balance !== asset.amount) {
-        toast({
-          title: "Balance updated",
-          description: `Found ${balance} ${asset.symbol} on blockchain! Please reload the app to update.`,
-          action: (
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-kash-green text-white px-3 py-1 rounded-md text-xs"
-            >
-              Reload
-            </button>
-          )
-        });
-      } else {
-        toast({
-          title: "Balance verified",
-          description: `Your ${asset.symbol} balance is up to date!`,
-        });
-      }
-    } catch (error) {
-      console.error(`Error refreshing ${asset.symbol} balance:`, error);
-      toast({
-        title: "Refresh failed",
-        description: "Could not check blockchain balance",
-        variant: "destructive"
-      });
-    }
   };
   
   const formatTokenAmount = (amount: number, symbol: string) => {
@@ -188,13 +112,6 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
               </div>
             </div>
             <div className="flex items-center">
-              <button 
-                onClick={(e) => refreshAssetBalance(asset, e)}
-                className="mr-2 p-1 hover:bg-gray-100 rounded-full"
-                title="Refresh balance from blockchain"
-              >
-                <RefreshCw size={16} className="text-gray-500" />
-              </button>
               <div className="text-right mr-2">
                 <p className="font-medium">
                   {currency === 'USD' ? '$' : 'KES '}
@@ -213,3 +130,5 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
     </div>
   );
 });
+
+export default AssetsList;
