@@ -1,4 +1,3 @@
-
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Buffer } from './globalPolyfills';
@@ -7,16 +6,16 @@ import { Buffer } from './globalPolyfills';
 const NETWORK_ENDPOINTS = {
   ETHEREUM: {
     MAINNET: 'https://eth-mainnet.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p',
-    TESTNET: 'https://eth-goerli.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p', // Goerli testnet
+    TESTNET: 'https://eth-goerli.g.alchemy.com/v2/92yI5AlUB71NwXg7Qfaf2sclerR5Y2_p',
   },
   SOLANA: {
-    MAINNET: 'https://api.mainnet-beta.solana.com', // Use more reliable endpoint
-    TESTNET: clusterApiUrl('devnet'), // Solana devnet for testing
+    MAINNET: 'https://api.mainnet-beta.solana.com',
+    TESTNET: clusterApiUrl('devnet'),
   }
 };
 
 // Set to MAINNET for production use with real balances
-export const NETWORK_ENV = 'TESTNET'; // Using TESTNET for development testing
+export const NETWORK_ENV = 'MAINNET';
 
 // Cache connections to avoid recreating them for every request
 let solanaConnectionCache: Connection | null = null;
@@ -138,7 +137,7 @@ export const getBlockchainBalance = async (
         // Ensure result has 12 decimal precision
         const resultWith12Decimals = parseFloat(result.toFixed(12));
         
-        // Log the result with full precision - NEVER ROUND SMALL VALUES
+        // Log results with 12 decimals
         console.log(`${blockchain} balance result with 12 decimals:`, {
           originalValue: result,
           value12Decimals: resultWith12Decimals,
@@ -156,6 +155,8 @@ export const getBlockchainBalance = async (
     };
     
     const balance = await fetchWithTimeout();
+    
+    // Log final balance with 12 decimals
     console.log(`Final ${blockchain} balance for ${address}:`, {
       value: balance,
       exactString: balance.toFixed(12),
@@ -165,6 +166,6 @@ export const getBlockchainBalance = async (
     return balance;
   } catch (error) {
     console.error(`Error fetching balance for ${blockchain} address ${address}:`, error);
-    return 0.000000000001; // Return a tiny amount for visibility in debugging
+    return 0;
   }
 };
