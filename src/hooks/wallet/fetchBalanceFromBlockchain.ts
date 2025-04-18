@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { getBlockchainBalance } from '@/utils/blockchainConnectors';
+import { forceRefreshBlockchainBalance } from '@/utils/blockchainConnectors';
 
 // Cache for wallet balances to reduce API calls to mainnet
 const balanceCache = new Map<string, { balance: number, timestamp: number }>();
@@ -28,7 +28,7 @@ export const refreshWalletBalancesFromBlockchain = async (userId: string, wallet
       if (wallet.blockchain && wallet.address) {
         // We're definitely fetching from blockchain here
         console.log(`Fetching ${wallet.blockchain} balance for address ${wallet.address}`);
-        const balance = await getBlockchainBalance(
+        const balance = await forceRefreshBlockchainBalance(
           wallet.address, 
           wallet.blockchain as 'Ethereum' | 'Solana'
         );
@@ -102,7 +102,7 @@ export const fetchBalanceFromBlockchain = async (
 ): Promise<number> => {
   try {
     console.log(`Direct blockchain balance request for ${blockchain} address ${address}`);
-    const balance = await getBlockchainBalance(address, blockchain);
+    const balance = await forceRefreshBlockchainBalance(address, blockchain);
     
     // Ensure exact 12 decimal precision
     const preciseBalance = parseFloat(balance.toFixed(12));

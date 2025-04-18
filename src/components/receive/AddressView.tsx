@@ -7,6 +7,7 @@ import { WalletAddress } from '@/types/wallet';
 import { NetworkBadge } from './NetworkBadge';
 import { AddressQRCode } from './AddressQRCode';
 import { AddressDisplay } from './AddressDisplay';
+import { forceRefreshBlockchainBalance } from '@/utils/blockchainConnectors';
 
 interface AddressViewProps {
   selectedWallet: WalletAddress;
@@ -23,6 +24,7 @@ export const AddressView: React.FC<AddressViewProps> = ({
 }) => {
   const [showQR, setShowQR] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [localBalance, setLocalBalance] = useState<number | undefined>(selectedWallet.balance);
   const { toast } = useToast();
   
   // Debug logging for the selected wallet
@@ -35,6 +37,8 @@ export const AddressView: React.FC<AddressViewProps> = ({
       isEmpty: !selectedWallet.address || selectedWallet.address.trim() === '',
       balance: selectedWallet.balance
     });
+    
+    setLocalBalance(selectedWallet.balance);
   }, [selectedWallet]);
 
   const copyToClipboard = (text: string) => {
@@ -54,11 +58,73 @@ export const AddressView: React.FC<AddressViewProps> = ({
     });
   };
 
+  // Add direct blockchain balance check
+  const checkBlockchainBalance = async () => {
+    if (!selectedWallet.address || selectedWallet.address.trim() === '') {
+      toast({
+        title: "Cannot check balance",
+        description: "No valid address available",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setRefreshing(true);
+    toast({
+      title: "Checking blockchain",
+      description: `Fetching ${selectedWallet.symbol} balance directly from blockchain...`
+    });
+    
+    try {
+      const balance = await forceRefreshBlockchainBalance(
+        selectedWallet.address,
+        selectedWallet.blockchain as 'Ethereum' | 'Solana'
+      );
+      
+      // Log detailed balance info
+      console.log(`Direct blockchain balance check:`, {
+        blockchain: selectedWallet.blockchain,
+        address: selectedWallet.address,
+        fetchedBalance: balance,
+        currentBalance: selectedWallet.balance,
+        hasChanged: balance !== selectedWallet.balance
+      });
+      
+      setLocalBalance(balance);
+      
+      if (balance > 0) {
+        toast({
+          title: "Balance found!",
+          description: `Found ${balance} ${selectedWallet.symbol} on blockchain!`,
+        });
+      } else {
+        toast({
+          title: "Balance checked",
+          description: `No ${selectedWallet.symbol} found on this address yet.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error checking blockchain balance:", error);
+      toast({
+        title: "Check failed",
+        description: "Could not check blockchain balance directly",
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleRefreshBalance = async () => {
     if (refreshBalance && !refreshing) {
       setRefreshing(true);
       try {
+        // First check blockchain directly
+        await checkBlockchainBalance();
+        
+        // Then use the provided refresh function to update UI
         await refreshBalance();
+        
         toast({
           title: "Balance refreshed",
           description: "Your wallet balance has been updated",
@@ -73,6 +139,9 @@ export const AddressView: React.FC<AddressViewProps> = ({
       } finally {
         setRefreshing(false);
       }
+    } else {
+      // If no refresh function provided, just check blockchain
+      await checkBlockchainBalance();
     }
   };
 
@@ -99,11 +168,14 @@ export const AddressView: React.FC<AddressViewProps> = ({
           <NetworkBadge network={selectedWallet.blockchain} />
         </div>
         
-        {selectedWallet.balance !== undefined && (
+        {localBalance !== undefined && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-500">Current Balance</p>
             <p className="text-lg font-medium">
-              {formatBalance(selectedWallet.balance, selectedWallet.symbol)}
+              {formatBalance(localBalance, selectedWallet.symbol)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Last updated: {new Date().toLocaleTimeString()}
             </p>
           </div>
         )}
@@ -172,17 +244,15 @@ export const AddressView: React.FC<AddressViewProps> = ({
       </div>
       
       <div className="mt-4 space-y-2">
-        {refreshBalance && (
-          <KashButton 
-            variant="outline"
-            fullWidth
-            disabled={refreshing}
-            onClick={handleRefreshBalance}
-            icon={<RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />}
-          >
-            {refreshing ? "Refreshing Balance..." : "Refresh Balance"}
-          </KashButton>
-        )}
+        <KashButton 
+          variant="outline"
+          fullWidth
+          disabled={refreshing}
+          onClick={handleRefreshBalance}
+          icon={<RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />}
+        >
+          {refreshing ? "Checking Balance..." : "Check Blockchain Balance"}
+        </KashButton>
         
         <KashButton 
           variant="outline"

@@ -1,3 +1,4 @@
+
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Buffer } from './globalPolyfills';
@@ -56,9 +57,21 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
     const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV], 'confirmed');
     const publicKey = new PublicKey(address);
     
-    // Get actual balance from blockchain
-    const rawBalance = await connection.getBalance(publicKey);
-    console.log(`Raw Solana lamports: ${rawBalance}`);
+    // Get actual balance from blockchain with multiple retries
+    const retries = 3;
+    let rawBalance = 0;
+    
+    for (let i = 0; i < retries; i++) {
+      try {
+        rawBalance = await connection.getBalance(publicKey);
+        console.log(`Raw Solana lamports on attempt ${i+1}: ${rawBalance}`);
+        break; // Success, exit retry loop
+      } catch (err) {
+        console.error(`Solana balance fetch attempt ${i+1} failed:`, err);
+        if (i === retries - 1) throw err; // Throw on last attempt
+        await new Promise(r => setTimeout(r, 1000)); // Wait before retrying
+      }
+    }
     
     // Convert from lamports to SOL with 12 decimal precision - DO NOT ROUND
     const solBalance = parseFloat((rawBalance / 1_000_000_000).toFixed(12));
@@ -140,7 +153,7 @@ export const getBlockchainBalance = async (
         const resultWith12Decimals = parseFloat(result.toFixed(12));
         
         // Log results with 12 decimals
-        console.log(`${blockchain} balance result with 12 decimals:`, {
+        console.log(`${blockchain} balance result with full 12 decimals:`, {
           originalValue: result,
           value12Decimals: resultWith12Decimals,
           stringValue: resultWith12Decimals.toFixed(12),
@@ -172,6 +185,35 @@ export const getBlockchainBalance = async (
   }
 };
 
+// Add a direct balance check function that bypasses caching
+export const forceRefreshBlockchainBalance = async (address: string, blockchain: 'Ethereum' | 'Solana'): Promise<number> => {
+  try {
+    console.log(`Force refreshing ${blockchain} balance for ${address}`);
+    
+    // Use a fresh connection for each force refresh
+    if (blockchain === 'Solana') {
+      const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV], 'confirmed');
+      const publicKey = new PublicKey(address);
+      const rawBalance = await connection.getBalance(publicKey);
+      const solBalance = parseFloat((rawBalance / 1_000_000_000).toFixed(12));
+      
+      console.log(`Force refreshed Solana balance: ${solBalance} SOL (${rawBalance} lamports)`);
+      return solBalance;
+    } else {
+      const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
+      const rawBalance = await provider.getBalance(address);
+      const ethString = ethers.formatEther(rawBalance);
+      const ethBalance = parseFloat(parseFloat(ethString).toFixed(12));
+      
+      console.log(`Force refreshed Ethereum balance: ${ethBalance} ETH (${rawBalance.toString()} wei)`);
+      return ethBalance;
+    }
+  } catch (error) {
+    console.error(`Error in force refresh of ${blockchain} balance:`, error);
+    return 0;
+  }
+};
+
 // Add a detailed logging function for comprehensive balance reporting
 export const reportDetailedBlockchainBalances = async () => {
   const ethereumAddress = '0x73B4B2Ba8C53CBc4aE8a97E4D46250089643adfF';
@@ -187,12 +229,14 @@ export const reportDetailedBlockchainBalances = async () => {
       ethereum: {
         address: ethereumAddress,
         balance: ethereumBalance,
-        balanceFormatted: `${ethereumBalance.toFixed(6)} ETH`
+        balanceFormatted: `${ethereumBalance.toFixed(6)} ETH`,
+        hasNonZeroBalance: ethereumBalance > 0
       },
       solana: {
         address: solanaAddress,
         balance: solanaBalance,
-        balanceFormatted: `${solanaBalance.toFixed(6)} SOL`
+        balanceFormatted: `${solanaBalance.toFixed(6)} SOL`,
+        hasNonZeroBalance: solanaBalance > 0
       }
     });
 
