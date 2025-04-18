@@ -1,3 +1,4 @@
+
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { Buffer } from './globalPolyfills';
@@ -56,15 +57,16 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
     const connection = new Connection(NETWORK_ENDPOINTS.SOLANA[NETWORK_ENV], 'confirmed');
     const publicKey = new PublicKey(address);
     
-    // Always return test value in any environment for development/testing
-    const testAmount = 1234567890; // ~1.23 SOL in lamports
+    // Get actual balance from blockchain
+    const rawBalance = await connection.getBalance(publicKey);
+    console.log(`Raw Solana lamports: ${rawBalance}`);
     
     // Convert from lamports to SOL with 12 decimal precision - DO NOT ROUND
-    const solBalance = parseFloat((testAmount / 1_000_000_000).toFixed(12));
+    const solBalance = parseFloat((rawBalance / 1_000_000_000).toFixed(12));
     
     // Log all details of the calculation
     console.log(`Solana balance for ${address}: ${solBalance} SOL`, {
-      lamports: testAmount,
+      lamports: rawBalance,
       sol: solBalance,
       exactValue: solBalance.toString(),
       stringWith12Decimals: solBalance.toFixed(12),
@@ -75,7 +77,7 @@ export const fetchSolanaBalance = async (address: string): Promise<number> => {
     return solBalance;
   } catch (error) {
     console.error(`Error fetching Solana balance for ${address}:`, error);
-    return 0.000000000001; // Return a tiny amount for visibility in debugging
+    return 0; // Return 0 on error
   }
 };
 
@@ -85,16 +87,17 @@ export const fetchEthereumBalance = async (address: string): Promise<number> => 
     console.log(`Fetching Ethereum balance for ${address} on ${NETWORK_ENV}`);
     const provider = new ethers.JsonRpcProvider(NETWORK_ENDPOINTS.ETHEREUM[NETWORK_ENV]);
     
-    // Always return test value in any environment for development/testing
-    const testWei = ethers.parseEther("0.025");
+    // Get actual balance from blockchain
+    const rawBalance = await provider.getBalance(address);
+    console.log(`Raw Ethereum wei: ${rawBalance.toString()}`);
       
     // Convert from wei to ETH with high precision
-    const ethString = ethers.formatEther(testWei);
+    const ethString = ethers.formatEther(rawBalance);
     const ethBalance = parseFloat(parseFloat(ethString).toFixed(12));
     
     // Log all details of the calculation
     console.log(`Ethereum balance for ${address}: ${ethBalance} ETH`, {
-      wei: testWei.toString(),
+      wei: rawBalance.toString(),
       eth: ethBalance,
       exactValue: ethBalance.toString(),
       stringWith12Decimals: ethBalance.toFixed(12),
@@ -105,7 +108,7 @@ export const fetchEthereumBalance = async (address: string): Promise<number> => 
     return ethBalance;
   } catch (error) {
     console.error(`Error fetching Ethereum balance for ${address}:`, error);
-    return 0.000000000001; // Return a tiny amount for visibility in debugging
+    return 0; // Return 0 on error
   }
 };
 
@@ -159,7 +162,7 @@ export const getBlockchainBalance = async (
     // Log final balance with 12 decimals
     console.log(`Final ${blockchain} balance for ${address}:`, {
       value: balance,
-      exactString: balance.toFixed(12),
+      stringValue: balance.toFixed(12),
       hasValue: balance > 0
     });
     
