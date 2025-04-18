@@ -23,17 +23,14 @@ serve(async (req) => {
     const webhookData = await req.json();
     console.log('Received M-PESA webhook:', webhookData);
 
-    // Extract relevant data from the callback
     const {
       ResultCode,
       ResultDesc,
-      TransactionType,
       TransID,
       TransAmount,
       BusinessShortCode,
       BillRefNumber,
       MSISDN, // Phone number
-      FirstName,
     } = webhookData;
 
     // Find the pending transaction in our database
@@ -42,16 +39,21 @@ serve(async (req) => {
       .select('*')
       .eq('mpesa_reference', BillRefNumber)
       .eq('status', 'pending')
-      .single();
+      .maybeSingle();
 
     if (findError) {
       console.error('Error finding transaction:', findError);
       throw new Error('Transaction not found');
     }
 
+    if (!transaction) {
+      console.error('No pending transaction found for reference:', BillRefNumber);
+      throw new Error('No pending transaction found');
+    }
+
     // Update transaction status based on M-PESA result
     if (ResultCode === '0') { // Success
-      // Update transaction status
+      // Update transaction status to completed
       const { error: updateError } = await supabase
         .from('transactions')
         .update({
@@ -67,19 +69,50 @@ serve(async (req) => {
         throw updateError;
       }
 
-      // Credit the user's wallet
-      const { error: walletError } = await supabase
+      // Find or create USDT wallet for the user
+      const { data: wallet, error: walletError } = await supabase
         .from('wallets')
-        .update({
-          balance: transaction.amount,
-          updated_at: new Date().toISOString()
-        })
+        .select('*')
         .eq('user_id', transaction.user_id)
-        .eq('currency', 'USDT');
+        .eq('currency', 'USDT')
+        .maybeSingle();
 
       if (walletError) {
-        console.error('Error updating wallet:', walletError);
+        console.error('Error finding wallet:', walletError);
         throw walletError;
+      }
+
+      if (wallet) {
+        // Update existing wallet balance
+        const newBalance = (parseFloat(wallet.balance) || 0) + parseFloat(transaction.amount);
+        const { error: updateWalletError } = await supabase
+          .from('wallets')
+          .update({
+            balance: newBalance,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', wallet.id);
+
+        if (updateWalletError) {
+          console.error('Error updating wallet:', updateWalletError);
+          throw updateWalletError;
+        }
+      } else {
+        // Create new USDT wallet if it doesn't exist
+        const { error: createWalletError } = await supabase
+          .from('wallets')
+          .insert({
+            user_id: transaction.user_id,
+            currency: 'USDT',
+            blockchain: 'Tron',
+            balance: transaction.amount,
+            wallet_type: 'token'
+          });
+
+        if (createWalletError) {
+          console.error('Error creating wallet:', createWalletError);
+          throw createWalletError;
+        }
       }
 
       console.log('Successfully processed M-PESA payment:', TransID);
