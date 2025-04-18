@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { reportDetailedBlockchainBalances } from '@/utils/blockchainConnectors';
 import { useNavigate } from 'react-router-dom';
@@ -44,6 +45,39 @@ const Dashboard = () => {
 
     fetchDetailedBalances();
   }, []);
+  
+  // Add detailed logging for asset balances
+  useEffect(() => {
+    if (assets.length > 0) {
+      console.log("Dashboard - Assets with details:");
+      assets.forEach(asset => {
+        const solanaAsset = asset.blockchain === 'Solana';
+        const ethereumAsset = asset.blockchain === 'Ethereum';
+        
+        if (solanaAsset) {
+          console.log("Solana asset details:", {
+            symbol: asset.symbol,
+            blockchain: asset.blockchain,
+            address: asset.address,
+            amount: asset.amount,
+            exactAmount: asset.amount.toFixed(12),
+            hasValue: asset.amount > 0
+          });
+        }
+        
+        if (ethereumAsset) {
+          console.log("Ethereum asset details:", {
+            symbol: asset.symbol,
+            blockchain: asset.blockchain,
+            address: asset.address,
+            amount: asset.amount,
+            exactAmount: asset.amount.toFixed(12),
+            hasValue: asset.amount > 0
+          });
+        }
+      });
+    }
+  }, [assets]);
 
   useEffect(() => {
     if (assets.length > 0 && !isDashboardInitialized.value) {

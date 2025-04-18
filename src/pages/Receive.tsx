@@ -19,6 +19,7 @@ import { NetworkList } from '@/components/receive/NetworkList';
 import { NetworkBadge } from '@/components/receive/NetworkBadge';
 import { AddressView } from '@/components/receive/AddressView';
 import { refreshWalletBalances } from '@/hooks/wallet';
+import { useToast } from '@/hooks/use-toast';
 
 enum ReceiveStep {
   SELECT_COIN = 'select_coin',
@@ -29,6 +30,7 @@ enum ReceiveStep {
 const Receive = () => {
   const { user } = useAuth();
   const { prices } = useCryptoPrices();
+  const { toast } = useToast();
   
   const { 
     walletAddresses, 
@@ -40,7 +42,7 @@ const Receive = () => {
     refreshWalletBalancesOnly
   } = useWalletManagement({ 
     userId: user?.id,
-    skipInitialLoad: true // Skip loading on first render, use cached data
+    skipInitialLoad: false // Changed to false to ensure addresses are always loaded
   });
   
   const { availableTokens } = useTokenProcessing(walletAddresses);
@@ -52,6 +54,35 @@ const Receive = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
+  // Debug logging for wallet addresses
+  useEffect(() => {
+    if (walletAddresses.length > 0) {
+      console.log('Available wallet addresses:', walletAddresses);
+      walletAddresses.forEach(wallet => {
+        console.log(`Wallet ${wallet.symbol} on ${wallet.blockchain}:`, {
+          address: wallet.address,
+          addressLength: wallet.address ? wallet.address.length : 0,
+          isEmpty: !wallet.address || wallet.address.trim() === '',
+          balance: wallet.balance
+        });
+      });
+    } else {
+      console.log('No wallet addresses available');
+    }
+  }, [walletAddresses]);
+  
+  // Additional logging for selected wallet
+  useEffect(() => {
+    if (selectedWallet) {
+      console.log('Selected wallet for address view:', {
+        symbol: selectedWallet.symbol,
+        blockchain: selectedWallet.blockchain,
+        address: selectedWallet.address,
+        addressValid: !!selectedWallet.address && selectedWallet.address.trim() !== ''
+      });
+    }
+  }, [selectedWallet]);
+
   useEffect(() => {
     if (availableTokens.length > 0 && !selectedToken) {
       setSelectedToken(availableTokens[0]);
@@ -72,14 +103,29 @@ const Receive = () => {
         );
         
         if (wallet) {
+          console.log('Auto-selecting wallet:', wallet);
           setSelectedWallet(wallet);
           setCurrentStep(ReceiveStep.VIEW_ADDRESS);
+        } else {
+          console.error('No matching wallet found for auto-selection', {
+            token: selectedToken.symbol,
+            network: selectedToken.networks[0],
+            wallets: walletAddresses
+          });
+          
+          // Show toast if no wallet found
+          toast({
+            title: "Wallet not found",
+            description: `Could not find a wallet for ${selectedToken.symbol} on ${selectedToken.networks[0]}`,
+            variant: "destructive"
+          });
         }
       }
     }
-  }, [selectedToken, currentStep, walletAddresses]);
+  }, [selectedToken, currentStep, walletAddresses, toast]);
 
   const handleTokenSelect = (token: Token) => {
+    console.log('Token selected:', token);
     setSelectedToken(token);
     setSelectedNetwork(null);
     setSelectedWallet(null);
@@ -87,6 +133,7 @@ const Receive = () => {
   };
 
   const handleNetworkSelect = (network: string) => {
+    console.log('Network selected:', network, 'for token:', selectedToken?.symbol);
     setSelectedNetwork(network);
     
     const wallet = walletAddresses.find(
@@ -94,8 +141,22 @@ const Receive = () => {
     );
     
     if (wallet) {
+      console.log('Wallet found for selection:', wallet);
       setSelectedWallet(wallet);
       setCurrentStep(ReceiveStep.VIEW_ADDRESS);
+    } else {
+      console.error('No matching wallet found for selection', {
+        token: selectedToken?.symbol,
+        network: network,
+        wallets: walletAddresses
+      });
+      
+      // Show toast if no wallet found
+      toast({
+        title: "Wallet not found",
+        description: `Could not find a wallet for ${selectedToken?.symbol} on ${network}`,
+        variant: "destructive"
+      });
     }
   };
 
@@ -156,6 +217,7 @@ const Receive = () => {
           )}
         </div>
 
+        {/* Step 1: Select Coin */}
         {currentStep === ReceiveStep.SELECT_COIN && (
           <KashCard className="p-5">
             <div className="mb-4">
@@ -182,6 +244,7 @@ const Receive = () => {
           </KashCard>
         )}
 
+        {/* Step 2: Select Network */}
         {currentStep === ReceiveStep.SELECT_NETWORK && selectedToken && (
           <KashCard className="p-5">
             <div className="flex items-center mb-6">
@@ -222,6 +285,7 @@ const Receive = () => {
           </KashCard>
         )}
 
+        {/* Step 3: View Address */}
         {currentStep === ReceiveStep.VIEW_ADDRESS && selectedWallet && (
           <KashCard className="p-5">
             <div className="flex items-center mb-6">

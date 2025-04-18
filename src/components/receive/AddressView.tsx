@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Copy, QrCode, Info, RefreshCw } from 'lucide-react';
 import { KashButton } from '@/components/ui/KashButton';
 import { useToast } from '@/hooks/use-toast';
@@ -24,8 +24,29 @@ export const AddressView: React.FC<AddressViewProps> = ({
   const [showQR, setShowQR] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
+  
+  // Debug logging for the selected wallet
+  useEffect(() => {
+    console.log('AddressView - Selected wallet:', {
+      blockchain: selectedWallet.blockchain,
+      symbol: selectedWallet.symbol,
+      address: selectedWallet.address,
+      addressLength: selectedWallet.address ? selectedWallet.address.length : 0,
+      isEmpty: !selectedWallet.address || selectedWallet.address.trim() === '',
+      balance: selectedWallet.balance
+    });
+  }, [selectedWallet]);
 
   const copyToClipboard = (text: string) => {
+    if (!text || text.trim() === '') {
+      toast({
+        title: "Error",
+        description: "No valid address to copy",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     navigator.clipboard.writeText(text);
     toast({
       title: "Address copied",
@@ -68,6 +89,9 @@ export const AddressView: React.FC<AddressViewProps> = ({
     return `${amount.toFixed(12).replace(/\.?0+$/, '')} ${symbol}`;
   };
 
+  // Check if the address is valid
+  const hasValidAddress = selectedWallet.address && selectedWallet.address.trim() !== "";
+
   return (
     <div>
       <div className="text-center">
@@ -84,7 +108,7 @@ export const AddressView: React.FC<AddressViewProps> = ({
           </div>
         )}
         
-        {!selectedWallet.address || selectedWallet.address.trim() === "" ? (
+        {!hasValidAddress ? (
           <div className="bg-amber-50 p-4 rounded-lg mb-4">
             <div className="flex items-center justify-center mb-2">
               <Info size={20} className="text-amber-500 mr-2" />
@@ -113,7 +137,7 @@ export const AddressView: React.FC<AddressViewProps> = ({
           />
         )}
         
-        {selectedWallet.address && selectedWallet.address.trim() !== "" && (
+        {hasValidAddress && (
           <div className="flex space-x-2">
             <KashButton 
               variant="outline"

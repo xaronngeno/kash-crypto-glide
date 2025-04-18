@@ -43,23 +43,33 @@ export const useWalletManagement = ({ userId, skipInitialLoad = false }: UseWall
         return;
       }
       
-      const processedWallets: WalletAddress[] = data.wallets.map(wallet => ({
-        blockchain: wallet.blockchain,
-        symbol: wallet.currency,
-        address: wallet.address,
-        logo: wallet.blockchain === 'Ethereum' ? 
-          'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png' :
-          wallet.blockchain === 'Solana' ? 
-            'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png' :
-            '/placeholder.svg',
-        balance: typeof wallet.balance === 'number' ? 
-          parseFloat(wallet.balance.toFixed(12)) : 
-          parseFloat(parseFloat(wallet.balance || '0').toFixed(12))
-      }));
+      // Process and filter valid wallets
+      const processedWallets: WalletAddress[] = data.wallets
+        .filter(wallet => wallet.address && wallet.address.trim() !== '')
+        .map(wallet => ({
+          blockchain: wallet.blockchain,
+          symbol: wallet.currency,
+          address: wallet.address,
+          logo: wallet.blockchain === 'Ethereum' ? 
+            'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png' :
+            wallet.blockchain === 'Solana' ? 
+              'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png' :
+              '/placeholder.svg',
+          balance: typeof wallet.balance === 'number' ? 
+            parseFloat(wallet.balance.toFixed(12)) : 
+            parseFloat(parseFloat(wallet.balance || '0').toFixed(12))
+        }));
       
       console.log("Fetched wallet addresses:", processedWallets);
+      
+      // Log any empty addresses
+      const emptyAddresses = data.wallets.filter(w => !w.address || w.address.trim() === '');
+      if (emptyAddresses.length > 0) {
+        console.warn("Found wallets with empty addresses:", emptyAddresses);
+      }
+      
       setWalletAddresses(processedWallets);
-      setNoWalletsFound(false);
+      setNoWalletsFound(processedWallets.length === 0);
     } catch (error) {
       console.error("Error loading wallet addresses:", error);
       setNoWalletsFound(true);
@@ -73,11 +83,18 @@ export const useWalletManagement = ({ userId, skipInitialLoad = false }: UseWall
     
     setCreatingWallets(true);
     try {
-      await supabase.functions.invoke('create-wallets', {
+      console.log(`Creating wallets for user: ${userId}`);
+      const { data, error } = await supabase.functions.invoke('create-wallets', {
         method: 'POST',
         body: { userId }
       });
       
+      if (error) {
+        console.error("Error from create-wallets function:", error);
+        throw new Error(`Failed to create wallets: ${error.message}`);
+      }
+      
+      console.log("Create wallets response:", data);
       await fetchWalletAddresses();
       toast({
         title: "Wallets created",
@@ -101,6 +118,7 @@ export const useWalletManagement = ({ userId, skipInitialLoad = false }: UseWall
   
   const refreshWalletBalancesOnly = async (userId: string): Promise<boolean> => {
     try {
+      console.log(`Refreshing wallet balances for user: ${userId}`);
       toast({
         title: "Refreshing balance",
         description: "Fetching latest blockchain data...",
@@ -135,11 +153,12 @@ export const useWalletManagement = ({ userId, skipInitialLoad = false }: UseWall
     }
   };
   
+  // Always fetch wallet addresses on component mount
   useEffect(() => {
-    if (!skipInitialLoad && userId) {
+    if (userId) {
       fetchWalletAddresses();
     }
-  }, [userId, skipInitialLoad, fetchWalletAddresses]);
+  }, [userId, fetchWalletAddresses]);
   
   return {
     walletAddresses,
