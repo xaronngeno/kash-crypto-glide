@@ -1,4 +1,3 @@
-
 import { memo, useEffect } from 'react';
 import { Asset } from '@/types/assets';
 import Image from '@/components/ui/Image';
@@ -15,23 +14,18 @@ interface AssetsListProps {
 export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   const navigate = useNavigate();
   
-  // Debug log when assets change
   useEffect(() => {
     console.log("Assets in AssetsList:", assets);
     
-    // Check for any assets with non-zero amounts
     const nonZeroAssets = assets.filter(asset => asset.amount > 0);
     console.log("Assets with non-zero amounts:", nonZeroAssets);
     
-    // Log Solana assets specifically 
     const solanaAssets = assets.filter(asset => asset.blockchain === 'Solana');
     console.log("Solana assets:", solanaAssets);
     
-    // Log Ethereum assets
     const ethereumAssets = assets.filter(asset => asset.blockchain === 'Ethereum');
     console.log("Ethereum assets:", ethereumAssets);
     
-    // Log individual asset amounts for debugging with 12 decimals
     assets.forEach(asset => {
       console.log(`Asset ${asset.symbol} details:`, {
         amount: asset.amount,
@@ -44,10 +38,8 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   }, [assets]);
   
   const sortedAssets = [...assets].sort((a, b) => {
-    // Sort by non-zero amount first
     if (a.amount > 0 && b.amount === 0) return -1;
     if (a.amount === 0 && b.amount > 0) return 1;
-    // Then by value
     return b.value - a.value;
   });
   
@@ -67,7 +59,7 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
   };
   
   const refreshAssetBalance = async (asset: Asset, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent navigation
+    event.stopPropagation();
     
     if (!asset.address) {
       toast({
@@ -140,16 +132,13 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
     }
   };
   
-  // Format balance with proper decimal display
   const formatTokenAmount = (amount: number, symbol: string) => {
     if (amount === 0) return '0';
     
-    // Very small amounts (show all decimals to prevent displaying 0)
     if (amount > 0 && amount < 0.000001) {
       return amount.toFixed(12).replace(/\.?0+$/, '');
     }
     
-    // Standard amounts (show up to 9 decimals)
     const formattedAmount = amount.toFixed(9).replace(/\.?0+$/, '');
     return formattedAmount;
   };
@@ -220,12 +209,7 @@ export const AssetsList = memo(({ assets, currency }: AssetsListProps) => {
             </div>
           </div>
         ))
-      ) : (
-        <div className="text-center py-8 text-gray-500 mt-4">
-          <p>No assets found. Add Ethereum or Solana to get started.</p>
-          <p className="text-sm mt-2">Tokens sent to your addresses will appear here automatically.</p>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 });
