@@ -1,5 +1,5 @@
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { reportDetailedBlockchainBalances } from '@/utils/blockchainConnectors';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/components/AuthProvider';
@@ -32,21 +32,18 @@ const Dashboard = () => {
   
   const error = pricesError || walletsError;
 
-  // Add debug logging to see what's happening with assets
   useEffect(() => {
-    console.log("Dashboard - prices:", prices);
-    console.log("Dashboard - assets:", assets);
-    
-    // Check if we have any Solana wallet with a balance
-    const solanaWallets = assets.filter(a => a.blockchain === 'Solana');
-    if (solanaWallets.length > 0) {
-      console.log("Solana wallets:", solanaWallets);
-    }
-    
-    // Check if we have any assets with amount > 0
-    const nonZeroAssets = assets.filter(a => a.amount > 0);
-    console.log("Non-zero assets:", nonZeroAssets);
-  }, [assets, prices]);
+    const fetchDetailedBalances = async () => {
+      try {
+        const balances = await reportDetailedBlockchainBalances();
+        console.log('Detailed Blockchain Balances:', balances);
+      } catch (error) {
+        console.error('Error fetching detailed balances:', error);
+      }
+    };
+
+    fetchDetailedBalances();
+  }, []);
 
   useEffect(() => {
     if (assets.length > 0 && !isDashboardInitialized.value) {
